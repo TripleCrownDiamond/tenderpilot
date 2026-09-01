@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 73 sources : 61 flux RSS, 1 API JSON,
+ * 90 sources : 61 flux RSS, 18 API JSON,
  * 11 collectes HTML, 0 manuelle(s).
- * 71 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 88 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -839,5 +839,192 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": "Bourse",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 10 items a jour. Bourses et fellowships destines a des PERSONNES, pas a des structures : type Bourse."
+  },
+  {
+    "code": "WB-TGO",
+    "nom": "Banque mondiale - avis de marches au Togo",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Togo",
+    "paysDefaut": "Togo",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-SEN",
+    "nom": "Banque mondiale - avis de marches au Senegal",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Senegal",
+    "paysDefaut": "Senegal",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-CIV",
+    "nom": "Banque mondiale - avis de marches au Cote d'Ivoire",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Cote%20d%27Ivoire",
+    "paysDefaut": "Cote d'Ivoire",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 2 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-BFA",
+    "nom": "Banque mondiale - avis de marches au Burkina Faso",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Burkina%20Faso",
+    "paysDefaut": "Burkina Faso",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 4 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-MLI",
+    "nom": "Banque mondiale - avis de marches au Mali",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Mali",
+    "paysDefaut": "Mali",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-NER",
+    "nom": "Banque mondiale - avis de marches au Niger",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Niger",
+    "paysDefaut": "Niger",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 15 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-GHA",
+    "nom": "Banque mondiale - avis de marches au Ghana",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Ghana",
+    "paysDefaut": "Ghana",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 6 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-NGA",
+    "nom": "Banque mondiale - avis de marches au Nigeria",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Nigeria",
+    "paysDefaut": "Nigeria",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 14 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-GIN",
+    "nom": "Banque mondiale - avis de marches au Guinee",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Guinea",
+    "paysDefaut": "Guinee",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-GNB",
+    "nom": "Banque mondiale - avis de marches au Guinee-Bissau",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Guinea-Bissau",
+    "paysDefaut": "Guinee-Bissau",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-CPV",
+    "nom": "Banque mondiale - avis de marches au Cap-Vert",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Cabo%20Verde",
+    "paysDefaut": "Cap-Vert",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 2 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-GMB",
+    "nom": "Banque mondiale - avis de marches au Gambie",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Gambia%2C%20The",
+    "paysDefaut": "Gambie",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-LBR",
+    "nom": "Banque mondiale - avis de marches au Liberia",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Liberia",
+    "paysDefaut": "Liberia",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 3 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-SLE",
+    "nom": "Banque mondiale - avis de marches au Sierra Leone",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Sierra%20Leone",
+    "paysDefaut": "Sierra Leone",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 5 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-MRT",
+    "nom": "Banque mondiale - avis de marches au Mauritanie",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Mauritania",
+    "paysDefaut": "Mauritanie",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-TCD",
+    "nom": "Banque mondiale - avis de marches au Tchad",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Chad",
+    "paysDefaut": "Tchad",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+  },
+  {
+    "code": "WB-CMR",
+    "nom": "Banque mondiale - avis de marches au Cameroun",
+    "methode": "JSON:worldbank.org",
+    "url": "https://search.worldbank.org/api/v2/procnotices?format=json&rows=100&srt=noticedate&order=desc&project_ctry_name=Cameroon",
+    "paysDefaut": "Cameroun",
+    "secteurDefaut": null,
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
   }
 ];

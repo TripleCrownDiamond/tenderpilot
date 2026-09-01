@@ -18,15 +18,24 @@ etait arrive a la source BAD : presente dans le CSV, absente du TypeScript,
 donc jamais collectee par l'application web alors que la version Sheets la
 lisait.
 
-## Etat au 2026-08-31
+## Etat au 2026-09-01
 
-73 sources, 57 pays, 71 actives par defaut.
+90 sources, 57 pays, 88 actives par defaut.
 
 | Methode | Nombre |
 |---------|--------|
 | `RSS` | 61 |
+| `API JSON` | 18 |
 | `HTML:<site>` | 11 |
-| `JSON:<site>` | 1 |
+
+Les 18 sources API sont la Banque mondiale, filtree pays par pays : un seul
+adaptateur, dix-huit entrees. C'est le seul multiplicateur honnete trouve a
+ce jour.
+
+**Attention a ce chiffre.** Sur 57 000 avis publies par la Banque mondiale
+pour douze pays africains, 61 seulement etaient encore ouverts au
+2026-09-01. La mesure utile est le nombre d'avis auxquels on peut repondre,
+pas le nombre de sources.
 
 TenderPilot ne remonte pas que des marches publics. La colonne `Type_Defaut`
 distingue ce qu'on peut vendre de ce qu'on peut demander : un appel d'offres

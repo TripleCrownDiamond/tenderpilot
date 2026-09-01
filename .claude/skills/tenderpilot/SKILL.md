@@ -246,6 +246,51 @@ ni redistribué.
 
 ---
 
+## Le nombre de sources n'est pas la mesure
+
+Mesure du 2026-09-01, sur l'API Banque mondiale : **57 000 avis publies sur
+douze pays africains, dont 61 encore ouverts.** Environ cinq par pays. Les
+portails gardent des annees d'archives, et la part vivante est minuscule.
+
+Ajouter cinquante sources qui remontent chacune zero a cinq avis ne sert pas
+l'utilisateur : cela allonge la collecte, multiplie les pannes a surveiller,
+et gonfle un chiffre qui ne veut rien dire.
+
+**La mesure utile est le nombre d'avis OUVERTS livres**, pas le nombre de
+sources. Avant d'ajouter une source, comptez ses avis non echus - pas son
+total.
+
+Une source qui remonte zero avis ouvert aujourd'hui peut rester : elle
+publiera. Mais elle ne justifie pas d'en ajouter dix autres du meme genre.
+
+### Pistes deja explorees, et ce qu'elles valent
+
+| Piste | Constat mesure | Verdict |
+|-------|----------------|---------|
+| **Banque mondiale, par pays** | l'adaptateur existant marche pour tous les pays : `project_ctry_name=<pays>`. 17 pays d'Afrique de l'Ouest et Centrale ajoutes | fait, sans nouveau code |
+| **TED (Union europeenne)** | `api.ted.europa.eu/v3/notices/search` repond sans authentification, mais une recherche plein texte "Benin" renvoie 42 000 avis : du bruit, pas des marches beninois | a filtrer finement avant d'envisager |
+| **ReliefWeb** | l'API repond `410 Gone` | morte |
+| **UNGM** | `401`, identifiants OAuth requis | possible avec un compte developpeur |
+| **Agregateurs commerciaux** | Instrumentl, DevelopmentAid, fundsforNGOs | jamais : reindexeurs, et risque juridique |
+
+### Ou chercher du volume reellement utile
+
+Par ordre de rendement decroissant :
+
+1. **Un fournisseur qui expose un flux par pays.** Le PNUD en donne 58 d'un
+   coup, la Banque mondiale autant. Un seul analyseur, des dizaines
+   d'entrees. C'est le seul multiplicateur honnete.
+2. **Les portails nationaux de marches publics**, un par pays. Chacun demande
+   son propre analyseur : comptez une demi-journee par pays, et verifiez
+   d'abord que la page n'est pas rendue en JavaScript.
+3. **Les grands acheteurs publics d'un pays** - electricite, eau, telecoms,
+   ports. Au Benin, la SBEE et la SONEB publient plus que certains bailleurs
+   internationaux.
+4. **Les ONG qui ont leur propre portail d'achats.** DEDRAS en est la preuve :
+   98 consultations en ligne, invisible des grands agregateurs.
+
+---
+
 ## Conventions d'écriture
 
 - Commentaires et identifiants en **français sans accents**, dans le code comme
