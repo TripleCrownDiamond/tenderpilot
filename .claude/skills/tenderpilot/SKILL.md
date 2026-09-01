@@ -316,6 +316,29 @@ s'ajoute a la va-vite : il faut trouver la bonne sous-page, verifier qu'elle
 est servie par le serveur, puis ecrire un analyseur dedie. Comptez une
 demi-journee par pays.
 
+### Un guichet ouvert n'est pas une source
+
+Certains bailleurs ne publient pas d'appels dates. Ils expliquent un
+processus, des criteres, et invitent a deposer un dossier quand on veut.
+
+Le **FID** (Fonds d'Innovation pour le Developpement, preside par Esther
+Duflo) en est l'exemple : verifie le 2026-09-01, il n'a pas de page
+d'appels a projets, seulement des documents decrivant la demarche.
+
+Ce n'est pas exploitable, et le refuser n'a rien a voir avec la qualite du
+bailleur. Un guichet ouvert n'a **rien a interroger** : aucun nouvel avis
+n'apparait, aucune echeance ne court. La collecte produirait une ligne
+statique, eternellement identique, qui salirait le tableau sans jamais
+alerter personne.
+
+Le bon endroit pour ces financements est le **guide client**, en liste
+fixe - « voici des bailleurs ou vous pouvez deposer a tout moment » - pas
+le registre des sources.
+
+Le test qui tranche : **est-ce que la page change ?** Si deux visites a
+trois semaines d'ecart donnent le meme contenu, ce n'est pas une source,
+c'est une brochure.
+
 ### Ou chercher du volume reellement utile
 
 Par ordre de rendement decroissant :
@@ -331,6 +354,21 @@ Par ordre de rendement decroissant :
    internationaux.
 4. **Les ONG qui ont leur propre portail d'achats.** DEDRAS en est la preuve :
    98 consultations en ligne, invisible des grands agregateurs.
+
+### La meilleure piste restante, et elle ne demande pas de code
+
+**UNGM** repond `401` : son API exige des identifiants OAuth, obtenus par
+inscription gratuite sur le portail. C'est la seule barriere.
+
+Derriere, il y a les avis de l'ensemble des agences des Nations unies -
+UNICEF, PNUD, UNOPS, PAM, OMS, HCR, FAO, OIM - filtrables par pays
+beneficiaire. Aucun scraping, un contrat d'API stable, et un volume sans
+commune mesure avec ce qu'on collecte aujourd'hui.
+
+Ouvrir ce compte est une demarche administrative de quelques minutes, pas
+un chantier technique. C'est le meilleur rapport effort/resultat du
+registre. Les portails nationaux viennent apres : une demi-journee chacun,
+avec un analyseur dedie a ecrire et a maintenir.
 
 ---
 
