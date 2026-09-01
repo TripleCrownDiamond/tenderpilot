@@ -355,20 +355,41 @@ Par ordre de rendement decroissant :
 4. **Les ONG qui ont leur propre portail d'achats.** DEDRAS en est la preuve :
    98 consultations en ligne, invisible des grands agregateurs.
 
-### La meilleure piste restante, et elle ne demande pas de code
+### UNGM : le cas a ne pas se raconter
 
-**UNGM** repond `401` : son API exige des identifiants OAuth, obtenus par
-inscription gratuite sur le portail. C'est la seule barriere.
+Ce guide a porte pendant deux commits l'affirmation qu'une inscription
+gratuite suffirait a debloquer UNGM. **C'etait une supposition, pas une
+mesure.** Voici ce qui a ete constate le 2026-09-01 :
 
-Derriere, il y a les avis de l'ensemble des agences des Nations unies -
-UNICEF, PNUD, UNOPS, PAM, OMS, HCR, FAO, OIM - filtrables par pays
-beneficiaire. Aucun scraping, un contrat d'API stable, et un volume sans
-commune mesure avec ce qu'on collecte aujourd'hui.
+| Ce qui a ete teste | Resultat |
+|--------------------|----------|
+| `/Public/Notice` (la liste) | `200`, mais **zero lien vers un avis** : la liste est chargee en AJAX, et l'appel refuse sans session |
+| `/Public/Notice/<id>` (un avis) | `200`, **lisible sans compte**, titre en clair |
+| `/API/Notices` | `401` |
 
-Ouvrir ce compte est une demarche administrative de quelques minutes, pas
-un chantier technique. C'est le meilleur rapport effort/resultat du
-registre. Les portails nationaux viennent apres : une demi-journee chacun,
-avec un analyseur dedie a ecrire et a maintenir.
+Autrement dit : **on peut lire un avis si on connait son numero, mais on ne
+peut pas obtenir la liste des numeros.** Les enumerer au hasard serait
+abusif et casserait au premier changement.
+
+UNGM propose par ailleurs une offre payante d'alertes. Les conditions
+d'acces a l'API n'ont pas ete etablies : ne les supposez pas.
+
+Cette source reste possible, mais **pas comme un gain facile**. Elle
+demande d'abord d'eclaircir les conditions aupres d'UNGM.
+
+### Ou chercher ensuite, par rapport effort/resultat
+
+1. **Un fournisseur avec un flux par pays** deja identifie - c'est ce qui a
+   donne 58 entrees PNUD et 18 Banque mondiale sans nouveau code.
+2. **Un portail national** : une demi-journee chacun, analyseur a ecrire
+   **et a maintenir**. Le Togo et la Cote d'Ivoire sont les plus proches
+   commercialement du Benin.
+3. **Un gros acheteur public** d'un pays deja couvert. Au Benin, la SBEE et
+   la SONEB publient plus que certains bailleurs internationaux.
+
+Et la regle qui vaut pour toutes : **mesurez avant d'annoncer.** Ce guide a
+deja porte deux affirmations fausses parce qu'elles paraissaient
+raisonnables.
 
 ---
 
