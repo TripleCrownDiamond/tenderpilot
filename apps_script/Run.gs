@@ -101,6 +101,28 @@ function collectSource(source, config) {
  * arrive a echeance reste dans la feuille et passe simplement en EXPIRE :
  * effacer l'historique ferait perdre la trace des dossiers deposes.
  */
+/**
+ * Collecte une source en rendant compte de ce qu'elle a produit.
+ *
+ * Les deux nombres ne disent pas la meme chose :
+ *
+ *   lues = 0                l'analyseur n'a rien trouve : source CASSEE.
+ *   lues > 0, annonces = 0  page lue, aucune echeance ouverte : source
+ *                           FONCTIONNELLE, en periode creuse.
+ *
+ * Confondre les deux ferait desactiver des sources qui vont republier.
+ */
+function collectSourceDetail(source, config) {
+  // Une seule recuperation reseau : on ne demande jamais deux fois la meme
+  // page a un site qui limite deja son debit.
+  var tout = collectSource(source, Object.assign({}, config,
+                                                 { COLLECT_EXPIRED: 'true' }));
+  if (estVrai(config.COLLECT_EXPIRED)) {
+    return { lues: tout.length, annonces: tout };
+  }
+  return { lues: tout.length, annonces: retirerExpirees_(tout, config) };
+}
+
 function retirerExpirees_(annonces, config) {
   if (estVrai(config.COLLECT_EXPIRED)) return annonces;
 
@@ -125,22 +147,40 @@ function collectAllSources(config) {
       return;
     }
     try {
-      var annonces = collectSource(source, config);
+      var bilan = collectSourceDetail(source, config);
+      var annonces = bilan.annonces;
       trouvees = trouvees.concat(annonces);
 
-      // Une source joignable mais silencieuse depuis des mois est signalee :
-      // l'utilisateur doit savoir qu'un canal officiel ne publie plus.
-      var dates = annonces.map(function (a) { return a.published; });
-      var f = fraicheurSource_(dates, new Date());
-      if (f.silencieuse) {
-        majSource_(source, 'SILENCIEUSE depuis ' + f.jours + ' j');
+      if (bilan.lues === 0) {
+        // L'analyseur n'a rien trouve sur la page. Une source qui lisait
+        // hier et ne lit plus aujourd'hui a change de mise en page.
+        majSource_(source, 'RIEN LU');
         logEvent(source.id, 'Collecte', 'INFO',
-                 annonces.length + ' annonce(s), mais rien de neuf depuis '
-                 + f.jours + ' jours : source peut-etre abandonnee.');
+                 'Aucune annonce lue : la page a peut-etre change de '
+                 + 'structure.');
+      } else if (!annonces.length) {
+        // Page lue correctement, mais rien d'ouvert. Les portails publient
+        // par a-coups : ce n'est pas une panne, c'est une periode creuse.
+        majSource_(source, 'EN ATTENTE');
+        logEvent(source.id, 'Collecte', 'INFO',
+                 bilan.lues + ' annonce(s) lue(s), aucune encore ouverte.');
       } else {
-        majSource_(source, 'OK');
-        logEvent(source.id, 'Collecte', 'SUCCESS',
-                 annonces.length + ' annonce(s) lue(s).');
+        // Une source joignable mais silencieuse depuis des mois est
+        // signalee : l'utilisateur doit savoir qu'un canal officiel ne
+        // publie plus. C'est different d'une periode creuse.
+        var dates = annonces.map(function (a) { return a.published; });
+        var f = fraicheurSource_(dates, new Date());
+        if (f.silencieuse) {
+          majSource_(source, 'SILENCIEUSE depuis ' + f.jours + ' j');
+          logEvent(source.id, 'Collecte', 'INFO',
+                   annonces.length + ' annonce(s), mais rien de neuf depuis '
+                   + f.jours + ' jours : source peut-etre abandonnee.');
+        } else {
+          majSource_(source, 'OK');
+          logEvent(source.id, 'Collecte', 'SUCCESS',
+                   annonces.length + ' annonce(s) retenue(s) sur '
+                   + bilan.lues + '.');
+        }
       }
     } catch (e) {
       majSource_(source, 'ERREUR');

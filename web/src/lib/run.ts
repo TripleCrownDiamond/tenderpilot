@@ -109,6 +109,48 @@ export const recuperateurReel: Recuperateur = async (url) => {
  * Une source MANUAL est ignoree, c'est un choix explicite : on ne se bat pas
  * contre les sites qui exigent un login, un captcha ou un navigateur pilote.
  */
+export interface BilanSource {
+  /** Annonces que l'analyseur a su lire sur la page. */
+  lues: number;
+  /** Celles qui restent apres le retrait des echeances passees. */
+  annonces: Opportunite[];
+}
+
+/**
+ * Collecte une source en rendant compte de ce qu'elle a produit.
+ *
+ * Les deux nombres comptent, et ils ne disent pas la meme chose :
+ *
+ *   lues = 0     l'analyseur n'a rien trouve sur la page. Une source qui
+ *                lisait hier et ne lit plus aujourd'hui est CASSEE : le
+ *                site a change de mise en page.
+ *
+ *   lues > 0, annonces = 0
+ *                la page est lue correctement, mais aucune echeance n'est
+ *                encore ouverte. La source est FONCTIONNELLE, simplement
+ *                silencieuse - les portails publient par a-coups, et un
+ *                organisme peut ne rien passer pendant des mois.
+ *
+ * Confondre les deux ferait desactiver des sources qui vont republier.
+ */
+export async function collecterSourceDetail(
+  source: SourceCollecte, config: Config, recuperer: Recuperateur,
+): Promise<BilanSource> {
+  // Une seule recuperation reseau, deux comptes : on ne demande jamais
+  // deux fois la meme page a un site qui limite deja son debit.
+  const tout = await collecterSource(
+    source, { ...config, collecterExpirees: true }, recuperer);
+
+  if (config.collecterExpirees) return { lues: tout.length, annonces: tout };
+
+  const jour = aujourdhui(config.fuseau);
+  const annonces = tout.filter((o) => {
+    const reste = joursRestants(o.deadline, jour);
+    return reste === null || reste >= 0;
+  });
+  return { lues: tout.length, annonces };
+}
+
 export async function collecterSource(
   source: SourceCollecte, config: Config, recuperer: Recuperateur,
 ): Promise<Opportunite[]> {
@@ -171,11 +213,26 @@ export async function collecterToutesSources(
       continue;
     }
     try {
-      const annonces = await collecterSource(source, config, recuperer);
-      trouvees.push(...annonces);
-      await depot.majSource(source.id, "OK");
-      await depot.journaliser(source.code, "Collecte", "SUCCESS",
-                              `${annonces.length} annonce(s) lue(s)`);
+      const bilan = await collecterSourceDetail(source, config, recuperer);
+      trouvees.push(...bilan.annonces);
+
+      if (bilan.lues === 0) {
+        // L'analyseur n'a rien trouve sur la page. Une source qui lisait
+        // hier et ne lit plus aujourd'hui a change de mise en page.
+        await depot.majSource(source.id, "RIEN LU");
+        await depot.journaliser(source.code, "Collecte", "INFO",
+          "Aucune annonce lue : la page a peut-etre change de structure");
+      } else if (bilan.annonces.length === 0) {
+        // Page lue correctement, mais rien d'ouvert. Les portails publient
+        // par a-coups : ce n'est pas une panne, c'est une periode creuse.
+        await depot.majSource(source.id, "EN ATTENTE");
+        await depot.journaliser(source.code, "Collecte", "INFO",
+          `${bilan.lues} annonce(s) lue(s), aucune encore ouverte`);
+      } else {
+        await depot.majSource(source.id, "OK");
+        await depot.journaliser(source.code, "Collecte", "SUCCESS",
+          `${bilan.annonces.length} annonce(s) retenue(s) sur ${bilan.lues}`);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       await depot.majSource(source.id, "ERREUR");

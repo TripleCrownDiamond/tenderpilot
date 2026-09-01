@@ -252,16 +252,35 @@ Mesure du 2026-09-01, sur l'API Banque mondiale : **57 000 avis publies sur
 douze pays africains, dont 61 encore ouverts.** Environ cinq par pays. Les
 portails gardent des annees d'archives, et la part vivante est minuscule.
 
-Ajouter cinquante sources qui remontent chacune zero a cinq avis ne sert pas
-l'utilisateur : cela allonge la collecte, multiplie les pannes a surveiller,
-et gonfle un chiffre qui ne veut rien dire.
+Ajouter cinquante sources qui remontent chacune zero a cinq avis ne rend pas
+le produit cinquante fois meilleur : cela allonge la collecte, multiplie les
+pannes a surveiller, et gonfle un chiffre qui ne veut rien dire.
 
-**La mesure utile est le nombre d'avis OUVERTS livres**, pas le nombre de
-sources. Avant d'ajouter une source, comptez ses avis non echus - pas son
-total.
+### Silencieuse n'est pas cassee
 
-Une source qui remonte zero avis ouvert aujourd'hui peut rester : elle
-publiera. Mais elle ne justifie pas d'en ajouter dix autres du meme genre.
+**Une source sans avis ouvert aujourd'hui n'est pas une mauvaise source.**
+Les plateformes publient par a-coups : un organisme peut ne rien passer
+pendant trois mois, puis sortir dix marches d'un coup. La supprimer parce
+qu'elle est calme, c'est perdre l'opportunite qui arrive dans six mois.
+
+Le critere de jugement est **fonctionnelle ou cassee**, jamais productive
+aujourd'hui. Le moteur distingue trois etats, visibles dans la colonne
+`Statut` de l'onglet SOURCES et dans les journaux :
+
+| Etat | Ce qui s'est passe | Que faire |
+|------|--------------------|-----------|
+| `OK` | des annonces lues, dont certaines ouvertes | rien |
+| `EN ATTENTE` | page lue correctement, aucune echeance ouverte | **rien** : periode creuse, la source republiera |
+| `RIEN LU` | l'analyseur n'a rien trouve sur la page | **reparer** : le site a probablement change de mise en page |
+| `SILENCIEUSE depuis N j` | des annonces, mais rien de neuf depuis plus de 180 jours | verifier si le canal est abandonne |
+| `ERREUR` | la page n'a pas repondu | reessayer ; un `403` isole est souvent une limitation de debit |
+
+`EN ATTENTE` et `RIEN LU` se ressemblent - dans les deux cas le tableau ne
+gagne aucune ligne - et c'est precisement pour cela qu'il fallait les
+separer. Le premier est normal, le second est une panne silencieuse.
+
+**Ce qu'on mesure avant d'ajouter une source** : est-ce que l'analyseur lit
+la page correctement ? Pas : est-ce qu'elle a des offres en ce moment.
 
 ### Pistes deja explorees, et ce qu'elles valent
 
@@ -286,9 +305,11 @@ Une tournee de recherche complete, pour ne pas la refaire.
 | Port de Cotonou, ASIN, ANIP | pas de rubrique appels d'offres accessible |
 | **gouv.bj `/opportunites/`** (page large) | 60 avis contre 32 pour `/marches-publics/`, mais **1 seul encore ouvert contre 13** : la page large est dominee par des offres d'emploi expirees. L'ajouter degraderait le produit |
 
-Le dernier cas merite d'etre retenu comme methode : **une page qui contient
-plus d'annonces n'est pas une meilleure source.** Comptez toujours les avis
-ouverts, jamais le total.
+Le dernier cas merite d'etre retenu : la page large de gouv.bj n'a pas ete
+ecartee parce qu'elle etait calme, mais parce qu'elle publie **autre chose** -
+des offres d'emploi, pas des marches. Une page qui contient plus d'annonces
+n'est pas forcement une meilleure source : regardez ce qu'elle contient, pas
+combien.
 
 Les portails nationaux restent la meilleure piste de volume, mais aucun ne
 s'ajoute a la va-vite : il faut trouver la bonne sous-page, verifier qu'elle
