@@ -273,6 +273,28 @@ publiera. Mais elle ne justifie pas d'en ajouter dix autres du meme genre.
 | **UNGM** | `401`, identifiants OAuth requis | possible avec un compte developpeur |
 | **Agregateurs commerciaux** | Instrumentl, DevelopmentAid, fundsforNGOs | jamais : reindexeurs, et risque juridique |
 
+### Pistes explorees le 2026-09-01, aucune retenue
+
+Une tournee de recherche complete, pour ne pas la refaire.
+
+| Piste | Constat mesure |
+|-------|----------------|
+| Portails nationaux CEDEAO (Togo DNCMP et ARMP, Senegal) | connexion impossible (`000`) |
+| `marchespublics.ci`, UEMOA | `404` sur les adresses publiees |
+| **BIDC** (banque CEDEAO) | page « Appels d'offres » a `200` et 23 ko, mais tout est du menu : aucun avis dans le HTML, et `/feed/` renvoie zero item |
+| ARMP Niger, DGCMEF Burkina | accueil servi, sous-pages d'avis en `404` |
+| Port de Cotonou, ASIN, ANIP | pas de rubrique appels d'offres accessible |
+| **gouv.bj `/opportunites/`** (page large) | 60 avis contre 32 pour `/marches-publics/`, mais **1 seul encore ouvert contre 13** : la page large est dominee par des offres d'emploi expirees. L'ajouter degraderait le produit |
+
+Le dernier cas merite d'etre retenu comme methode : **une page qui contient
+plus d'annonces n'est pas une meilleure source.** Comptez toujours les avis
+ouverts, jamais le total.
+
+Les portails nationaux restent la meilleure piste de volume, mais aucun ne
+s'ajoute a la va-vite : il faut trouver la bonne sous-page, verifier qu'elle
+est servie par le serveur, puis ecrire un analyseur dedie. Comptez une
+demi-journee par pays.
+
 ### Ou chercher du volume reellement utile
 
 Par ordre de rendement decroissant :
