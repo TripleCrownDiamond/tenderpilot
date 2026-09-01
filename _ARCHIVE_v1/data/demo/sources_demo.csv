@@ -1,0 +1,4 @@
+Source_ID,Source_Name,Organization,Source_URL,Country,Region,Opportunity_Type,Automation_Level,Email_Alerts,RSS_Available,API_Available,Registration_Required,Free_or_Paid,Link_Status,Active,Notes
+DEMO-SRC-001,DEMO Portail national des marches,DEMO Organisation A,https://example.org/demo/source-001,Benin,Afrique de l'Ouest,Appel d'offres,1 - Email,OUI,NON,NON,OUI,Gratuit,A verifier,OUI,Source FICTIVE - remplacer par une source reelle verifiee
+DEMO-SRC-002,DEMO Plateforme bailleurs,DEMO Organisation B,https://example.org/demo/source-002,International,International,Consultation,2 - RSS,OUI,OUI,NON,NON,Gratuit,A verifier,OUI,Source FICTIVE - remplacer par une source reelle verifiee
+DEMO-SRC-003,DEMO Appels d'offres prives,DEMO Organisation C,https://example.org/demo/source-003,Afrique de l'Ouest,Afrique de l'Ouest,Fourniture,3 - Public HTML,NON,NON,NON,OUI,Payant,A verifier,OUI,Source FICTIVE - remplacer par une source reelle verifiee

@@ -1,0 +1,51 @@
+Field_Key,Section,Label,Applies_To,Required,Help
+org_name,IDENTITY,Nom de l'organisation,ALL,OUI,Nom exact tel qu'il figure sur les documents legaux.
+legal_status,IDENTITY,Statut juridique,PME|CABINET|ONG|CONSORTIUM,OUI,SARL / SA / association / GIE.
+country,IDENTITY,Pays d'immatriculation,ALL,OUI,
+creation_year,IDENTITY,Annee de creation,PME|CABINET|ONG|CONSORTIUM,OUI,
+address,IDENTITY,Adresse complete,ALL,OUI,
+website,IDENTITY,Site web,PME|CABINET|ONG,NON,
+email,IDENTITY,Email officiel,ALL,OUI,
+phone,IDENTITY,Telephone,ALL,OUI,
+rccm,IDENTITY,Numero RCCM,PME|CABINET|CONSORTIUM,OUI,Registre du commerce.
+ifu,IDENTITY,Numero IFU / identifiant fiscal,PME|CABINET|ONG|CONSORTIUM,OUI,
+ngo_registration,IDENTITY,Numero d'enregistrement de l'ONG,ONG,OUI,Recepisse ou agrement.
+consultant_id,IDENTITY,Piece d'identite / numero fiscal,CONSULTANT,OUI,
+lead_partner,IDENTITY,Chef de file du consortium,CONSORTIUM,OUI,
+partners,IDENTITY,Membres du consortium,CONSORTIUM,OUI,Un membre par ligne dans les notes.
+consortium_agreement,IDENTITY,Accord de consortium signe,CONSORTIUM,OUI,OUI / NON / En cours.
+turnover_n1,FINANCE,Chiffre d'affaires N-1,PME|CABINET|ONG|CONSORTIUM,OUI,
+turnover_n2,FINANCE,Chiffre d'affaires N-2,PME|CABINET|ONG|CONSORTIUM,OUI,
+turnover_n3,FINANCE,Chiffre d'affaires N-3,PME|CABINET|ONG|CONSORTIUM,NON,
+currency,FINANCE,Devise de reference,ALL,OUI,
+bank_name,FINANCE,Banque principale,PME|CABINET|ONG|CONSORTIUM,OUI,
+prefinancing_capacity,FINANCE,Capacite de prefinancement,PME|CABINET|ONG|CONSORTIUM,OUI,Montant mobilisable sans avance du client.
+audits_available,FINANCE,Audits disponibles (3 dernieres annees),PME|CABINET|ONG|CONSORTIUM,NON,OUI / NON / Partiel.
+tax_clearance,FINANCE,Attestation fiscale a jour,PME|CABINET|ONG|CONSORTIUM,OUI,Detail et expiration dans l'onglet DOCUMENTS.
+social_clearance,FINANCE,Attestation sociale a jour,PME|CABINET|CONSORTIUM,OUI,Detail et expiration dans l'onglet DOCUMENTS.
+daily_rate,FINANCE,Tarif journalier de reference (TJM),CONSULTANT,NON,
+financial_procedures,FINANCE,Manuel de procedures financieres,ONG|CONSORTIUM,OUI,Frequemment exige par les bailleurs.
+sectors,EXPERIENCE,Secteurs d'intervention,ALL,OUI,Un secteur par ligne dans les notes.
+countries_experience,EXPERIENCE,Pays d'experience,ALL,OUI,
+projects_count,EXPERIENCE,Nombre de projets realises,ALL,OUI,
+similar_missions,EXPERIENCE,Nombre de missions similaires documentees,ALL,OUI,Doit correspondre au module 06.
+institutional_clients,EXPERIENCE,Clients institutionnels,PME|CABINET|ONG|CONSORTIUM,NON,
+private_clients,EXPERIENCE,Clients prives,PME|CABINET|CONSORTIUM,NON,
+years_experience,EXPERIENCE,Annees d'experience professionnelle,CONSULTANT,OUI,
+diploma_level,EXPERIENCE,Niveau de diplome le plus eleve,CONSULTANT,OUI,
+speciality,EXPERIENCE,Specialite principale,CONSULTANT,OUI,
+employees_count,TEAM,Nombre d'employes permanents,PME|CABINET|ONG|CONSORTIUM,OUI,
+permanent_experts,TEAM,Experts permanents,PME|CABINET|ONG|CONSORTIUM,OUI,
+external_consultants,TEAM,Consultants partenaires mobilisables,PME|CABINET|ONG|CONSORTIUM,NON,
+key_profiles,TEAM,Profils cles disponibles,PME|CABINET|ONG|CONSORTIUM,OUI,Doit correspondre au module 07.
+languages,TEAM,Langues de travail,ALL,OUI,
+availability,TEAM,Disponibilite declaree,CONSULTANT,OUI,Jours par mois ou periode.
+equipment,CAPABILITIES,Materiel et equipements,PME|CABINET|ONG|CONSORTIUM,NON,
+software,CAPABILITIES,Logiciels et outils,ALL,NON,
+certifications,CAPABILITIES,Certifications detenues,PME|CABINET|ONG,NON,Detail et expiration dans l'onglet DOCUMENTS.
+methodologies,CAPABILITIES,Methodes et referentiels maitrises,ALL,NON,
+meal_system,CAPABILITIES,Systeme de suivi-evaluation (MEAL),ONG,OUI,
+safeguarding_policy,CAPABILITIES,Politique de sauvegarde,ONG,OUI,
+gender_policy,CAPABILITIES,Politique genre et inclusion,ONG,OUI,
+governance,CAPABILITIES,Instances de gouvernance,ONG|CONSORTIUM,OUI,
+partnerships,CAPABILITIES,Partenariats actifs,ALL,NON,

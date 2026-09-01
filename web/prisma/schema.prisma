@@ -1,0 +1,143 @@
+// TenderPilot - schema de donnees.
+//
+// L'application est multi-clients : chaque Compte ne voit que ses propres
+// opportunites, sources et reglages. C'est ce qui permet de la vendre en
+// licences sans redeployer, tout en restant utilisable en instance unique
+// (un seul compte) ou en auto-hebergement (licence desactivee).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite : un simple fichier. Aucun serveur a installer, aucun compte a
+  // creer. Le meme schema fonctionne sur Turso (SQLite en ligne) si vous
+  // deployez sur Vercel : seule l'URL change.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Un client. Toutes les donnees lui sont rattachees.
+model Compte {
+  id         String  @id @default(cuid())
+  email      String  @unique
+  nom        String?
+  motDePasse String                       // hash, jamais le mot de passe
+  theme      String  @default("systeme")  // clair | sombre | systeme
+  actif      Boolean @default(true)
+
+  licence      Licence?
+  sources      Source[]
+  opportunites Opportunite[]
+  reglages     Reglage[]
+  journal      Journal[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+}
+
+/// Cle vendue via Chariow. Une cle, un compte.
+model Licence {
+  cle       String    @id                   // livree par Chariow
+  compteId  String?   @unique
+  compte    Compte?   @relation(fields: [compteId], references: [id], onDelete: SetNull)
+  statut    String    @default("libre")     // libre | active | expiree | revoquee
+  activeeLe DateTime?
+  expireLe  DateTime?                       // null = licence perpetuelle
+  note      String?
+
+  creeLe DateTime @default(now())
+
+  @@index([statut])
+}
+
+model Opportunite {
+  id       String @id @default(cuid())
+  compteId String
+  compte   Compte @relation(fields: [compteId], references: [id], onDelete: Cascade)
+
+  reference       String                     // TP-000001, lisible par l'humain
+  titre           String
+  organisation    String?
+  pays            String?
+  type            String?
+  secteur         String?
+  lien            String?
+  pdf             String?
+  refOfficielle   String?
+  datePublication String?                    // aaaa-mm-jj
+  deadline        String?                    // aaaa-mm-jj
+  joursRestants   Int?
+  statutDelai     String  @default("DATE A VERIFIER")
+  resume          String?
+
+  /// Renseigne par l'IA quand la source ne donnait pas l'information.
+  deadlineParIA   Boolean @default(false)
+  scorePertinence Int?
+
+  // Temoins d'envoi : une opportunite ne recoit jamais deux fois le meme
+  // email. Les vider fait repartir les notifications.
+  notifNouvelle Boolean @default(false)
+  notifJ7       Boolean @default(false)
+  notifJ3       Boolean @default(false)
+  notifJ1       Boolean @default(false)
+  notifExpire   Boolean @default(false)
+
+  sourceId String?
+  source   Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@unique([compteId, reference])
+  @@index([compteId, statutDelai])
+  @@index([compteId, deadline])
+}
+
+model Source {
+  id       String @id @default(cuid())
+  compteId String
+  compte   Compte @relation(fields: [compteId], references: [id], onDelete: Cascade)
+
+  code             String                     // UNDP-BEN
+  nom              String
+  methode          String        @default("RSS") // RSS ou MANUAL
+  url              String
+  paysDefaut       String?
+  secteurDefaut    String?
+  typeDefaut       String?
+  active           Boolean       @default(true)
+  derniereCollecte DateTime?
+  statut           String?
+  opportunites     Opportunite[]
+
+  creeLe DateTime @default(now())
+
+  @@unique([compteId, code])
+  @@index([compteId, active])
+}
+
+/// Configuration par client : email, seuils, fournisseur et cle IA.
+/// La cle IA est stockee chiffree - voir lib/secret.ts.
+model Reglage {
+  compteId String
+  compte   Compte @relation(fields: [compteId], references: [id], onDelete: Cascade)
+  cle      String
+  valeur   String
+
+  @@id([compteId, cle])
+}
+
+model Journal {
+  id       String @id @default(cuid())
+  compteId String
+  compte   Compte @relation(fields: [compteId], references: [id], onDelete: Cascade)
+
+  date    DateTime @default(now())
+  source  String?
+  action  String
+  statut  String                              // SUCCESS ERROR SKIPPED DUPLICATE INFO
+  message String?
+
+  @@index([compteId, date])
+}

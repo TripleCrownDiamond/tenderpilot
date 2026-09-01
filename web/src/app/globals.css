@@ -1,0 +1,213 @@
+/* TenderPilot - fondations visuelles.
+ *
+ * Le theme a TROIS etats, pas deux : clair, sombre, et "systeme" qui suit
+ * le reglage du navigateur. Un choix explicite pose data-theme sur <html> ;
+ * sans choix, seul prefers-color-scheme decide.
+ *
+ * Toutes les couleurs sont des variables. Aucune couleur n'est ecrite
+ * ailleurs : c'est ce qui garantit que les deux themes restent coherents.
+ */
+
+:root {
+  --papier: #FCFCFD;
+  --surface: #F1F4F8;
+  --surface-2: #E7ECF3;
+  --trait: #D5DBE3;
+  --trait-doux: #E4E9F0;
+  --encre: #16202D;
+  --encre-doux: #4A5665;
+  --encre-pale: #78848F;
+  --marine: #1F3A5F;
+  --marine-clair: #2E5788;
+  --sur-marine: #FFFFFF;
+
+  --vert-fond: #D8F3DC;   --vert-encre: #1F6340;   --vert-barre: #37A16B;
+  --jaune-fond: #FFF3BF;  --jaune-encre: #8A6200;  --jaune-barre: #E0B430;
+  --orange-fond: #FFE0C2; --orange-encre: #964313; --orange-barre: #E07C36;
+  --rouge-fond: #FFD6D6;  --rouge-encre: #9B1C1C;  --rouge-barre: #D14545;
+  --gris-fond: #E6E8EB;   --gris-encre: #5C6672;   --gris-barre: #AAB3BC;
+
+  --ombre: 0 1px 2px rgba(22, 32, 45, .06), 0 10px 28px -20px rgba(22, 32, 45, .4);
+  --rayon: 9px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="clair"]) {
+    --papier: #101821;
+    --surface: #17222E;
+    --surface-2: #1E2B3A;
+    --trait: #2C3B4C;
+    --trait-doux: #223040;
+    --encre: #E6ECF3;
+    --encre-doux: #A9B6C4;
+    --encre-pale: #7C8B9B;
+    --marine: #9CC0EA;
+    --marine-clair: #BBD6F5;
+    --sur-marine: #0D1620;
+
+    --vert-fond: #17392A;   --vert-encre: #86D9AC;   --vert-barre: #2E8A5C;
+    --jaune-fond: #3A3113;  --jaune-encre: #E7C55E;  --jaune-barre: #B08D24;
+    --orange-fond: #3D2716; --orange-encre: #EFA675; --orange-barre: #B4642B;
+    --rouge-fond: #3D1C1F;  --rouge-encre: #F09A9A;  --rouge-barre: #B03B3B;
+    --gris-fond: #232C36;   --gris-encre: #93A0AD;   --gris-barre: #4A5561;
+
+    --ombre: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -20px rgba(0, 0, 0, .9);
+  }
+}
+
+:root[data-theme="sombre"] {
+  --papier: #101821;
+  --surface: #17222E;
+  --surface-2: #1E2B3A;
+  --trait: #2C3B4C;
+  --trait-doux: #223040;
+  --encre: #E6ECF3;
+  --encre-doux: #A9B6C4;
+  --encre-pale: #7C8B9B;
+  --marine: #9CC0EA;
+  --marine-clair: #BBD6F5;
+  --sur-marine: #0D1620;
+
+  --vert-fond: #17392A;   --vert-encre: #86D9AC;   --vert-barre: #2E8A5C;
+  --jaune-fond: #3A3113;  --jaune-encre: #E7C55E;  --jaune-barre: #B08D24;
+  --orange-fond: #3D2716; --orange-encre: #EFA675; --orange-barre: #B4642B;
+  --rouge-fond: #3D1C1F;  --rouge-encre: #F09A9A;  --rouge-barre: #B03B3B;
+  --gris-fond: #232C36;   --gris-encre: #93A0AD;   --gris-barre: #4A5561;
+
+  --ombre: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -20px rgba(0, 0, 0, .9);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--encre);
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: "Zilla Slab", Georgia, serif; margin: 0; }
+a { color: var(--marine); }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+/* ------------------------------------------------------------- barre --- */
+.barre {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--papier);
+  border-bottom: 1px solid var(--trait);
+}
+.barre-interne {
+  max-width: 1180px; margin: 0 auto; padding: 12px 20px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.marque { font-size: 21px; font-weight: 700; color: var(--marine); letter-spacing: -.01em; }
+.marque span {
+  display: block; font-family: "IBM Plex Mono", monospace; font-size: 10px;
+  font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--encre-pale);
+}
+.onglets { display: flex; gap: 2px; margin-left: auto; }
+.onglets a {
+  font-weight: 600; color: var(--encre-doux); padding: 7px 14px;
+  border-radius: 6px; text-decoration: none;
+}
+.onglets a:hover { color: var(--marine); }
+.onglets a[aria-current="page"] { background: var(--surface-2); color: var(--encre); }
+
+main { max-width: 1180px; margin: 0 auto; padding: 26px 20px 80px; }
+
+/* ---------------------------------------------------------- controles --- */
+.bouton {
+  border: 0; background: var(--marine); color: var(--sur-marine);
+  font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 6px;
+  cursor: pointer;
+}
+.bouton-discret {
+  border: 1px solid var(--trait); background: transparent; color: var(--encre-doux);
+  font: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+}
+.bouton-discret:hover { border-color: var(--marine); color: var(--marine); }
+.bouton:disabled, .bouton-discret:disabled { opacity: .5; cursor: default; }
+
+input, select, textarea {
+  padding: 8px 10px; border: 1px solid var(--trait); border-radius: 6px;
+  font: inherit; background: var(--papier); color: var(--encre); width: 100%;
+}
+label.champ {
+  display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600;
+  color: var(--encre-doux);
+}
+label.champ input, label.champ select, label.champ textarea {
+  margin-top: 4px; font-weight: 400;
+}
+.aide { color: var(--encre-pale); font-size: 12.5px; margin: 4px 0 0; }
+
+/* ------------------------------------------------------ selecteur theme - */
+.theme-choix {
+  display: inline-flex; border: 1px solid var(--trait); border-radius: 99px;
+  padding: 2px; gap: 2px; background: var(--surface);
+}
+.theme-choix button {
+  border: 0; background: transparent; color: var(--encre-doux);
+  font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 99px;
+  cursor: pointer;
+}
+.theme-choix button[aria-pressed="true"] {
+  background: var(--marine); color: var(--sur-marine); font-weight: 600;
+}
+
+/* ----------------------------------------------------------- contenus --- */
+.carte {
+  background: var(--surface); border: 1px solid var(--trait-doux);
+  border-radius: var(--rayon); padding: 16px 18px;
+}
+.indicateurs {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 10px; margin-bottom: 28px;
+}
+.indicateur { background: var(--surface); border: 1px solid var(--trait-doux);
+  border-radius: var(--rayon); padding: 14px 16px; }
+.indicateur .valeur {
+  font-family: "Zilla Slab", serif; font-size: 31px; font-weight: 700;
+  line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.indicateur .libelle {
+  font-size: 12px; color: var(--encre-pale); margin-top: 3px;
+  text-transform: uppercase; letter-spacing: .05em; font-weight: 600;
+}
+
+.pastille {
+  font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 600;
+  padding: 3px 9px; border-radius: 4px; white-space: nowrap;
+}
+.s-OUVERT { background: var(--vert-fond); color: var(--vert-encre); }
+.s-A-SURVEILLER { background: var(--jaune-fond); color: var(--jaune-encre); }
+.s-BIENTOT { background: var(--orange-fond); color: var(--orange-encre); }
+.s-URGENT { background: var(--rouge-fond); color: var(--rouge-encre); }
+.s-EXPIRE { background: var(--gris-fond); color: var(--gris-encre); }
+.s-DATE-A-VERIFIER { background: var(--surface-2); color: var(--encre-doux); }
+
+.vide {
+  text-align: center; padding: 48px 20px; color: var(--encre-pale);
+  border: 1px dashed var(--trait); border-radius: var(--rayon);
+}
+
+:focus-visible {
+  outline: 2px solid var(--marine-clair); outline-offset: 2px; border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+table td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--trait-doux);
+  vertical-align: top;
+}
+table th {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--encre-pale);
+}

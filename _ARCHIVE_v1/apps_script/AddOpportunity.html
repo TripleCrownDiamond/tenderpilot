@@ -1,0 +1,187 @@
+<!-- Barre laterale : ajout d'une opportunite.
+     Ouverte par showAddOpportunity(). Dialogue avec getFormOptions() et
+     submitOpportunity() dans Menu.gs. -->
+<style>
+  body {
+    font-family: Roboto, Arial, sans-serif; font-size: 13px; color: #1f2933;
+    margin: 0; padding: 14px; background: #fff;
+  }
+  h2 { font-size: 15px; margin: 0 0 4px; color: #1f3a5f; }
+  p.intro { margin: 0 0 16px; color: #6b7280; font-size: 12px; }
+  label { display: block; margin: 12px 0 4px; font-weight: 500; }
+  .req::after { content: " *"; color: #9b1c1c; }
+  input, select, textarea {
+    width: 100%; box-sizing: border-box; padding: 7px 8px;
+    border: 1px solid #cbd2d9; border-radius: 4px; font: inherit;
+    background: #fff; color: #1f2933;
+  }
+  textarea { resize: vertical; min-height: 56px; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; min-width: 0; }
+  button {
+    margin-top: 18px; width: 100%; padding: 10px; border: 0; border-radius: 4px;
+    background: #1f3a5f; color: #fff; font: inherit; font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { background: #9aa5b1; cursor: default; }
+  .msg { margin-top: 14px; padding: 10px; border-radius: 4px; font-size: 12px; }
+  .ok { background: #d8f3dc; }
+  .err { background: #ffd6d6; }
+  .warn { background: #fff3bf; }
+  .msg ul { margin: 6px 0 0; padding-left: 18px; }
+  .score { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .detail { color: #52606d; margin-top: 6px; }
+</style>
+
+<h2>Ajouter une opportunite</h2>
+<p class="intro">Seuls le titre et la deadline sont obligatoires. Le reste
+peut etre complete plus tard.</p>
+
+<form id="form" onsubmit="return false;">
+  <label class="req" for="title">Titre</label>
+  <input id="title" type="text" autofocus>
+
+  <label for="sourceUrl">Lien vers l annonce</label>
+  <input id="sourceUrl" type="url" placeholder="https://...">
+
+  <label for="organization">Organisation</label>
+  <input id="organization" type="text">
+
+  <div class="row">
+    <div>
+      <label for="country">Pays</label>
+      <select id="country"></select>
+    </div>
+    <div>
+      <label for="sector">Secteur</label>
+      <select id="sector"></select>
+    </div>
+  </div>
+
+  <label for="type">Type d opportunite</label>
+  <select id="type"></select>
+
+  <label class="req" for="deadline">Deadline</label>
+  <input id="deadline" type="date">
+
+  <div class="row">
+    <div>
+      <label for="budget">Budget</label>
+      <input id="budget" type="number" min="0" step="any">
+    </div>
+    <div>
+      <label for="currency">Devise</label>
+      <select id="currency"></select>
+    </div>
+  </div>
+
+  <label for="notes">Notes</label>
+  <textarea id="notes"></textarea>
+
+  <button id="submit" type="button" onclick="submitForm()">Enregistrer</button>
+</form>
+
+<div id="message"></div>
+
+<script>
+  var FIELDS = ['title', 'sourceUrl', 'organization', 'country', 'sector',
+                'type', 'deadline', 'budget', 'currency', 'notes'];
+  // Champs conserves apres enregistrement : on saisit souvent plusieurs
+  // opportunites du meme pays et du meme secteur a la suite.
+  var KEEP = ['country', 'sector', 'currency', 'type'];
+
+  // Hors de Google Sheets (fichier ouvert seul, previsualisation), l'objet
+  // google.script.run n'existe pas : les listes ne peuvent pas etre lues.
+  // On le dit, plutot que d'afficher des listes vides sans explication.
+  function horsAppsScript() {
+    return typeof google === 'undefined' || !google.script || !google.script.run;
+  }
+
+  function fill(id, values) {
+    var select = document.getElementById(id);
+    select.innerHTML = '';
+    select.appendChild(new Option('', ''));
+    values.forEach(function (v) { select.appendChild(new Option(v, v)); });
+  }
+
+  function show(kind, html) {
+    document.getElementById('message').innerHTML =
+      '<div class="msg ' + kind + '">' + html + '</div>';
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  if (horsAppsScript()) {
+    show('err', '<strong>Cet ecran doit etre ouvert depuis Google Sheets.</strong>' +
+         '<br>Menu <em>TenderPilot &gt; Ajouter une opportunite</em>. ' +
+         'Les listes Pays, Secteur et Type sont lues dans votre classeur : ' +
+         'hors de celui-ci, elles restent vides.');
+    document.getElementById('submit').disabled = true;
+  } else {
+  google.script.run
+    .withSuccessHandler(function (options) {
+      fill('country', options.countries);
+      fill('sector', options.sectors);
+      fill('type', options.types);
+      fill('currency', options.currencies);
+      // Une liste vide signale un onglet LISTS absent ou renomme.
+      if (!options.countries.length && !options.sectors.length) {
+        show('warn', 'Les listes deroulantes sont vides. Verifiez que ' +
+             'l onglet technique LISTS existe toujours dans le classeur ' +
+             'et qu il n a pas ete renomme.');
+      }
+    })
+    .withFailureHandler(function (error) {
+      show('err', 'Impossible de charger les listes : ' +
+           escapeHtml(error.message));
+    })
+    .getFormOptions();
+  }
+
+  function setBusy(busy) {
+    var button = document.getElementById('submit');
+    button.disabled = busy;
+    button.textContent = busy ? 'Enregistrement...' : 'Enregistrer';
+  }
+
+  function submitForm() {
+    var form = {};
+    FIELDS.forEach(function (id) {
+      form[id] = document.getElementById(id).value;
+    });
+
+    setBusy(true);
+    show('warn', 'Enregistrement en cours...');
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        setBusy(false);
+        if (!result.ok) {
+          show('err', '<strong>Non enregistre</strong><ul><li>' +
+               result.errors.map(escapeHtml).join('</li><li>') + '</li></ul>');
+          return;
+        }
+        var detail = result.detail.length
+          ? '<div class="detail">' + escapeHtml(result.detail.join(' - ')) +
+            '</div>'
+          : '';
+        show(result.excluded ? 'warn' : 'ok',
+             '<strong>' + escapeHtml(result.id) + ' enregistree.</strong>' +
+             '<div class="score">' + result.score + '/100 &middot; ' +
+             escapeHtml(result.label) + '</div>' + detail);
+        FIELDS.forEach(function (id) {
+          if (KEEP.indexOf(id) === -1) document.getElementById(id).value = '';
+        });
+        document.getElementById('title').focus();
+      })
+      .withFailureHandler(function (error) {
+        setBusy(false);
+        show('err', escapeHtml(error.message));
+      })
+      .submitOpportunity(form);
+  }
+</script>

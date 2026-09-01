@@ -1,0 +1,246 @@
+<!-- Barre laterale : assistant de configuration.
+     Ouverte par showSetup(). Dialogue avec getSetupData() et saveSetup()
+     dans Menu.gs. C'est le premier ecran que voit un nouveau client : il
+     doit pouvoir le remplir sans aide. -->
+<style>
+  body {
+    font-family: Roboto, Arial, sans-serif; font-size: 13px; color: #1f2933;
+    margin: 0; padding: 14px; background: #fff;
+  }
+  h2 { font-size: 15px; margin: 0 0 4px; color: #1f3a5f; }
+  p.intro { margin: 0 0 14px; color: #6b7280; font-size: 12px; }
+  fieldset {
+    border: 1px solid #e4e7eb; border-radius: 6px; padding: 10px 12px 14px;
+    margin: 0 0 14px;
+  }
+  legend {
+    font-weight: 600; color: #1f3a5f; padding: 0 6px; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  label { display: block; margin: 10px 0 4px; font-weight: 500; }
+  .hint { color: #6b7280; font-size: 11px; margin: 3px 0 0; }
+  input, select, textarea {
+    width: 100%; box-sizing: border-box; padding: 7px 8px;
+    border: 1px solid #cbd2d9; border-radius: 4px; font: inherit;
+    background: #fff; color: #1f2933;
+  }
+  select[multiple] { height: 120px; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; min-width: 0; }
+  button {
+    width: 100%; padding: 11px; border: 0; border-radius: 4px;
+    background: #1f3a5f; color: #fff; font: inherit; font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { background: #9aa5b1; cursor: default; }
+  .msg { margin-top: 12px; padding: 10px; border-radius: 4px; font-size: 12px; }
+  .ok { background: #d8f3dc; }
+  .err { background: #ffd6d6; }
+  .warn { background: #fff3bf; }
+  .loading { color: #6b7280; padding: 20px 0; text-align: center; }
+</style>
+
+<h2>Configuration</h2>
+<p class="intro">Une seule fois. Ces reponses determinent ce qui vous est
+signale et ce qui est ignore.</p>
+
+<div id="loading" class="loading">Chargement...</div>
+
+<div id="wizard" style="display:none">
+  <fieldset>
+    <legend>Votre organisation</legend>
+    <label for="org_name">Nom</label>
+    <input id="org_name" type="text">
+
+    <label for="timezone">Fuseau horaire</label>
+    <input id="timezone" type="text">
+    <p class="hint">Sert a calculer les jours restants avant les deadlines.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Ce qui vous interesse</legend>
+    <label for="countries">Pays cibles</label>
+    <select id="countries" multiple></select>
+    <p class="hint">Maintenir Ctrl (ou Cmd) pour en choisir plusieurs.</p>
+
+    <label for="sectors">Secteurs cibles</label>
+    <select id="sectors" multiple></select>
+
+    <label for="types">Types d opportunite</label>
+    <select id="types" multiple></select>
+
+    <label for="positiveKeywords">Mots-cles a privilegier</label>
+    <input id="positiveKeywords" type="text"
+           placeholder="plateforme; formation; suivi-evaluation">
+    <p class="hint">Separes par des points-virgules.</p>
+
+    <label for="negativeKeywords">Mots-cles a exclure</label>
+    <input id="negativeKeywords" type="text" placeholder="travaux; genie civil">
+    <p class="hint">Une opportunite contenant l un de ces mots est ecartee
+    d office.</p>
+
+    <div class="row">
+      <div>
+        <label for="minBudget">Budget minimum</label>
+        <input id="minBudget" type="number" min="0" step="any">
+      </div>
+      <div>
+        <label for="minDays">Delai minimum (jours)</label>
+        <input id="minDays" type="number" min="0" step="1">
+      </div>
+    </div>
+    <p class="hint">En dessous de ce delai, une opportunite est jugee non
+    preparable.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Alertes</legend>
+    <label for="notify_email">Email a prevenir</label>
+    <input id="notify_email" type="email">
+
+    <div class="row">
+      <div>
+        <label for="reminders_enabled">Rappels</label>
+        <select id="reminders_enabled">
+          <option value="OUI">Actives</option>
+          <option value="NON">Desactives</option>
+        </select>
+      </div>
+      <div>
+        <label for="reminder_days">Jours de rappel</label>
+        <input id="reminder_days" type="text" placeholder="14;7;3;1">
+      </div>
+    </div>
+    <p class="hint">Un email part le jour exact de chaque palier. Un dossier
+    deja soumis ne declenche jamais de rappel.</p>
+
+    <label for="gmail_label">Label Gmail a surveiller</label>
+    <input id="gmail_label" type="text">
+    <p class="hint">Creez ce label dans Gmail, puis un filtre qui l applique a
+    vos emails d alerte. Le script ne lit que ce label, jamais votre boite de
+    reception.</p>
+  </fieldset>
+
+  <button id="save" type="button" onclick="save()">Enregistrer</button>
+  <div id="message"></div>
+</div>
+
+<script>
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function show(kind, html) {
+    document.getElementById('message').innerHTML =
+      '<div class="msg ' + kind + '">' + html + '</div>';
+  }
+
+  // Hors de Google Sheets (fichier ouvert seul, previsualisation), l'objet
+  // google.script.run n'existe pas : les listes ne peuvent pas etre lues.
+  // On le dit, plutot que d'afficher des listes vides sans explication.
+  function horsAppsScript() {
+    return typeof google === 'undefined' || !google.script || !google.script.run;
+  }
+
+  function fillMulti(id, values, selected) {
+    var select = document.getElementById(id);
+    select.innerHTML = '';
+    values.forEach(function (v) {
+      var option = new Option(v, v);
+      if (selected.indexOf(v) !== -1) option.selected = true;
+      select.appendChild(option);
+    });
+  }
+
+  function selectedValues(id) {
+    return Array.prototype.slice
+      .call(document.getElementById(id).options)
+      .filter(function (o) { return o.selected; })
+      .map(function (o) { return o.value; });
+  }
+
+  if (horsAppsScript()) {
+    document.getElementById('loading').innerHTML =
+      '<div class="msg err"><strong>Cet ecran doit etre ouvert depuis ' +
+      'Google Sheets.</strong><br>Menu <em>TenderPilot &gt; ' +
+      'Configuration</em>. Les listes et les reglages sont lus dans votre ' +
+      'classeur.</div>';
+  } else {
+  google.script.run
+    .withSuccessHandler(function (data) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('wizard').style.display = 'block';
+
+      Object.keys(data.settings).forEach(function (key) {
+        var field = document.getElementById(key);
+        if (field) field.value = data.settings[key];
+      });
+
+      var w = data.watchlist;
+      fillMulti('countries', data.options.countries, w.countries || []);
+      fillMulti('sectors', data.options.sectors, w.sectors || []);
+      fillMulti('types', data.options.types, w.types || []);
+      document.getElementById('positiveKeywords').value =
+        (w.positiveKeywords || []).join('; ');
+      document.getElementById('negativeKeywords').value =
+        (w.negativeKeywords || []).join('; ');
+      document.getElementById('minBudget').value = w.minBudget || '';
+      document.getElementById('minDays').value = w.minDays;
+
+      if (!data.triggerActive) {
+        show('warn', 'Les rappels automatiques ne sont pas encore actifs. ' +
+             'Ils le deviendront a l enregistrement si vous laissez les ' +
+             'rappels sur Actives.');
+      }
+    })
+    .withFailureHandler(function (error) {
+      document.getElementById('loading').innerHTML =
+        '<div class="msg err">' + escapeHtml(error.message) + '</div>';
+    })
+    .getSetupData();
+  }
+
+  function save() {
+    var button = document.getElementById('save');
+    button.disabled = true;
+    button.textContent = 'Enregistrement...';
+
+    var form = {
+      org_name: document.getElementById('org_name').value,
+      timezone: document.getElementById('timezone').value,
+      notify_email: document.getElementById('notify_email').value,
+      reminders_enabled: document.getElementById('reminders_enabled').value,
+      reminder_days: document.getElementById('reminder_days').value,
+      gmail_label: document.getElementById('gmail_label').value,
+      positiveKeywords: document.getElementById('positiveKeywords').value,
+      negativeKeywords: document.getElementById('negativeKeywords').value,
+      minBudget: document.getElementById('minBudget').value,
+      minDays: document.getElementById('minDays').value,
+      countries: selectedValues('countries'),
+      sectors: selectedValues('sectors'),
+      types: selectedValues('types')
+    };
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        button.disabled = false;
+        button.textContent = 'Enregistrer';
+        if (!result.ok) {
+          show('err', result.errors.map(escapeHtml).join('<br>'));
+          return;
+        }
+        show('ok', '<strong>Configuration enregistree.</strong><br>' +
+             (result.triggerActive
+               ? 'Les rappels automatiques sont actifs.'
+               : 'Les rappels automatiques sont desactives.'));
+      })
+      .withFailureHandler(function (error) {
+        button.disabled = false;
+        button.textContent = 'Enregistrer';
+        show('err', escapeHtml(error.message));
+      })
+      .saveSetup(form);
+  }
+</script>

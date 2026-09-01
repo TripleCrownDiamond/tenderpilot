@@ -1,0 +1,38 @@
+# --------------------------------------------------------------------
+# Secrets. Ne doivent jamais partir sur un depot, meme prive.
+# --------------------------------------------------------------------
+web/.env
+web/.env.local
+web/.env.*.local
+*.key
+*.pem
+
+# Le lien /copy est la marchandise : quiconque l'a peut copier le
+# produit. Le modele reste versionne (livraison.example.json).
+data/livraison.json
+
+# --------------------------------------------------------------------
+# Dependances et caches
+# --------------------------------------------------------------------
+node_modules/
+.next/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --------------------------------------------------------------------
+# Livrable : entierement regenere par `python build.py`.
+# Le versionner ferait un diff illisible a chaque build, pour un
+# contenu qu'on peut reconstruire en dix secondes.
+# --------------------------------------------------------------------
+dist/
+
+# --------------------------------------------------------------------
+# Systeme et editeurs
+# --------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

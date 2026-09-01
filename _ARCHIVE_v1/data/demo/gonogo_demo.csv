@@ -1,0 +1,13 @@
+Criterion_ID,Category,Requirement,Source_Page,Mandatory,Eliminatory,Candidate_Evidence,Evidence_Link,Result,Risk,Weight,Action,Owner
+CRIT-001,Legal,DEMO - Etre legalement enregistre dans le pays de la mission,p.4 art.3.1,OUI,OUI,RCCM disponible et a jour,,Satisfait,Faible,3,,DEMO Utilisateur
+CRIT-002,Financier,DEMO - Chiffre d'affaires annuel minimum sur les 3 derniers exercices,p.5 art.4.2,OUI,OUI,CA N-1 superieur au seuil demande,,Satisfait,Faible,3,,DEMO Utilisateur
+CRIT-003,Certification,DEMO - Certification sectorielle categorie B exigee,p.6 art.4.5,OUI,OUI,Certification non detenue,,Non satisfait,Eleve,3,Verifier si un partenaire certifie peut porter le lot,DEMO Utilisateur
+CRIT-004,Experience,DEMO - Au moins 3 missions similaires sur les 5 dernieres annees,p.7 art.5.1,OUI,NON,4 missions documentees dans le module 06,,Satisfait,Faible,3,,DEMO Utilisateur
+CRIT-005,Equipe,DEMO - Chef de projet avec 10 ans d'experience minimum,p.8 art.5.4,OUI,NON,Profil disponible avec 12 ans d'experience,,Satisfait,Faible,2,,DEMO Utilisateur
+CRIT-006,Document,DEMO - Attestation fiscale de moins de 3 mois,p.9 art.6.2,OUI,NON,Attestation expiree depuis 12 jours,,Non satisfait,Moyen,2,Demander une attestation a jour au service des impots,DEMO Utilisateur
+CRIT-007,Geographie,DEMO - Presence ou representation locale,p.4 art.3.4,NON,NON,Bureau de representation existant,,Satisfait,Faible,1,,DEMO Utilisateur
+CRIT-008,Delai,DEMO - Depot possible dans le delai imparti,p.2,OUI,NON,18 jours restants avant la deadline,,Satisfait,Moyen,2,,DEMO Utilisateur
+CRIT-009,Technique,DEMO - Note methodologique detaillee exigee,p.10 art.7.1,OUI,NON,A rediger,,Partiellement satisfait,Moyen,3,Rediger la note methodologique,DEMO Utilisateur
+CRIT-010,Administratif,DEMO - Formulaire de soumission A1 signe,p.11 annexe 1,OUI,NON,Formulaire telecharge et signe,,Satisfait,Faible,1,,DEMO Utilisateur
+CRIT-011,Partenariat,DEMO - Partenariat avec une structure locale souhaite,p.12 art.8,NON,NON,Aucun partenaire identifie,,A verifier,Moyen,1,Identifier un partenaire potentiel,DEMO Utilisateur
+CRIT-012,Financier,DEMO - Garantie de soumission mobilisable,p.13 art.9.1,OUI,NON,Capacite de prefinancement confirmee,,Satisfait,Faible,2,,DEMO Utilisateur

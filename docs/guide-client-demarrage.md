@@ -1,0 +1,137 @@
+# Demarrer avec TenderPilot
+
+Votre veille des appels d'offres, dans un Google Sheets.
+
+TenderPilot surveille {nb_sources} sources - marches publics du Benin, SBEE,
+SONEB, ARMP, DEDRAS, Banque mondiale, BAD, Enabel, BCEAO - et vous previent
+avant chaque date limite.
+
+Comptez cinq minutes.
+
+## 1. Creer votre classeur
+
+Ouvrez ce lien :
+
+{lien}
+
+Google vous propose **Creer une copie**. Acceptez.
+
+Le classeur s'ouvre : c'est le votre. Vous en etes proprietaire, personne
+d'autre n'y a acces.
+
+> Si Google demande de vous connecter, faites-le : le classeur doit se
+> creer dans VOTRE Drive.
+
+## 2. Autoriser le script
+
+En haut, un menu **TenderPilot** apparait. S'il n'est pas la, rechargez la
+page une fois.
+
+Cliquez sur **TenderPilot > Executer maintenant**.
+
+Google affiche un avertissement : *cette application n'est pas validee*.
+C'est normal - c'est votre propre copie du script, pas une application
+publiee.
+
+1. Cliquez **Parametres avances**.
+2. Puis **Acceder a TenderPilot (non securise)**.
+3. Puis **Autoriser**.
+
+Vous ne le ferez qu'une fois.
+
+## 3. Recevoir les alertes
+
+Onglet **CONFIG**, ligne `NOTIFICATION_EMAIL` : mettez votre adresse.
+
+Plusieurs adresses ? Separez-les par des points-virgules.
+
+Vous recevrez un email :
+
+- a chaque nouvelle opportunite ;
+- **7 jours**, **3 jours** et **1 jour** avant chaque date limite.
+
+Une opportunite ne vous ecrit jamais deux fois pour la meme raison.
+
+### Aussi sur Telegram, si vous voulez
+
+Un email se perd dans une boite pleine. Une notification Telegram arrive sur
+votre telephone.
+
+1. Dans Telegram, ecrivez a **@BotFather**, envoyez `/newbot`, suivez les
+   questions. Il vous donne un **jeton**.
+2. Ecrivez a **@userinfobot** : il vous donne votre **identifiant**.
+3. Onglet CONFIG :
+
+| Cle | Valeur |
+|-----|--------|
+| `SEND_TELEGRAM` | `true` |
+| `TELEGRAM_TOKEN` | le jeton de @BotFather |
+| `TELEGRAM_CHAT_ID` | votre identifiant |
+
+4. Menu **TenderPilot > Tester la notification Telegram**.
+
+## 4. Laisser tourner
+
+Menu **TenderPilot > Activer l'execution automatique**.
+
+Trois passages par jour : 8h, 13h et 18h. Les jours restants et les couleurs
+sont recalcules a chaque fois, meme sans nouveaute.
+
+**Cette etape est necessaire** : sans elle, rien ne se collecte tout seul.
+
+## 5. Lire le tableau
+
+Onglet **OPPORTUNITIES**, une ligne par opportunite.
+
+| Couleur | Ce que ca veut dire |
+|---------|---------------------|
+| Vert | vous avez le temps |
+| Jaune | a surveiller |
+| Orange | echeance dans une semaine |
+| Rouge | trois jours ou moins |
+| Gris | echeance passee |
+
+Les colonnes qui comptent : **Deadline** et **Jours_Restants**.
+
+Quand `Deadline` est vide, c'est que la source n'a pas publie de date.
+**Nous n'en inventons jamais** - une date devinee vous ferait manquer un
+depot. Ouvrez l'avis officiel avec le lien de la ligne.
+
+## 6. Rester a jour
+
+Menu **TenderPilot > Synchroniser les sources**.
+
+Les sources evoluent : une adresse change, un site est ajoute. La
+synchronisation aligne votre classeur sans rien vous faire perdre :
+
+- vos propres sources restent ;
+- ce que vous avez desactive reste desactive.
+
+Faites-le une fois par mois, ou quand on vous annonce une mise a jour.
+
+## Ce que TenderPilot ne fait pas
+
+- **Il ne remplit pas vos dossiers.** Il vous fait gagner la recherche, pas
+  la redaction.
+- **Il n'invente aucune date limite.**
+- **Il ne garantit pas l'exhaustivite.** Verifiez toujours l'avis officiel
+  avant de candidater.
+
+## Que faire si
+
+**Le menu TenderPilot n'apparait pas.** Rechargez la page. S'il manque
+toujours, utilisez la methode manuelle : `3_Installation_Manuelle.pdf`.
+
+**Aucune opportunite n'arrive.** Avez-vous lance *Executer maintenant* ?
+Sinon, regardez l'onglet LOGS : il dit ce qui s'est passe.
+
+**Les emails ne partent pas.** Verifiez `NOTIFICATION_EMAIL` dans CONFIG.
+Regardez aussi vos indesirables la premiere fois.
+
+**Une source ne rapporte plus rien.** Certaines sont lues directement sur
+des pages web, et se taisent quand le site est refait. Signalez-le : la
+correction est envoyee a tous.
+
+---
+
+Une question, un blocage : {contact}

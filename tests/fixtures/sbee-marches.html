@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">    
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+        <meta name="description" content="Plateforme de consultation des marchés publics de la SBEE">
+        <meta name="title" content="Appels d'offres - SBEE">
+        <meta name="keywords" content="Marchés Publics; Marchés Publics SBEE; Marchés SBEE; Marché Public SBEE; Appel d'offre SBEE; Appels d'offres SBEE; Dossier d'Appel d'offre SBEE">
+        
+        <title>Appel d'offres - SBEE</title> 
+
+        <!-- Favicon -->
+        <link href="https://marches-publics.sbee.bj/templatePublique/img/sbee/logo1.webp" rel="icon">
+
+        <!-- Google Fonts -->
+        <link href="https://fonts.gstatic.com" rel="preconnect">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
+
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/templatePublique/bootstrap5/css/bootstrap.min.css" type="text/css">
+
+        <!-- Main Styles -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/templatePublique/css/style.css" type="text/css">
+
+        <!-- visiteur css -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/templatePublique/css/visiteur.css" type="text/css">
+
+         <!-- Vanillajs-datepicker BS-CSS -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/templatePublique/vendor/vanillajs-datepicker/css/datepicker-bs4.min.css">
+        
+        <!-- Vanillajs-datepicker -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/templatePublique/vendor/vanillajs-datepicker/css/datepicker.min.css">
+
+        <!-- BS Icons CSS -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+        
+        <!-- FontAwesome load all styles -->
+        <link href="https://marches-publics.sbee.bj/templatePublique/fontawesome/css/all.css" rel="stylesheet">
+        
+        <!-- Alpine Js -->
+        <script defer src="https://marches-publics.sbee.bj/templatePublique/js/cdn.min.js"></script>
+        
+        <!-- SweetAlert2 -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/template/plugins/sweetalert2-theme-bootstrap-4/bootstrap-4.min.css">
+        <!-- Toastr -->
+        <link rel="stylesheet" href="https://marches-publics.sbee.bj/template/plugins/toastr/toastr.min.css">
+        
+        <style>
+            body {
+                font-size: 17px;
+                font-family: "Poppins", Sans-serif !important;
+            }
+        
+            .btn-danger {
+                color: #fff;
+                background-color: #ed1f24;
+                border-color: #ed1f24;
+            }
+
+            .btn-danger:hover {
+                color: #fff;
+                background-color: #d71b1e;
+                border-color: #d71b1e;
+            }
+
+            @media (min-width: 768px) {
+                .bd-placeholder-img-lg {
+                    font-size: 3.5rem;
+                }
+            }
+           
+            .bi {
+                vertical-align: -.125em;
+                fill: currentColor;
+            }
+
+            @media (min-width: 1200px) {
+              #main, #footer {
+                margin-left: 0 !important;
+              }
+            }
+
+        </style>
+
+            <style>  
+        .btn-danger {
+            color: #fff;
+            background-color: #ed1f24;
+            border-color: #ed1f24;
+        }
+
+        .btn-danger:hover {
+            color: #fff;
+            background-color: #d71b1e;
+            border-color: #d71b1e;
+        }
+
+        @media (max-width: 768px) {
+            .btn-depot 
+            {
+                width: 100%;
+            }
+
+            .btn-mb 
+            {
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+        
+        <!-- Livewire Styles --><style >[wire\:loading][wire\:loading], [wire\:loading\.delay][wire\:loading\.delay], [wire\:loading\.inline-block][wire\:loading\.inline-block], [wire\:loading\.inline][wire\:loading\.inline], [wire\:loading\.block][wire\:loading\.block], [wire\:loading\.flex][wire\:loading\.flex], [wire\:loading\.table][wire\:loading\.table], [wire\:loading\.grid][wire\:loading\.grid], [wire\:loading\.inline-flex][wire\:loading\.inline-flex] {display: none;}[wire\:loading\.delay\.none][wire\:loading\.delay\.none], [wire\:loading\.delay\.shortest][wire\:loading\.delay\.shortest], [wire\:loading\.delay\.shorter][wire\:loading\.delay\.shorter], [wire\:loading\.delay\.short][wire\:loading\.delay\.short], [wire\:loading\.delay\.default][wire\:loading\.delay\.default], [wire\:loading\.delay\.long][wire\:loading\.delay\.long], [wire\:loading\.delay\.longer][wire\:loading\.delay\.longer], [wire\:loading\.delay\.longest][wire\:loading\.delay\.longest] {display: none;}[wire\:offline][wire\:offline] {display: none;}[wire\:dirty]:not(textarea):not(input):not(select) {display: none;}:root {--livewire-progress-bar-color: #2299dd;}[x-cloak] {display: none !important;}[wire\:cloak] {display: none !important;}dialog#livewire-error::backdrop {background-color: rgba(0, 0, 0, .6);}</style>
+
+    </head>
+  
+    <body class="d-flex flex-column h-100">
+
+        <div class="container">
+
+            <div class="border-bottom">
+        
+        <div class="main-container mt-3">
+
+            <header class="d-flex flex-wrap justify-content-center py-3 mb-4 " style="margin-bottom: -5px !important;">
+                <a href="https://marches-publics.sbee.bj/appels-doffres" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+                    <img src="https://marches-publics.sbee.bj/templatePublique/img/logoSbee_versio_originale_surFonf_blanc.png" alt="" width="250" height="70" >
+                </a>
+
+                <div class="d-flex align-items-center">
+                    <ul class="nav nav-pills">
+                        <li class="nav-item"><a href="https://marches-publics.sbee.bj/appels-doffres" class="nav-link fs-6 text-black" aria-current="page">Accueil</a></li>
+                        <li class="nav-item"> <a href="mailto:info_prmp@sbee.bj" class="nav-link fs-6 text-black"> Contact : info_prmp@sbee.bj </a></li>
+                        <!-- <li class="nav-item"> <a href="tel:+22921311027" class="nav-link fs-6 text-black"> Téléphones :  (+229) 21311027 / 21314127</a></li> -->
+                    </ul>
+                </div>
+            </header>
+        </div>
+    </div>
+
+            <main class="main">
+                
+        <section id="blog" class="my-5">
+
+            <div class="main-container">
+
+                <h1 class="text-center" style="margin-top: -20px !important;font-family: &quot;Poppins&quot;, Sans-serif;">Avis d'appel à concurrence</h1> 
+
+                <!-- <div class="alert alert-warning" role="alert">
+                    <a href="https://marches-publics.sbee.bj/prevention" class="fs-5 text-decoration-none"> <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i> Prévention des fraudes concernant les fausses offres d'emploi !</a>
+                </div> -->
+                
+                                    <!-- <h2 class="my-4">Avis d'appel à concurrence</h2> -->
+
+                    <div class="row mt-4">
+                        <div class="col-md-10 mb-3">
+                            <input type="text" class="form-control" id="searchKeyword" oninput="performSearch()" placeholder="Recherche par mot-clé">
+                        </div>
+                        <div class="col-md-2 mb-3 text-end">
+                            <button class="btn btn-danger w-100" id="searchButton" onclick="performSearch()">Rechercher</button>
+                        </div>
+                    </div>
+                    <div id="offresList">
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-08-27 07:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition d&#039;une infrastructure hyperconvergée au profit de la SBEE
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DAO n°378/26/SBEE/DG/PRMP/DSI-TD/SP-PRMP/DCP/SPM/SP du 26/08/2026 relatif à l&#039;Acquisition d&#039;une infrastructure hyperconvergée au profit de la SBEE
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DAO n°378/26/SBEE/DG/PRMP/DSI-TD/SP-PRMP/DCP/SPM/SP du 26/08/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                     
+                                                        Non défini
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    27-08-2026 07:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        06-10-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/AVIS_DAO_N°378_Acquisition_d&#039;une_infrastructure_hyperconvergée_26082026_.PDF" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/126">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-08-26 15:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition de mobiliers de bureaux au profit de la SBEE
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DAO n°377/26/SBEE/DG/DPAL/PRMP/SP-PRMP/DCP/SPM/SP du 26/08/2026 relatif à l&#039;Acquisition de mobiliers de bureaux au profit de la SBEE
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DAO n°377/26/SBEE/DG/DPAL/PRMP/SP-PRMP/DCP/SPM/SP du 26/08/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                     
+                                                        Non défini
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    26-08-2026 15:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        29-09-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/AVIS_DAO_N°377_Acquisition_de_mobiliers_de_bureaux_26082026_.PDF" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/125">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-08-20 10:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition de kits de maintenance pour imprimantes LEXMARK au profit de la DSI
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DRP n°471/26/SBEE/DG/PRMP/DSI-PRMP/DCP/SPM/SP du 19/08/2026 relative à l&#039;Acquisition de kits de maintenance pour imprimantes LEXMARK au profit de la DSI
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DRP n°471/26/SBEE/DG/PRMP/DSI-PRMP/DCP/SPM/SP du 19/08/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                     
+                                                        Non défini
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    20-08-2026 10:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        10-09-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/Avis_DRP_471_acquisition_de_kits_maintenance_imprimante_LEXMARK_19082026.pdf" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/123">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-08-19 10:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Recrutement des entreprises pour la réalisation des travaux de composante &quot;Travaux&quot; du ProMER (RELANCE LOT 4)
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DAOI n°376/26/SBEE/DG/DP/PRMP/ProMER/DCP/SPM du 18/08/2026 relatif au Recrutement des entreprises pour la réalisation des travaux de composante &quot;Travaux&quot; du ProMER _ RELANCE LOT 4
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DAOI n°376/26/SBEE/DG/DP/PRMP/ProMER/DCP/SPM du 18/08/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Travaux
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                                                                            1
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    19-08-2026 10:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        27-10-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/AVIS_N°376_RECRUTEMENT_ENTREPRISES_POUR_REALISATION_TRAVAUX_PROMER_RELANCE_LOT_4_18082026_.pdf" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/122">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-07-07 08:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition des compteurs communicants HTA triphasés à branchement indirect sur TC/TP au profit de la DCC
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DRP n°468/26/SBEE/DG/DCC-PRMP/SP-PRMP/DCP/SPM du 06/07/2026 relative à l&#039;acquisition des compteurs communicants HTA triphasés à branchement indirect sur TC/TP au profit de la DCC. Réf. SIGMAP : F_DCC_117878
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DRP n°468/26/SBEE/DG/DCC-PRMP/SP-PRMP/DCP/SPM du 06/07/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                     
+                                                        Non défini
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    07-07-2026 08:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        15-09-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/Avis_DRP_468_Compteurs_communicants_06072026.pdf" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/118">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-06-15 08:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition de Licence d&#039;antivirus, d&#039;outils d&#039;administration système de réunions en lignes au profit de la DSI-TD par la technique d&#039;accord-cadre à bons de commandes sur trois (03) ans
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                AOON n°372/26/SBEE/DG/PRMP/DSI-TD/SP-PRMP/DCP/SPM/SP du 12/06/2026 relatif à l&#039;acquisition de Licence d&#039;antivirus, d&#039;outils d&#039;administration système de réunions en lignes au profit de la DSI-TD par la technique d&#039;accord-cadre à bons de commandes sur trois (03) ans. Réf SIGMAP : F_DSI_117764
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    AOON n°372/26/SBEE/DG/PRMP/DSI-TD/SP-PRMP/DCP/SPM/SP du 12/06/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                                                                            4
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    15-06-2026 08:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        17-09-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/Avis_AAO_N°372_acquisition_de_licence_antivirus.PDF" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/113">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2026-06-08 08:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition de matériels de contrôle électrique au profit de la SBEE
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DAO n°368/26/SBEE/DG/PRMP/DT/SP-PRMP/DCP/SPM du 05/06/2026 relatif à l&#039;acquisition de matériels de contrôle électrique au profit de la SBEE. Réf  SIGMAP : F_DT_117755
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DAO n°368/26/SBEE/DG/PRMP/DT/SP-PRMP/DCP/SPM du 05/06/2026
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                                                                            2
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    08-06-2026 08:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                                                                                        01-09-2026 10:00:00
+                                                                                                            
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/Avis___DAO_368___Acquisition_de_matériels_de_contrôle_électrique_.PDF" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/107">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                                    <div class="row">
+                                <div class="col-md-12 blog-item">
+
+                                    <div class="blog-item-wrapper p-3">
+
+                                        <!-- <div class="meta-tags">
+                                            <span class="date"><i class="ti-calendar"></i>Offre publiée depuis le 2025-07-24 08:00:00</span>
+                                        </div> -->
+                                        <a href="" class="mb-5 text-decoration-none" onclick="return false;" style="font-family: 'Poppins', Sans-serif !important;">
+                                            <h3>
+                                                Acquisition de matériels de première nécessité pour l&#039;entretien du réseau électrique de la SBEE
+                                            </h3>
+                                        </a>
+                                        <div>
+                                            <p class="job-details m-6">
+                                                DAOI n°343/25/SBEE/DG/PRMP/SP-PRMP/RCP/SPM du 23/07/2025 relatif à l&#039;Acquisition de matériels de première nécessité pour l&#039;entretien du réseau électrique de la SBEE.  
+Réf. SIGMAP: F_DT_107742
+                                            </p>
+                                            <div class="row">
+                                                <!-- <div class="col-md-3 col-6">
+                                                    <span><strong> Reference </strong></span> <br>
+                                                    DAOI n°343/25/SBEE/DG/PRMP/SP-PRMP/RCP/SPM du 23/07/2025
+                                                </div> -->
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Type de marché </strong></span> <br>
+                                                    Marché de Fournitures
+                                                </div>
+                                                <div class="col-md-3 col-6">
+                                                    <span><strong> Nombre de lots </strong></span> <br>
+                                                    
+                                                                                                            4
+                                                                                                    </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date de publication </strong></span> <br>
+                                                    24-07-2025 08:00:00 
+                                                </div>
+                                                <div class="col-md-3 col-6 dateOffre">
+                                                    <span><strong> Date limite de dépôt </strong></span> <br>
+                                                                                                            Ultérieure
+                                                    
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mt-3">
+                                            <div class="col-md-6 col-6">
+                                                                                                <a href="https://marches-publics.sbee.bj/uploads/Avis_DAO_N°_343__Acquisition_de_matériels_de_1ère_nécessité_23072025.PDF" target="_blank">
+                                                    <button type="button" class="btn btn-outline-secondary btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-download"></i> Télécharger l'avis</button>
+                                                </a>
+                                            </div>
+                                            <div class="col-md-6 col-6 text-end">
+                                                <a href="https://marches-publics.sbee.bj/demande-dossier/appel-doffre/74">
+                                                    <button type="button" class="btn btn-outline-success btn-flat btn-mb" style="font-size : 15px; border-radius: 3px;"><i class="fa fa-files-o"></i> Demander le dossier </button>
+                                                </a>
+                                            </div>
+                                            
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                                            </div>
+                
+            </div>
+
+        </section>
+
+        <style>
+            @media screen and (max-width: 1000px) {
+                .dateOffre {
+                    margin-top: 10px;
+                }
+            }
+        </style>
+
+            </main>
+        </div>
+
+        <!-- Footer Section Start -->        
+        
+    <footer class="footer mt-auto py-3" style="padding-top: 5px !important; padding-bottom:  5px !important;">
+        <div class="main-container">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <div class="col-md-5 d-flex align-items-center">
+                    <span class="text-white">&copy; Copyright <span class="fw-bold">SBEE</span>, 2025. Tous droits réservés</span>
+                </div>
+
+                <ul class="nav col-md-4 justify-content-end list-unstyled d-flex">
+                    <li class="ms-3">
+                        <a href="https://twitter.com/SbeeOfficiel" target="_blank">
+                            <i class="bi-twitter text-white" style="font-size: 1.5rem;"></i>
+                        </a>
+                    </li>
+                    <li class="ms-3">
+                        <a href="https://www.linkedin.com/company/sbee-soci%C3%A9t%C3%A9-b%C3%A9ninoise-d-energie-electrique/" target="_blank">
+                            <i class="bi-linkedin text-white" style="font-size: 1.5rem;"></i>
+                        </a>
+                    </li>
+                    <li class="ms-3">
+                        <a href="https://web.facebook.com/sbeeofficiel" target="_blank">
+                            <i class="bi-facebook text-white" style="font-size: 1.5rem;"></i>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </footer>
+        <script src="https://marches-publics.sbee.bj/templatePublique/vendor/vanillajs-datepicker/js/datepicker-full.min.js"></script>
+        <script src="https://marches-publics.sbee.bj/templatePublique/vendor/vanillajs-datepicker/js/locales/fr.js"></script>
+        
+        <!-- jQuery -->
+        <script src="https://marches-publics.sbee.bj/template/js/jquery.min.js"></script>
+        
+        <!-- SweetAlert2 -->
+        <script src="https://marches-publics.sbee.bj/template/plugins/sweetalert2/sweetalert2.min.js"></script>
+        <!-- Toastr -->
+        <script src="https://marches-publics.sbee.bj/template/plugins/toastr/toastr.min.js"></script>
+
+            <script>
+        function performSearch() {
+            const searchKeyword = document.getElementById("searchKeyword").value.toLowerCase();
+            const offresList = document.getElementById("offresList");
+            const offres = offresList.getElementsByClassName("blog-item");
+
+            for (let offre of offres) {
+                const titre = offre.querySelector("h3").textContent.toLowerCase();
+                if (titre.includes(searchKeyword)) {
+                    offre.style.display = "block";
+                } else {
+                    offre.style.display = "none";
+                }
+            }
+        }
+    </script>
+
+    
+        <script src="/livewire/livewire.min.js?id=61e33937"   data-csrf="BoALNRZMUIZEhkokUiR4jQHWDIKodlVaRc0IlplW" data-update-uri="/livewire/update" data-navigate-once="true"></script>
+
+    </body>
+
+
+</html>

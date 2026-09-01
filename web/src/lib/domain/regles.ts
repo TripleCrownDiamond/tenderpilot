@@ -1,0 +1,467 @@
+/**
+ * TenderPilot - regles metier.
+ *
+ * Port fidele de apps_script/Core.gs : memes seuils, memes couleurs, meme
+ * cascade de notifications. La version Sheets et la version web doivent
+ * decider exactement la meme chose, sinon le produit ment a son
+ * utilisateur selon la porte par laquelle il entre.
+ *
+ * Aucune fonction de ce fichier ne touche a la base, au reseau ou au
+ * courrier : tout y est testable sans infrastructure.
+ */
+
+export type StatutDelai =
+  | "OUVERT"
+  | "A SURVEILLER"
+  | "BIENTOT"
+  | "URGENT"
+  | "EXPIRE"
+  | "DATE A VERIFIER";
+
+export const STATUTS: StatutDelai[] = [
+  "OUVERT", "A SURVEILLER", "BIENTOT", "URGENT", "EXPIRE", "DATE A VERIFIER",
+];
+
+/** (statut, seuil haut inclus), du plus urgent au plus large. */
+const SEUILS: [StatutDelai, number][] = [
+  ["URGENT", 3],
+  ["BIENTOT", 7],
+  ["A SURVEILLER", 15],
+];
+
+/** La couleur ne porte jamais seule une information : le statut reste roi. */
+export const COULEURS: Record<StatutDelai, string> = {
+  "OUVERT": "#D8F3DC",
+  "A SURVEILLER": "#FFF3BF",
+  "BIENTOT": "#FFE0C2",
+  "URGENT": "#FFD6D6",
+  "EXPIRE": "#ECECEC",
+  "DATE A VERIFIER": "#FFFBEA",
+};
+
+export const RESUME_MAX = 400;
+export const PREFIXE_ID = "TP";
+
+export interface Opportunite {
+  id?: string;
+  titre: string;
+  organisation?: string | null;
+  pays?: string | null;
+  type?: string | null;
+  secteur?: string | null;
+  source?: string | null;
+  lien?: string | null;
+  pdf?: string | null;
+  reference?: string | null;
+  datePublication?: string | null;
+  deadline?: string | null;
+  joursRestants?: number | null;
+  statutDelai?: StatutDelai | null;
+  resume?: string | null;
+  notifNouvelle?: boolean;
+  notifJ7?: boolean;
+  notifJ3?: boolean;
+  notifJ1?: boolean;
+  notifExpire?: boolean;
+}
+
+export interface Config {
+  emailNotification: string;
+  envoiNouvelle: boolean;
+  envoiJ7: boolean;
+  envoiJ3: boolean;
+  envoiJ1: boolean;
+  envoiExpire: boolean;
+  seuilDigest: number;
+  fuseau: string;
+  maxParSource: number;
+  /**
+   * Telegram, en plus des emails.
+   *
+   * Un email se perd dans une boite deja pleine ; une notification Telegram
+   * arrive sur le telephone. Les deux canaux partagent les memes regles de
+   * declenchement - une opportunite ne previent jamais deux fois par le
+   * meme canal - mais ils sont independants : couper l'un n'affecte pas
+   * l'autre.
+   */
+  envoiTelegram: boolean;
+  telegramToken: string;
+  telegramChatId: string;
+}
+
+export const CONFIG_DEFAUT: Config = {
+  emailNotification: "",
+  envoiNouvelle: true,
+  envoiJ7: true,
+  envoiJ3: true,
+  envoiJ1: true,
+  envoiExpire: false,
+  seuilDigest: 5,
+  fuseau: "Africa/Porto-Novo",
+  maxParSource: 40,
+  envoiTelegram: false,
+  telegramToken: "",
+  telegramChatId: "",
+};
+
+// --------------------------------------------------------------- textes --
+
+export function estVide(v: unknown): boolean {
+  return v === null || v === undefined || String(v).trim() === "";
+}
+
+/** Normalise pour comparaison : accents, casse, ponctuation. */
+export function normaliser(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(v)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Resume tronque proprement. Pas d'IA : on coupe, c'est tout. */
+export function tronquer(texte: unknown, maximum = RESUME_MAX): string {
+  const t = String(texte ?? "").replace(/\s+/g, " ").trim();
+  if (t.length <= maximum) return t;
+  const coupe = t.slice(0, maximum);
+  const espace = coupe.lastIndexOf(" ");
+  return (espace > maximum * 0.6 ? coupe.slice(0, espace) : coupe) + "...";
+}
+
+// ----------------------------------------------------------------- dates --
+
+/** Date -> "aaaa-mm-jj". Chaine deja au bon format acceptee. */
+export function jour(valeur: unknown): string {
+  if (estVide(valeur)) return "";
+  if (valeur instanceof Date) {
+    return [
+      valeur.getFullYear(),
+      String(valeur.getMonth() + 1).padStart(2, "0"),
+      String(valeur.getDate()).padStart(2, "0"),
+    ].join("-");
+  }
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(valeur).trim());
+  if (!m) return "";
+  return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+}
+
+/** Date du jour dans un fuseau donne, au format "aaaa-mm-jj". */
+export function aujourdhui(
+  fuseau = CONFIG_DEFAUT.fuseau, maintenant = new Date(),
+): string {
+  return new Intl.DateTimeFormat("fr-CA", {
+    timeZone: fuseau, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(maintenant).replace(/\//g, "-");
+}
+
+/**
+ * Jours restants avant une deadline.
+ *
+ * Le calcul se fait sur des dates sans heure : un changement d'heure
+ * saisonnier ne doit pas produire 6,96 jours au lieu de 7.
+ */
+export function joursRestants(deadline: unknown, reference: unknown): number | null {
+  const d = jour(deadline);
+  const t = jour(reference);
+  if (!d || !t) return null;
+  const [ay, am, ad] = d.split("-").map(Number);
+  const [by, bm, bd] = t.split("-").map(Number);
+  return Math.round(
+    (Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000,
+  );
+}
+
+export function statutDelai(jours: number | null | undefined): StatutDelai {
+  if (jours === null || jours === undefined) return "DATE A VERIFIER";
+  if (jours < 0) return "EXPIRE";
+  for (const [statut, seuil] of SEUILS) if (jours <= seuil) return statut;
+  return "OUVERT";
+}
+
+export function couleurStatut(statut: StatutDelai | null | undefined): string {
+  return COULEURS[statut ?? "DATE A VERIFIER"] ?? COULEURS["DATE A VERIFIER"];
+}
+
+// --------------------------------------------------------- deduplication --
+
+/**
+ * Cles de deduplication, par ordre de fiabilite :
+ * 1. lien officiel, 2. reference officielle, 3. titre + organisation +
+ * deadline. Une seule correspondance suffit a reconnaitre un doublon.
+ */
+export function clesDedup(o: Opportunite): string[] {
+  const cles: string[] = [];
+  if (!estVide(o.lien)) cles.push("url:" + normaliser(o.lien));
+  if (!estVide(o.reference)) cles.push("ref:" + normaliser(o.reference));
+  if (!estVide(o.titre)) {
+    cles.push("t:" + [normaliser(o.titre), normaliser(o.organisation),
+                      jour(o.deadline)].join("|"));
+  }
+  return cles;
+}
+
+export function construireIndex<T extends Opportunite>(
+  lignes: T[],
+): Map<string, T> {
+  const index = new Map<string, T>();
+  for (const ligne of lignes) {
+    for (const cle of clesDedup(ligne)) if (!index.has(cle)) index.set(cle, ligne);
+  }
+  return index;
+}
+
+export function trouverDoublon<T extends Opportunite>(
+  o: Opportunite, index: Map<string, T>,
+): T | null {
+  for (const cle of clesDedup(o)) {
+    const trouve = index.get(cle);
+    if (trouve) return trouve;
+  }
+  return null;
+}
+
+/** Champs modifiables quand la source republie une annonce connue. */
+export const CHAMPS_MAJ = [
+  "titre", "organisation", "pays", "type", "secteur", "lien", "pdf",
+  "datePublication", "deadline", "resume",
+] as const;
+
+/**
+ * Ce qui a change depuis la derniere collecte.
+ *
+ * On ne remplace jamais une valeur existante par du vide : une source qui
+ * cesse temporairement de publier un champ ne doit pas effacer la base.
+ */
+export function champsModifies(
+  existant: Opportunite, entrant: Opportunite,
+): Partial<Opportunite> {
+  // CHAMPS_MAJ est une liste de cles litterales : l'indexation est donc
+  // sure sans conversion de type.
+  const diff: Record<string, string> = {};
+  for (const cle of CHAMPS_MAJ) {
+    const neuf = entrant[cle];
+    if (estVide(neuf)) continue;
+    const ancien = existant[cle];
+    if (cle === "deadline" || cle === "datePublication") {
+      if (jour(neuf) !== jour(ancien)) diff[cle] = jour(neuf);
+      continue;
+    }
+    if (String(neuf).trim() !== String(ancien ?? "").trim()) {
+      diff[cle] = String(neuf).trim();
+    }
+  }
+  return diff as unknown as Partial<Opportunite>;
+}
+
+/** Identifiant lisible et stable : TP-000001. */
+export function prochainId(existants: { id?: string | null }[]): string {
+  let max = 0;
+  const motif = new RegExp(`^${PREFIXE_ID}-(\\d+)$`);
+  for (const o of existants) {
+    const m = motif.exec(String(o.id ?? "").trim());
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${PREFIXE_ID}-${String(max + 1).padStart(6, "0")}`;
+}
+
+// ------------------------------------------------------- fraicheur source --
+
+/** Six mois sans publication : une source est presque toujours abandonnee. */
+export const JOURS_SOURCE_SILENCIEUSE = 180;
+
+/**
+ * Une source joignable mais silencieuse depuis des mois donne un faux
+ * sentiment de securite : on le signale plutot que de la laisser passer
+ * pour active. `dates` : chaines "aaaa-mm-jj". `reference` : le jour courant.
+ */
+export function fraicheurSource(
+  dates: (string | null | undefined)[], reference: string,
+): { silencieuse: boolean; jours: number | null } {
+  const jours = dates
+    .map((d) => jour(d))
+    .filter(Boolean)
+    .map((d) => -(joursRestants(d, reference) ?? 0));
+  if (!jours.length) return { silencieuse: false, jours: null };
+  const plusRecent = Math.min(...jours);
+  return { silencieuse: plusRecent > JOURS_SOURCE_SILENCIEUSE, jours: plusRecent };
+}
+
+// --------------------------------------------------------- notifications --
+
+export type TypeNotification = "nouvelle" | "j7" | "j3" | "j1" | "expire";
+
+interface RegleNotification {
+  cle: TypeNotification;
+  champ: keyof Opportunite;
+  actif: keyof Config;
+  seuil: number | null;
+}
+
+export const NOTIFICATIONS: RegleNotification[] = [
+  { cle: "nouvelle", champ: "notifNouvelle", actif: "envoiNouvelle", seuil: null },
+  { cle: "j7", champ: "notifJ7", actif: "envoiJ7", seuil: 7 },
+  { cle: "j3", champ: "notifJ3", actif: "envoiJ3", seuil: 3 },
+  { cle: "j1", champ: "notifJ1", actif: "envoiJ1", seuil: 1 },
+  { cle: "expire", champ: "notifExpire", actif: "envoiExpire", seuil: -1 },
+];
+
+/**
+ * Notifications a declencher pour une opportunite.
+ *
+ * Deux regles qui evitent le harcelement :
+ * - les rappels J-7 / J-3 / J-1 ne concernent que les deadlines a venir.
+ *   Sans cela une opportunite expiree depuis un mois satisferait aussi
+ *   "jours restants <= 7" et recevrait quatre emails d'un coup.
+ * - une opportunite decouverte alors qu'il reste 2 jours declenche J-7, J-3
+ *   et J-1 en meme temps. On envoie le plus urgent, et on marque les autres
+ *   comme envoyes : ils n'ont plus lieu d'etre.
+ */
+export function notificationsAEnvoyer(
+  o: Opportunite, config: Config,
+): { envoyer: TypeNotification[]; marquer: TypeNotification[] } {
+  const envoyer: TypeNotification[] = [];
+  const candidats: TypeNotification[] = [];
+  const jours = o.joursRestants ?? null;
+
+  for (const regle of NOTIFICATIONS) {
+    if (!config[regle.actif]) continue;
+    if (o[regle.champ] === true) continue;
+
+    if (regle.cle === "nouvelle") { envoyer.push("nouvelle"); continue; }
+    if (jours === null) continue;
+    if (regle.cle === "expire") {
+      if (jours < 0) candidats.push("expire");
+      continue;
+    }
+    if (jours >= 0 && jours <= (regle.seuil as number)) candidats.push(regle.cle);
+  }
+
+  for (const cle of ["expire", "j1", "j3", "j7"] as TypeNotification[]) {
+    if (candidats.includes(cle)) { envoyer.push(cle); break; }
+  }
+
+  const marquer = [...candidats];
+  if (envoyer.includes("nouvelle")) marquer.push("nouvelle");
+  return { envoyer, marquer };
+}
+
+// ------------------------------------------------- alertes du tableau de bord --
+
+export type NiveauAlerte = "urgent" | "bientot" | "expire" | "nouvelle";
+
+export interface Alerte {
+  niveau: NiveauAlerte;
+  titre: string;
+  detail: string;
+  /** Identifiant de l'opportunite concernee, pour pouvoir y renvoyer. */
+  id?: string | null;
+  lien?: string | null;
+  deadline?: string | null;
+  joursRestants?: number | null;
+}
+
+/** Ordre d'affichage : le plus pressant en premier. */
+const ORDRE_ALERTES: NiveauAlerte[] = ["urgent", "bientot", "expire", "nouvelle"];
+
+/**
+ * Ce qui demande l'attention de l'utilisateur, maintenant.
+ *
+ * Le tableau de bord et les emails partagent volontairement les memes
+ * seuils - ceux de NOTIFICATIONS - pour qu'ils ne se contredisent jamais :
+ * recevoir un email "plus que 3 jours" et voir un ecran qui n'en parle pas
+ * ferait douter de l'outil.
+ *
+ * Mais ils ne fonctionnent PAS de la meme facon, et c'est voulu :
+ *
+ *   un email est un evenement. Il part une fois, et l'opportunite est
+ *   marquee pour ne pas etre relancee.
+ *
+ *   le tableau de bord est un etat. Il montre la situation a l'instant ou
+ *   on le regarde, sans rien consommer. Une echeance a 2 jours reste
+ *   affichee tant qu'elle est a 2 jours, meme si l'email est deja parti.
+ *
+ * C'est pour cela que cette fonction ignore les temoins notifJ7, notifJ3 et
+ * les autres : ils disent ce qui a ete envoye, pas ce qui est vrai.
+ */
+export function alertes(
+  lignes: Opportunite[], reference: string, maximum = 20,
+): Alerte[] {
+  const trouvees: Alerte[] = [];
+
+  for (const o of lignes) {
+    const jours = joursRestants(o.deadline, reference);
+    const commun = {
+      id: o.id ?? o.reference ?? null,
+      lien: o.lien ?? null,
+      deadline: o.deadline ?? null,
+      joursRestants: jours,
+    };
+    const ou = o.organisation ? ` - ${o.organisation}` : "";
+
+    if (jours !== null && jours >= 0 && jours <= 3) {
+      trouvees.push({
+        niveau: "urgent",
+        titre: o.titre,
+        detail: jours === 0
+          ? `Dernier jour pour deposer${ou}`
+          : `Plus que ${jours} jour${jours > 1 ? "s" : ""}${ou}`,
+        ...commun,
+      });
+      continue;
+    }
+    if (jours !== null && jours > 3 && jours <= 7) {
+      trouvees.push({
+        niveau: "bientot",
+        titre: o.titre,
+        detail: `Echeance dans ${jours} jours${ou}`,
+        ...commun,
+      });
+      continue;
+    }
+    // Une opportunite expiree depuis des mois n'a plus rien a dire. On ne
+    // garde que la semaine ecoulee : le temps de constater qu'on l'a ratee.
+    if (jours !== null && jours < 0 && jours >= -7) {
+      trouvees.push({
+        niveau: "expire",
+        titre: o.titre,
+        detail: `Echeance passee depuis ${-jours} jour${jours < -1 ? "s" : ""}${ou}`,
+        ...commun,
+      });
+      continue;
+    }
+    if (!o.notifNouvelle && estVide(o.deadline)) {
+      trouvees.push({
+        niveau: "nouvelle",
+        titre: o.titre,
+        detail: `Aucune echeance lue : a verifier sur la source${ou}`,
+        ...commun,
+      });
+    }
+  }
+
+  trouvees.sort((a, b) => {
+    const rang = ORDRE_ALERTES.indexOf(a.niveau) - ORDRE_ALERTES.indexOf(b.niveau);
+    if (rang !== 0) return rang;
+    // A niveau egal, le plus urgent d'abord.
+    return (a.joursRestants ?? 9999) - (b.joursRestants ?? 9999);
+  });
+  return trouvees.slice(0, maximum);
+}
+
+/** Combien d'alertes de chaque niveau, pour les compteurs du tableau de bord. */
+export function compterAlertes(liste: Alerte[]): Record<NiveauAlerte, number> {
+  const total: Record<NiveauAlerte, number> = {
+    urgent: 0, bientot: 0, expire: 0, nouvelle: 0,
+  };
+  for (const a of liste) total[a.niveau]++;
+  return total;
+}
+
+/** Champ temoin correspondant a un type de notification. */
+export function champNotification(cle: TypeNotification): keyof Opportunite {
+  const regle = NOTIFICATIONS.find((n) => n.cle === cle);
+  if (!regle) throw new Error(`Notification inconnue : ${cle}`);
+  return regle.champ;
+}
