@@ -32,6 +32,10 @@ __pycache__/
 # --------------------------------------------------------------------
 dist/
 
+# .claude/skills/ est GENERE depuis AGENTS.md mais reste versionne : un
+# clone frais doit avoir la skill sans avoir a lancer le build.
+# Un test refuse toute divergence entre les deux.
+
 # --------------------------------------------------------------------
 # Systeme et editeurs
 # --------------------------------------------------------------------

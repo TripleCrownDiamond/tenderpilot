@@ -426,6 +426,45 @@ def main():
         check("les deux archives sont conservees",
               len(list(archives_v.glob("*.zip"))) == 2)
 
+
+    # ------------------------- la reference des agents est unique ---------
+    #
+    # AGENTS.md est lu par Cursor, Codex, Aider. Claude Code lit une skill.
+    # Les deux doivent dire exactement la meme chose : deux guides qui
+    # divergent, c'est deux agents qui travaillent selon des regles
+    # differentes sur le meme depot.
+    print("\n[8] Les agents lisent tous la meme reference")
+
+    agents = ROOT / "AGENTS.md"
+    skill = ROOT / ".claude" / "skills" / "tenderpilot" / "SKILL.md"
+    claude = ROOT / "CLAUDE.md"
+
+    check("AGENTS.md existe", agents.exists())
+    check("la skill Claude existe", skill.exists())
+    check("CLAUDE.md renvoie vers AGENTS.md",
+          claude.exists() and "AGENTS.md" in claude.read_text(encoding="utf-8"))
+
+    if agents.exists() and skill.exists():
+        texte_agents = agents.read_text(encoding="utf-8")
+        texte_skill = skill.read_text(encoding="utf-8")
+        check("la skill porte son frontmatter",
+              texte_skill.startswith("---\nname: tenderpilot"))
+        # Le corps doit etre identique, commentaire d en-tete mis a part.
+        corps = texte_agents
+        if corps.startswith("<!--"):
+            corps = corps[corps.index("-->") + 3:].lstrip()
+        check("la skill dit exactement ce que dit AGENTS.md",
+              corps.strip() in texte_skill)
+        # Les regles de fond doivent y etre.
+        # La convention "sans accents" vaut pour le code livre a Google
+        # Sheets, pas pour la documentation : on cherche le texte reel.
+        for regle in ("Vérifier, jamais supposer",
+                      "Ne jamais inventer une date",
+                      "Parité entre les deux moteurs"):
+            check("AGENTS.md porte la regle : " + regle.split(",")[0],
+                  regle in corps, regle)
+
+
     print(f"\n{'-' * 58}")
     if ECHECS:
         print(f"ECHEC : {len(ECHECS)}/{CONTROLES} controles en echec")

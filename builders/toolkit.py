@@ -555,9 +555,51 @@ devinee.
 """
 
 
+# ------------------------------------------------------------- AGENTS.md --
+#
+# Un seul texte de reference pour tous les agents.
+#
+# AGENTS.md est la convention que lisent Cursor, Codex, Aider et les autres.
+# Claude Code, lui, charge une skill. Plutot que d'entretenir deux copies -
+# et de les laisser diverger comme le registre de sources l'avait fait - la
+# skill est GENEREE depuis AGENTS.md, frontmatter en tete.
+
+SKILL_FRONTMATTER = """---
+name: tenderpilot
+description: Travailler sur TenderPilot - ajouter une source de marches publics (pays ou organisme), corriger un bug de collecte, ou auditer le registre (types, secteurs, coherence entre les quatre copies). A charger avant toute modification de data/sources.csv, des analyseurs (html.ts, json.ts, Html.gs, Json.gs), du schema ou des guides. Contient les invariants du projet et les pieges qui ont deja coute du temps.
+---
+
+<!-- FICHIER GENERE depuis AGENTS.md par builders/toolkit.py.
+     Modifiez AGENTS.md, puis relancez `python build.py`. -->
+
+"""
+
+
+def generer_skill():
+    """Ecrit la skill Claude a partir d'AGENTS.md."""
+    source = ROOT / "AGENTS.md"
+    if not source.exists():
+        return None
+    texte = source.read_text(encoding="utf-8")
+    # Le commentaire d'en-tete d'AGENTS.md parle de la skill : inutile de le
+    # repeter dans la skill elle-meme.
+    if texte.startswith("<!--"):
+        texte = texte[texte.index("-->") + 3:].lstrip()
+
+    cible = ROOT / ".claude" / "skills" / "tenderpilot" / "SKILL.md"
+    cible.parent.mkdir(parents=True, exist_ok=True)
+    cible.write_text(SKILL_FRONTMATTER + texte, encoding="utf-8",
+                      newline=chr(10))
+    return cible
+
+
 # ------------------------------------------------------------------ build --
 def build():
     date = dt.date.today().isoformat()
+
+    # La skill Claude suit AGENTS.md : une seule reference pour tous les
+    # agents, humains ou non.
+    generer_skill()
 
     SCHEMA_GS.write_text(render_schema_gs(), encoding="utf-8")
 

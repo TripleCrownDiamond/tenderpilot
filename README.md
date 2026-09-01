@@ -148,6 +148,12 @@ rm -rf _ARCHIVE_v1
 
 ## Documentation
 
+**[AGENTS.md](AGENTS.md)** est la reference de travail : comment ajouter une
+source, corriger un bug de collecte, auditer le registre, et les decisions a
+ne pas defaire. Tout agent - Claude, Cursor, Codex, Aider - lit ce fichier.
+La skill Claude `.claude/skills/tenderpilot/` en est generee, et un test
+refuse toute divergence.
+
 `SOURCES.md` detaille le registre : ce qui est collecte, ce qui ne l'est pas
 et pourquoi.
 
