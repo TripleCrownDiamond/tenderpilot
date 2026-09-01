@@ -51,7 +51,9 @@ const AUJOURDHUI = jourRelatif(0);
 function monde(options) {
   const opt = options || {};
   const feuille = {
-    opps: [],
+    // Opportunites deja presentes avant la collecte : indispensable pour
+    // tester ce qui expire APRES etre entre en base.
+    opps: (opt.opps || []).map((o, i) => Object.assign({ _row: i + 2 }, o)),
     logs: [],
     sources: opt.sources || [],
     config: Object.assign({
@@ -293,24 +295,77 @@ console.log('\n[Test 5] Deadline demain : J-1 envoye une seule fois');
 }
 
 // ==========================================================================
-console.log('\n[Test 6] Deadline expiree : statut EXPIRE et ligne grisee');
+console.log('\n[Test 6a] Une annonce deja echue n entre pas');
 {
-  const url = 'https://example.org/flux-6';
-  const xml = fluxRss([{ titre: 'Mission passee',
-    lien: 'https://example.org/a6',
-    description: 'Date limite : ' + enFrancais(jourRelatif(-5)) }]);
+  // Les portails laissent des annees d archives en ligne. Sans ce filtre,
+  // la grande majorite des lignes collectees seraient grises des le premier
+  // passage, et l utilisateur devrait chercher les rares qui comptent.
+  const url = 'https://example.org/flux-6a';
+  const xml = fluxRss([
+    { titre: 'Mission passee', lien: 'https://example.org/a6-vieux',
+      description: 'Date limite : ' + enFrancais(jourRelatif(-5)) },
+    { titre: 'Mission ouverte', lien: 'https://example.org/a6-neuf',
+      description: 'Date limite : ' + enFrancais(jourRelatif(20)) },
+    { titre: 'Mission sans date', lien: 'https://example.org/a6-sansdate',
+      description: 'Consultez l avis officiel.' }
+  ]);
+  const m = monde({ sources: [source('SRC-001', url)], flux: { [url]: xml } });
+  m.ctx.executerTenderPilot();
+
+  const titres = m.feuille.opps.map(o => o.title).sort();
+  check('l annonce echue est ecartee',
+        !titres.includes('Mission passee'), titres.join(' | '));
+  check('l annonce ouverte est gardee', titres.includes('Mission ouverte'));
+  // Sans echeance lue, on garde : c est a l utilisateur d aller voir.
+  check('l annonce sans echeance est gardee',
+        titres.includes('Mission sans date'));
+}
+
+// ==========================================================================
+console.log('\n[Test 6b] Une opportunite suivie qui expire : EXPIRE et grise');
+{
+  // Le filtre agit a l ENTREE seulement. Ce qui est deja suivi reste suivi :
+  // effacer l historique ferait perdre la trace des dossiers deposes.
+  const url = 'https://example.org/flux-6b';
   const m = monde({
-    sources: [source('SRC-001', url)], flux: { [url]: xml },
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([]) },
+    opps: [{
+      id: 'TP-000001', title: 'Mission deja suivie',
+      url: 'https://example.org/a6b', deadline: jourRelatif(-5),
+      source: 'SRC-001', org: 'Ministere', country: 'Benin'
+    }],
     config: { SEND_NEW_OPPORTUNITY: 'false' }
   });
 
   m.ctx.executerTenderPilot();
   const ligne = m.feuille.opps[0];
+  check('la ligne est conservee', Boolean(ligne),
+        m.feuille.opps.length + ' lignes');
   check('le statut est EXPIRE', ligne.status === 'EXPIRE', ligne.status);
   check('la couleur est le gris du schema',
         ligne._couleur === m.ctx.SCHEMA.COULEURS.EXPIRE, ligne._couleur);
   check('aucun rappel J-7, J-3 ou J-1 sur une deadline passee',
         m.boite.length === 0, m.boite.length + ' emails');
+}
+
+// ==========================================================================
+console.log('\n[Test 6c] COLLECT_EXPIRED ramene les archives si on le demande');
+{
+  const url = 'https://example.org/flux-6c';
+  const xml = fluxRss([{ titre: 'Mission passee',
+    lien: 'https://example.org/a6c',
+    description: 'Date limite : ' + enFrancais(jourRelatif(-5)) }]);
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: xml },
+    config: { COLLECT_EXPIRED: 'true', SEND_NEW_OPPORTUNITY: 'false' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('l annonce echue entre quand on l autorise',
+        m.feuille.opps.length === 1, m.feuille.opps.length + ' lignes');
+  check('et elle est bien marquee EXPIRE',
+        m.feuille.opps[0] && m.feuille.opps[0].status === 'EXPIRE');
 }
 
 // ==========================================================================

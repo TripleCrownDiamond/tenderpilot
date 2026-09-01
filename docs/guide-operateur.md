@@ -149,7 +149,22 @@ jour vous obligerait a reinstaller chez tout le monde.
 > doivent recoller le fichier concerne. Prevenez-les, et envoyez le fichier
 > seul plutot que l'archive entiere.
 
-## 6. Quand une source tombe en panne
+## 6. Les archives ne remontent pas
+
+Une annonce dont la date limite est deja passee n'entre pas dans le
+classeur. Ce n'est pas un detail : sur les sources beninoises, **environ
+85 % des annonces publiees sont echues** - les portails gardent des annees
+d'historique en ligne. Sans ce filtre, un client verrait 190 lignes dont 161
+grises des le premier passage.
+
+Le filtre agit a l'entree seulement. Une opportunite deja suivie qui arrive
+a echeance reste dans le tableau, en gris : le client garde la trace de ce a
+quoi il a repondu.
+
+Un client peut vouloir l'historique - pour etudier qui remporte quoi, par
+exemple. Onglet CONFIG, `COLLECT_EXPIRED` a `true`. Prevenez-le du volume.
+
+## 7. Quand une source tombe en panne
 
 Onze sources sont lues directement sur des pages web. Le jour ou un site est
 refait, elles se taisent.
@@ -164,7 +179,7 @@ C'est du travail recurrent. **C'est ce qui justifie de vendre un abonnement
 de maintenance plutot qu'une licence unique.** Dites-le a l'achat : le
 client comprend qu'il paie une surveillance vivante, pas un fichier mort.
 
-## 7. Ce qu'il vous reste a preparer
+## 8. Ce qu'il vous reste a preparer
 
 Ces points ne sont pas techniques, mais rien ne se vend sans eux.
 

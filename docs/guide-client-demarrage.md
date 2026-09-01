@@ -95,6 +95,14 @@ Onglet **OPPORTUNITIES**, une ligne par opportunite.
 
 Les colonnes qui comptent : **Deadline** et **Jours_Restants**.
 
+**Les annonces deja echues n'entrent pas.** Les portails laissent des annees
+d'archives en ligne : sans ce filtre, votre tableau serait rempli de lignes
+grises ou il faudrait chercher les quelques dizaines auxquelles vous pouvez
+encore repondre.
+
+En revanche, une opportunite deja suivie qui arrive a echeance **reste** dans
+le tableau, en gris : vous gardez la trace de ce a quoi vous avez repondu.
+
 Quand `Deadline` est vide, c'est que la source n'a pas publie de date.
 **Nous n'en inventons jamais** - une date devinee vous ferait manquer un
 depot. Ouvrez l'avis officiel avec le lien de la ligne.

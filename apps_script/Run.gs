@@ -69,12 +69,12 @@ function collectSource(source, config) {
 
   // Collecte par API ou par extraction HTML, pour les sites sans flux.
   if (analyseur) {
-    return analyseur(corps, source).slice(0, maximum);
+    return retirerExpirees_(analyseur(corps, source), config)
+      .slice(0, maximum);
   }
 
   // Collecte RSS, le cas general.
-  return parseFeedXml(corps)
-    .slice(0, maximum)
+  var lues = parseFeedXml(corps)
     .map(function (item) {
       return normalizeOpportunity({
         title: item.title,
@@ -85,6 +85,31 @@ function collectSource(source, config) {
       }, source);
     })
     .filter(function (o) { return o.title; });
+
+  return retirerExpirees_(lues, config).slice(0, maximum);
+}
+
+/**
+ * Ecarte les annonces dont l'echeance est deja passee.
+ *
+ * Les portails laissent des annees d'archives en ligne : sur les sources
+ * beninoises, la grande majorite des annonces publiees ont une echeance
+ * depassee. Les collecter donnerait un tableau de centaines de lignes
+ * grises ou il faudrait chercher celles auxquelles on peut encore repondre.
+ *
+ * Le filtre ne s'applique qu'a l'ENTREE. Une opportunite deja suivie qui
+ * arrive a echeance reste dans la feuille et passe simplement en EXPIRE :
+ * effacer l'historique ferait perdre la trace des dossiers deposes.
+ */
+function retirerExpirees_(annonces, config) {
+  if (estVrai(config.COLLECT_EXPIRED)) return annonces;
+
+  var jour = aujourdhui_();
+  return annonces.filter(function (o) {
+    var reste = joursRestants(o.deadline, jour);
+    // Sans echeance lue, on garde : c'est a l'utilisateur d'aller voir.
+    return reste === null || reste >= 0;
+  });
 }
 
 /**

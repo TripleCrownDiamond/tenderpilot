@@ -243,6 +243,10 @@ CONFIG = [
      "Fuseau utilise pour calculer les jours restants."),
     ("MAX_ITEMS_PER_SOURCE", "40",
      "Nombre maximum d'annonces lues par source et par execution."),
+    ("COLLECT_EXPIRED", "false",
+     "Collecter aussi les annonces dont la date limite est deja passee. "
+     "Laisse a false : les portails gardent des annees d'archives en ligne, "
+     "et elles noieraient les opportunites auxquelles vous pouvez repondre."),
     ("SEND_TELEGRAM", "false",
      "Envoyer aussi les alertes sur Telegram, en plus des emails."),
     ("TELEGRAM_TOKEN", "",

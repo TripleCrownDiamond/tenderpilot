@@ -24,8 +24,9 @@ import {
 import { analyserWorldBank, analyseurJson } from "../src/lib/domain/json";
 import { extraireDeadline, lireDateFlux } from "../src/lib/domain/rss";
 import {
-  alertes, compterAlertes, type Opportunite,
+  alertes, compterAlertes, CONFIG_DEFAUT, type Opportunite,
 } from "../src/lib/domain/regles";
+import { collecterSource } from "../src/lib/run";
 import { messageTelegram, messageTelegramDigest } from "../src/lib/run";
 import { envoyeurTelegram } from "../src/lib/telegram";
 
@@ -470,6 +471,72 @@ test("une erreur Telegram remonte sa cause, jamais le jeton", async () => {
       assert.ok(!e.message.includes("JETON-SECRET"), e.message);
       return true;
     });
+});
+
+// --------------------------------------- les annonces echues n'entrent pas --
+
+/** Depot et envoyeur reduits a ce que collecterSource n'utilise pas. */
+const SOURCE = {
+  id: "S1", code: "S1", nom: "Test", methode: "RSS",
+  url: "https://exemple.test/flux.xml", active: true,
+} as const;
+
+function fluxAvec(entrees: { titre: string; limite: string }[]): string {
+  return '<?xml version="1.0"?><rss version="2.0"><channel>'
+    + entrees.map((e) => "<item><title>" + e.titre + "</title>"
+        + "<link>https://exemple.test/" + e.titre + "</link>"
+        + "<description>Date limite : " + e.limite + "</description></item>")
+      .join("")
+    + "</channel></rss>";
+}
+
+function dansNJours(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return [String(d.getDate()).padStart(2, "0"),
+          String(d.getMonth() + 1).padStart(2, "0"),
+          d.getFullYear()].join("/");
+}
+
+test("une annonce dont l'echeance est passee n'est pas collectee", async () => {
+  // Les portails laissent des annees d'archives en ligne : sans ce filtre,
+  // la grande majorite des lignes seraient grises des le premier passage.
+  const flux = fluxAvec([
+    { titre: "Passee", limite: dansNJours(-5) },
+    { titre: "Ouverte", limite: dansNJours(20) },
+  ]);
+  const annonces = await collecterSource(
+    SOURCE as never, CONFIG_DEFAUT,
+    async () => ({ code: 200, texte: flux }));
+
+  const titres = annonces.map((a) => a.titre);
+  assert.ok(!titres.includes("Passee"), titres.join(" | "));
+  assert.ok(titres.includes("Ouverte"));
+});
+
+test("une annonce sans echeance lue est gardee", async () => {
+  // On ne devine jamais une date : c'est a l'utilisateur d'aller voir.
+  const flux = '<?xml version="1.0"?><rss version="2.0"><channel>'
+    + "<item><title>Sans date</title>"
+    + "<link>https://exemple.test/x</link>"
+    + "<description>Consultez l avis officiel.</description></item>"
+    + "</channel></rss>";
+  const annonces = await collecterSource(
+    SOURCE as never, CONFIG_DEFAUT,
+    async () => ({ code: 200, texte: flux }));
+
+  assert.equal(annonces.length, 1);
+  assert.equal(annonces[0].deadline, null);
+});
+
+test("le reglage collecterExpirees ramene les archives", async () => {
+  const flux = fluxAvec([{ titre: "Passee", limite: dansNJours(-5) }]);
+  const annonces = await collecterSource(
+    SOURCE as never, { ...CONFIG_DEFAUT, collecterExpirees: true },
+    async () => ({ code: 200, texte: flux }));
+
+  assert.equal(annonces.length, 1);
+  assert.equal(annonces[0].titre, "Passee");
 });
 
 // --------------------------------------------------- resolution des methodes --

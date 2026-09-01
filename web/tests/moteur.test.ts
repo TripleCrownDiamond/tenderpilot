@@ -54,8 +54,10 @@ function monde(options: {
   sources?: SourceCollecte[];
   flux?: Record<string, string | number>;
   config?: Partial<Config>;
+  /** Opportunites deja en base : pour tester ce qui expire APRES etre entre. */
+  opportunites?: OpportuniteStockee[];
 } = {}): Monde {
-  const opportunites: OpportuniteStockee[] = [];
+  const opportunites: OpportuniteStockee[] = [...(options.opportunites ?? [])];
   const journal: Monde["journal"] = [];
   const boite: Monde["boite"] = [];
   const sources = options.sources ?? [];
@@ -194,18 +196,45 @@ test("rappels : un seul email malgre trois paliers atteints", async () => {
   assert.equal(m.boite.length, 1, "la relance ne renvoie rien");
 });
 
-test("deadline expiree : statut EXPIRE et aucun rappel", async () => {
+test("une annonce deja echue n'est pas collectee", async () => {
+  // Les portails laissent des annees d'archives en ligne : sans ce filtre,
+  // la grande majorite des lignes seraient grises des le premier passage.
   const url = "https://example.org/f4";
   const m = monde({
     sources: [source("s1", url)],
-    flux: { [url]: fluxRss([{ titre: "Mission passee",
-      lien: "https://example.org/a4",
-      texte: `Date limite : ${enFrancais(jourRelatif(-5))}` }]) },
+    flux: { [url]: fluxRss([
+      { titre: "Mission passee", lien: "https://example.org/a4-vieux",
+        texte: `Date limite : ${enFrancais(jourRelatif(-5))}` },
+      { titre: "Mission ouverte", lien: "https://example.org/a4-neuf",
+        texte: `Date limite : ${enFrancais(jourRelatif(20))}` },
+    ]) },
     config: { envoiNouvelle: false },
   });
 
   await executer(m.depot, m.envoyeur, m.recuperer);
 
+  const titres = m.opportunites.map((o) => o.titre);
+  assert.deepEqual(titres, ["Mission ouverte"]);
+});
+
+test("une opportunite suivie qui expire passe en EXPIRE, sans rappel", async () => {
+  // Le filtre agit a l'ENTREE seulement. Ce qui est deja suivi reste suivi :
+  // effacer l'historique ferait perdre la trace des dossiers deposes.
+  const url = "https://example.org/f4b";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([]) },
+    config: { envoiNouvelle: false },
+    opportunites: [{
+      id: "1", reference: "TP-000001", titre: "Mission deja suivie",
+      lien: "https://example.org/a4b", deadline: jourRelatif(-5),
+      source: "s1",
+    } as OpportuniteStockee],
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+
+  assert.equal(m.opportunites.length, 1);
   assert.equal(m.opportunites[0].statutDelai, "EXPIRE");
   assert.equal(m.boite.length, 0);
 });

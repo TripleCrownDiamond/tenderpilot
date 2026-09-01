@@ -122,7 +122,17 @@ export async function collecterSource(
   // API, RSS ou extraction HTML : les trois produisent des EntreeFlux.
   const entrees = analyseur ? analyseur(texte) : analyserFlux(texte);
 
-  return entrees
+  // Une annonce deja echue n'a plus rien a offrir : on ne la fait pas
+  // entrer. Le filtre est ici, a l'entree, et nulle part ailleurs - ce qui
+  // est deja suivi reste suivi, et passe en EXPIRE le moment venu.
+  const jour = aujourdhui(config.fuseau);
+  const retenues = config.collecterExpirees ? entrees : entrees.filter((e) => {
+    const reste = joursRestants(e.deadline, jour);
+    // Sans echeance lue, on garde : c'est a l'utilisateur d'aller voir.
+    return reste === null || reste >= 0;
+  });
+
+  return retenues
     .slice(0, config.maxParSource)
     .map((entree) => ({
       titre: entree.titre,

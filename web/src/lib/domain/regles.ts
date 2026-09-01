@@ -87,6 +87,20 @@ export interface Config {
   envoiTelegram: boolean;
   telegramToken: string;
   telegramChatId: string;
+  /**
+   * Reprendre les annonces dont l'echeance est deja passee.
+   *
+   * Faux par defaut, et ce n'est pas un detail : les portails laissent des
+   * annees d'archives en ligne. Sur les sources beninoises, 85 % des
+   * annonces publiees ont une echeance depassee. Les collecter donnerait a
+   * l'utilisateur un tableau de plusieurs centaines de lignes grises ou il
+   * faudrait chercher les quelques dizaines auxquelles il peut repondre.
+   *
+   * Ce filtre ne s'applique qu'a l'ENTREE. Une opportunite deja suivie qui
+   * arrive a echeance reste dans la base et passe simplement en EXPIRE :
+   * effacer l'historique ferait perdre la trace des dossiers deposes.
+   */
+  collecterExpirees: boolean;
 }
 
 export const CONFIG_DEFAUT: Config = {
@@ -102,6 +116,7 @@ export const CONFIG_DEFAUT: Config = {
   envoiTelegram: false,
   telegramToken: "",
   telegramChatId: "",
+  collecterExpirees: false,
 };
 
 // --------------------------------------------------------------- textes --
