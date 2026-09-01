@@ -149,7 +149,24 @@ jour vous obligerait a reinstaller chez tout le monde.
 > doivent recoller le fichier concerne. Prevenez-les, et envoyez le fichier
 > seul plutot que l'archive entiere.
 
-## 6. Les archives ne remontent pas
+## 6. La zone livree, et comment en changer
+
+Le catalogue couvre 57 pays, mais **44 sources sur 90 sont livrees
+inactives** : celles qui sortent du Benin et de la CEDEAO.
+
+Sans ce reglage, le client recevrait 315 offres dont 293 hors de sa portee.
+Avec, il en recoit 160, dont les 22 beninoises intactes.
+
+Chaque source eteinte porte la raison dans sa colonne `Statut`. Le client la
+rallume en passant `Active` a `OUI`, dans l'onglet SOURCES - accessible par
+le menu **TenderPilot > Afficher / masquer l onglet SOURCES**.
+
+**Pour vendre a un client togolais, ivoirien ou senegalais**, fabriquez un
+second maitre : meme procedure, mais activez les sources de son pays et
+eteignez les autres. Un maitre par zone, un lien par zone. C'est un reglage
+du classeur, jamais du code.
+
+## 7. Les archives ne remontent pas
 
 Une annonce dont la date limite est deja passee n'entre pas dans le
 classeur. Ce n'est pas un detail : sur les sources beninoises, **environ
@@ -164,7 +181,7 @@ quoi il a repondu.
 Un client peut vouloir l'historique - pour etudier qui remporte quoi, par
 exemple. Onglet CONFIG, `COLLECT_EXPIRED` a `true`. Prevenez-le du volume.
 
-## 7. Quand une source tombe en panne
+## 8. Quand une source tombe en panne
 
 Onze sources sont lues directement sur des pages web. Le jour ou un site est
 refait, elles se taisent.
@@ -179,7 +196,7 @@ C'est du travail recurrent. **C'est ce qui justifie de vendre un abonnement
 de maintenance plutot qu'une licence unique.** Dites-le a l'achat : le
 client comprend qu'il paie une surveillance vivante, pas un fichier mort.
 
-## 8. Ce qu'il vous reste a preparer
+## 9. Ce qu'il vous reste a preparer
 
 Ces points ne sont pas techniques, mais rien ne se vend sans eux.
 

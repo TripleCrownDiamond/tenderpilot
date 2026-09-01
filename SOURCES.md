@@ -20,7 +20,7 @@ lisait.
 
 ## Etat au 2026-09-01
 
-90 sources, 57 pays, 88 actives par defaut.
+90 sources, 57 pays, **44 actives par defaut**.
 
 | Methode | Nombre |
 |---------|--------|
@@ -108,6 +108,37 @@ aujourd'hui. Les trois gisements de plans de passation - portail beninois,
 STEP, et les plans BAD - sont respectivement authentifies, rendus en
 JavaScript et publies en PDF. Aucun n'est lisible. Un etat `PLANIFIE` dans
 l'interface resterait vide : autant ne pas le promettre.
+
+## Pourquoi la moitie des sources est livree inactive
+
+Le catalogue couvre 57 pays. Une entreprise beninoise n'en prospecte que
+quinze : le Benin et la CEDEAO.
+
+Mesure du 2026-09-01, sur une collecte reelle :
+
+| | Offres en cours |
+|---|---|
+| Les 88 sources actives | **315** |
+| Reduites au Benin et a la CEDEAO | **160** |
+| dont concernant le Benin | 22 |
+
+Livrer les 88 donnerait au client 293 lignes qui ne le concernent pas pour 22
+qui le concernent. C'est le symetrique exact du probleme des annonces
+expirees : un tableau techniquement complet, pratiquement illisible.
+
+Sont donc livrees inactives :
+
+- les deux flux PNUD tous pays confondus, qui ramenaient 141 et 429 annonces
+  et ecrasaient tout le reste ;
+- les flux PNUD d'Afrique centrale, orientale, septentrionale et australe ;
+- les pays Banque mondiale hors CEDEAO.
+
+Chaque source desactivee porte la raison dans sa colonne `Statut`. Le client
+en reactive une en passant `Active` a `OUI` : rien n'est perdu, tout est a
+un clic.
+
+**Pour vendre hors du Benin**, fabriquez un second classeur maitre avec la
+zone correspondante activee. C'est un reglage du classeur, pas du code.
 
 ## Les sources beninoises et regionales
 

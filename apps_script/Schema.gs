@@ -147,9 +147,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 141 annonce(s) - volumineux, activez avec prudence"
+    "Verifie le 2026-08-30 : 141 annonce(s) - volumineux, activez avec prudence. Livree inactive : flux tres volumineux, tous pays confondus. Activez-la si vous prospectez ce marche."
   ],
   [
     "AFDB-EOI",
@@ -171,9 +171,9 @@ var SCHEMA = {
     "International",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 429 annonce(s) - volumineux, activez avec prudence"
+    "Verifie le 2026-08-30 : 429 annonce(s) - volumineux, activez avec prudence. Livree inactive : flux tres volumineux, tous pays confondus. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-BEN",
@@ -315,9 +315,9 @@ var SCHEMA = {
     "Mauritanie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-NER",
@@ -387,9 +387,9 @@ var SCHEMA = {
     "Burundi",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-CMR",
@@ -399,9 +399,9 @@ var SCHEMA = {
     "Cameroun",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-PRC",
@@ -411,9 +411,9 @@ var SCHEMA = {
     "Congo",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-GAB",
@@ -423,9 +423,9 @@ var SCHEMA = {
     "Gabon",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-EQG",
@@ -435,9 +435,9 @@ var SCHEMA = {
     "Guinee equatoriale",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ZAI",
@@ -447,9 +447,9 @@ var SCHEMA = {
     "RDC",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-CAF",
@@ -459,9 +459,9 @@ var SCHEMA = {
     "Republique centrafricaine",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-STP",
@@ -471,9 +471,9 @@ var SCHEMA = {
     "Sao Tome-et-Principe",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-CHD",
@@ -483,9 +483,9 @@ var SCHEMA = {
     "Tchad",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 8 annonce(s)"
+    "Verifie le 2026-08-30 : 8 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-COI",
@@ -495,9 +495,9 @@ var SCHEMA = {
     "Comores",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 0 annonce(s)"
+    "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-DJI",
@@ -507,9 +507,9 @@ var SCHEMA = {
     "Djibouti",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ERI",
@@ -519,9 +519,9 @@ var SCHEMA = {
     "Erythree",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 0 annonce(s)"
+    "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ETH",
@@ -531,9 +531,9 @@ var SCHEMA = {
     "Ethiopie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 8 annonce(s)"
+    "Verifie le 2026-08-30 : 8 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-KEN",
@@ -543,9 +543,9 @@ var SCHEMA = {
     "Kenya",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 0 annonce(s)"
+    "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-MAG",
@@ -555,9 +555,9 @@ var SCHEMA = {
     "Madagascar",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 14 annonce(s)"
+    "Verifie le 2026-08-30 : 14 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-MAR",
@@ -567,9 +567,9 @@ var SCHEMA = {
     "Maurice",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-UGA",
@@ -579,9 +579,9 @@ var SCHEMA = {
     "Ouganda",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-RWA",
@@ -591,9 +591,9 @@ var SCHEMA = {
     "Rwanda",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SEY",
@@ -603,9 +603,9 @@ var SCHEMA = {
     "Seychelles",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 0 annonce(s)"
+    "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SOM",
@@ -615,9 +615,9 @@ var SCHEMA = {
     "Somalie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SUD",
@@ -627,9 +627,9 @@ var SCHEMA = {
     "Soudan",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SSD",
@@ -639,9 +639,9 @@ var SCHEMA = {
     "Soudan du Sud",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 4 annonce(s)"
+    "Verifie le 2026-08-30 : 4 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-URT",
@@ -651,9 +651,9 @@ var SCHEMA = {
     "Tanzanie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ALG",
@@ -663,9 +663,9 @@ var SCHEMA = {
     "Algerie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-EGY",
@@ -675,9 +675,9 @@ var SCHEMA = {
     "Egypte",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s)"
+    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-LIB",
@@ -687,9 +687,9 @@ var SCHEMA = {
     "Libye",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 5 annonce(s)"
+    "Verifie le 2026-08-30 : 5 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-MOR",
@@ -699,9 +699,9 @@ var SCHEMA = {
     "Maroc",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-TUN",
@@ -711,9 +711,9 @@ var SCHEMA = {
     "Tunisie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 21 annonce(s)"
+    "Verifie le 2026-08-30 : 21 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SAF",
@@ -723,9 +723,9 @@ var SCHEMA = {
     "Afrique du Sud",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ANG",
@@ -735,9 +735,9 @@ var SCHEMA = {
     "Angola",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 0 annonce(s)"
+    "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-BOT",
@@ -747,9 +747,9 @@ var SCHEMA = {
     "Botswana",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-SWA",
@@ -759,9 +759,9 @@ var SCHEMA = {
     "Eswatini",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-LES",
@@ -771,9 +771,9 @@ var SCHEMA = {
     "Lesotho",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-MLW",
@@ -783,9 +783,9 @@ var SCHEMA = {
     "Malawi",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-MOZ",
@@ -795,9 +795,9 @@ var SCHEMA = {
     "Mozambique",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 6 annonce(s)"
+    "Verifie le 2026-08-30 : 6 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-NAM",
@@ -807,9 +807,9 @@ var SCHEMA = {
     "Namibie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 1 annonce(s)"
+    "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ZAM",
@@ -819,9 +819,9 @@ var SCHEMA = {
     "Zambie",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 3 annonce(s)"
+    "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "UNDP-ZIM",
@@ -831,9 +831,9 @@ var SCHEMA = {
     "Zimbabwe",
     "",
     "Appel d'offres",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 4 annonce(s)"
+    "Verifie le 2026-08-30 : 4 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "BJ-GOUV",
@@ -1191,9 +1191,9 @@ var SCHEMA = {
     "Mauritanie",
     "",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "WB-TCD",
@@ -1203,9 +1203,9 @@ var SCHEMA = {
     "Tchad",
     "",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ],
   [
     "WB-CMR",
@@ -1215,9 +1215,9 @@ var SCHEMA = {
     "Cameroun",
     "",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   ]
 ]
 };

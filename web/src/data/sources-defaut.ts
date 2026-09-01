@@ -7,7 +7,7 @@
  *
  * 90 sources : 61 flux RSS, 18 API JSON,
  * 11 collectes HTML, 0 manuelle(s).
- * 88 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 44 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -45,8 +45,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 141 annonce(s) - volumineux, activez avec prudence"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 141 annonce(s) - volumineux, activez avec prudence. Livree inactive : flux tres volumineux, tous pays confondus. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "AFDB-EOI",
@@ -67,8 +67,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 429 annonce(s) - volumineux, activez avec prudence"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 429 annonce(s) - volumineux, activez avec prudence. Livree inactive : flux tres volumineux, tous pays confondus. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-BEN",
@@ -199,8 +199,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Mauritanie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-NER",
@@ -265,8 +265,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Burundi",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-CMR",
@@ -276,8 +276,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Cameroun",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-PRC",
@@ -287,8 +287,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Congo",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-GAB",
@@ -298,8 +298,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Gabon",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-EQG",
@@ -309,8 +309,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Guinee equatoriale",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ZAI",
@@ -320,8 +320,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "RDC",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-CAF",
@@ -331,8 +331,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Republique centrafricaine",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-STP",
@@ -342,8 +342,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Sao Tome-et-Principe",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-CHD",
@@ -353,8 +353,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Tchad",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 8 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 8 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-COI",
@@ -364,8 +364,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Comores",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 0 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-DJI",
@@ -375,8 +375,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Djibouti",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ERI",
@@ -386,8 +386,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Erythree",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 0 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ETH",
@@ -397,8 +397,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Ethiopie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 8 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 8 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-KEN",
@@ -408,8 +408,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Kenya",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 0 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-MAG",
@@ -419,8 +419,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Madagascar",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 14 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 14 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-MAR",
@@ -430,8 +430,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Maurice",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-UGA",
@@ -441,8 +441,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Ouganda",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-RWA",
@@ -452,8 +452,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Rwanda",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SEY",
@@ -463,8 +463,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Seychelles",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 0 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SOM",
@@ -474,8 +474,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Somalie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SUD",
@@ -485,8 +485,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Soudan",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SSD",
@@ -496,8 +496,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Soudan du Sud",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 4 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 4 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-URT",
@@ -507,8 +507,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Tanzanie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ALG",
@@ -518,8 +518,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Algerie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-EGY",
@@ -529,8 +529,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Egypte",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-LIB",
@@ -540,8 +540,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Libye",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 5 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 5 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-MOR",
@@ -551,8 +551,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Maroc",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-TUN",
@@ -562,8 +562,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Tunisie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 21 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 21 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SAF",
@@ -573,8 +573,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique du Sud",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ANG",
@@ -584,8 +584,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Angola",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 0 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 0 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-BOT",
@@ -595,8 +595,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Botswana",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-SWA",
@@ -606,8 +606,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Eswatini",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-LES",
@@ -617,8 +617,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Lesotho",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-MLW",
@@ -628,8 +628,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Malawi",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-MOZ",
@@ -639,8 +639,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Mozambique",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 6 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 6 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-NAM",
@@ -650,8 +650,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Namibie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 1 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 1 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ZAM",
@@ -661,8 +661,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Zambie",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 3 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 3 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "UNDP-ZIM",
@@ -672,8 +672,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Zimbabwe",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 4 annonce(s)"
+    "active": false,
+    "statut": "Verifie le 2026-08-30 : 4 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "BJ-GOUV",
@@ -1002,8 +1002,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Mauritanie",
     "secteurDefaut": null,
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "active": false,
+    "statut": "Verifie le 2026-09-01 : 1 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "WB-TCD",
@@ -1013,8 +1013,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Tchad",
     "secteurDefaut": null,
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "active": false,
+    "statut": "Verifie le 2026-09-01 : 7 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   },
   {
     "code": "WB-CMR",
@@ -1024,7 +1024,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Cameroun",
     "secteurDefaut": null,
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre."
+    "active": false,
+    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
   }
 ];
