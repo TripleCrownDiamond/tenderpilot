@@ -316,6 +316,32 @@ s'ajoute a la va-vite : il faut trouver la bonne sous-page, verifier qu'elle
 est servie par le serveur, puis ecrire un analyseur dedie. Comptez une
 demi-journee par pays.
 
+### Une liste de sources produite par un modele : 0 sur 3
+
+Le 2026-09-01, un prompt volontairement construit contre l'invention -
+« verifie chaque URL, ouvre-la, donne la date du dernier avis, dis-moi si
+tu as reellement ouvert la page » - a rendu trois sources. Le modele a
+affirme pour chacune : « Page reellement interrogee et ouverte a l'instant ».
+
+Mesure :
+
+| Source annoncee | Ce qui a ete constate |
+|-----------------|------------------------|
+| UNGM `/Public/Notice` | **0 lien vers un avis**. La liste est chargee en AJAX et refuse sans session. Deux mesures independantes, a une heure d'intervalle |
+| Commission CEDEAO `/procurement/` | application JavaScript : la page sert `Initializing...` et 3 800 caracteres de menu |
+| ARCEP Benin `/marches-publics/` | 19 000 caracteres, **tous du menu**. `/marches-publics/feed/` renvoie zero item |
+
+Trois sur trois. Aucune n'etait exploitable.
+
+**La lecon n'est pas que ce modele-la se trompe.** C'est qu'une affirmation
+de verification n'est pas une verification, et qu'aucune formulation de
+prompt ne change cela. Une liste de sources produite par un modele est une
+liste de PISTES A TESTER, jamais un resultat.
+
+Le seul verdict qui compte est celui de `curl` suivi du comptage du texte
+servi hors JavaScript. Il prend trente secondes par URL. Faites-le avant
+d'ecrire une ligne de code, et avant d'annoncer quoi que ce soit.
+
 ### Un guichet ouvert n'est pas une source
 
 Certains bailleurs ne publient pas d'appels dates. Ils expliquent un
