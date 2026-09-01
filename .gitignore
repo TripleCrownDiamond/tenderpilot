@@ -25,6 +25,10 @@ __pycache__/
 # Livrable : entierement regenere par `python build.py`.
 # Le versionner ferait un diff illisible a chaque build, pour un
 # contenu qu'on peut reconstruire en dix secondes.
+#
+# dist/ARCHIVES garde une copie datee de chaque version publiee, pour
+# retrouver ce qu'un client a recu il y a six mois. Elle reste locale :
+# les versions durables se publient en releases GitHub.
 # --------------------------------------------------------------------
 dist/
 

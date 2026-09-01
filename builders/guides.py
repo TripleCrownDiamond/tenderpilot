@@ -29,7 +29,14 @@ from reportlab.platypus import (
 )
 
 RACINE = pathlib.Path(__file__).resolve().parent.parent
+# Deux jeux de guides, deux dossiers.
+#
+# Le client et l'operateur ne lisent pas les memes documents, et chaque jeu
+# se numerote a partir de 1 dans son propre dossier : un client qui recoit un
+# "guide 3" se demande ou sont les deux premiers.
 SORTIE = RACINE / "dist" / "TenderPilot" / "guides"
+SORTIE_CLIENT = SORTIE / "client"
+SORTIE_OPERATEUR = SORTIE / "operateur"
 
 # Les memes couleurs que l'application, pour que le PDF et l'ecran se
 # ressemblent : le client passe de l'un a l'autre.
@@ -391,52 +398,51 @@ def main():
         return 1
 
     conf = livraison()
-    lire = lambda nom: (RACINE / "docs" / nom).read_text(encoding="utf-8")
+
+    def lire(nom):
+        return (RACINE / "docs" / nom).read_text(encoding="utf-8")
 
     faits = []
 
-    # --- pour le client ---
-    demarrage = RACINE / "docs" / "guide-client-demarrage.md"
-    if demarrage.exists():
-        faits.append(rendre(
-            remplir(lire("guide-client-demarrage.md"), conf),
-            SORTIE / "1_Guide_Demarrage.pdf",
-            "Demarrer avec TenderPilot",
-            "Cinq minutes, depuis le lien jusqu'a la premiere collecte.",
-            VERSION))
+    # --- ce que le client recoit : un lien, et de quoi s'en servir ---
+    faits.append(rendre(
+        remplir(lire("guide-client-demarrage.md"), conf),
+        SORTIE_CLIENT / "1_Guide_Demarrage.pdf",
+        "Demarrer avec TenderPilot",
+        "Cinq minutes, depuis le lien jusqu'a la premiere collecte.",
+        VERSION))
 
     faits.append(rendre(
         catalogue_markdown(),
-        SORTIE / "2_Catalogue_des_Sources.pdf",
+        SORTIE_CLIENT / "2_Catalogue_des_Sources.pdf",
         "Catalogue des sources",
         "Ce qui est surveille pour vous, et ce que cela ne promet pas.",
         VERSION))
 
-    # La methode manuelle reste livree : elle sert de secours si le menu
-    # n'apparait pas apres la copie.
+    # --- ce que l'operateur garde : jamais livre a un client ---
     faits.append(rendre(
-        readme.read_text(encoding="utf-8"),
-        SORTIE / "3_Installation_Manuelle.pdf",
-        "Installation manuelle",
-        "Methode de secours : coller les fichiers de script un par un.",
+        remplir(lire("guide-operateur.md"), conf),
+        SORTIE_OPERATEUR / "1_Guide_Operateur.pdf",
+        "Preparer et vendre TenderPilot",
+        "Fabriquer le classeur maitre, en tirer un lien, livrer.",
         VERSION))
 
-    # --- pour l'operateur, jamais livre au client ---
-    operateur = RACINE / "docs" / "guide-operateur.md"
-    if operateur.exists():
-        faits.append(rendre(
-            remplir(lire("guide-operateur.md"), conf),
-            SORTIE / "0_Guide_Operateur.pdf",
-            "Preparer et vendre TenderPilot",
-            "Fabriquer le classeur maitre, en tirer un lien, livrer.",
-            VERSION))
+    # L'installation manuelle sert a fabriquer le maitre, et a depanner un
+    # client dont la copie a echoue. Elle ne part jamais chez lui : sans les
+    # fichiers, le produit ne peut etre ni revendu ni redistribue.
+    faits.append(rendre(
+        readme.read_text(encoding="utf-8"),
+        SORTIE_OPERATEUR / "2_Installation_Manuelle.pdf",
+        "Installation manuelle",
+        "Coller les fichiers de script un par un, pour fabriquer le maitre.",
+        VERSION))
 
     # --- l'autre produit ---
     guide_web = RACINE / "docs" / "guide-web.md"
     if guide_web.exists():
         faits.append(rendre(
             guide_web.read_text(encoding="utf-8"),
-            SORTIE / "9_Guide_Application_Web.pdf",
+            SORTIE_OPERATEUR / "3_Guide_Application_Web.pdf",
             "Guide de l'application web",
             "Mise en ligne, configuration et utilisation.",
             VERSION))

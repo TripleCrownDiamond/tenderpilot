@@ -291,20 +291,20 @@ def main():
               feuille.sheet_state == "visible", str(feuille.sheet_state))
 
 
-    # --------------------------------- les guides PDF livres au client -----
-    print("\n[6] Les guides PDF accompagnent le livrable")
+    # ------------------------------------------- les guides PDF generes ---
+    print("\n[6] Les guides PDF sont complets et lisibles")
 
     guides = OUT_DIR / "guides"
     attendus = {
-        "0_Guide_Operateur.pdf": "vous : preparer et vendre",
-        "1_Guide_Demarrage.pdf": "le client : demarrer avec le lien",
-        "2_Catalogue_des_Sources.pdf": "le catalogue de sources",
-        "3_Installation_Manuelle.pdf": "l installation de secours",
-        "9_Guide_Application_Web.pdf": "l application web",
+        "client/1_Guide_Demarrage.pdf": "le client : demarrer avec le lien",
+        "client/2_Catalogue_des_Sources.pdf": "le client : le catalogue",
+        "operateur/1_Guide_Operateur.pdf": "vous : preparer et vendre",
+        "operateur/2_Installation_Manuelle.pdf": "vous : fabriquer le maitre",
+        "operateur/3_Guide_Application_Web.pdf": "l autre produit",
     }
     for nom, quoi in attendus.items():
         fichier = guides / nom
-        check("le guide pour " + quoi + " est livre", fichier.exists(), nom)
+        check("le guide pour " + quoi + " est genere", fichier.exists(), nom)
         # Un PDF vide fait quelques centaines d octets : il aurait l air
         # present sans rien contenir.
         if fichier.exists():
@@ -312,11 +312,20 @@ def main():
                   fichier.stat().st_size > 4000,
                   str(fichier.stat().st_size) + " octets")
 
-    # Le guide d installation manuelle est rendu depuis le README : les deux
-    # doivent parler du meme nombre de fichiers de script.
+    # Chaque jeu se numerote a partir de 1 dans son dossier : un client qui
+    # recoit un "guide 3" se demande ou sont les deux premiers.
+    for dossier in ("client", "operateur"):
+        numeros = sorted(int(f.name.split("_")[0])
+                         for f in (guides / dossier).glob("*.pdf"))
+        check("les guides " + dossier + " se numerotent depuis 1",
+              numeros == list(range(1, len(numeros) + 1)), str(numeros))
+
     try:
         import pdfplumber
-        with pdfplumber.open(guides / "3_Installation_Manuelle.pdf") as pdf:
+        import re as _re
+
+        manuel = guides / "operateur" / "2_Installation_Manuelle.pdf"
+        with pdfplumber.open(manuel) as pdf:
             texte = chr(10).join((p.extract_text() or "") for p in pdf.pages)
         nb = len([f for f in SCRIPT_FILES if f.endswith(".gs")])
         check("le guide PDF annonce le bon nombre de fichiers",
@@ -330,13 +339,14 @@ def main():
         # en deux. Sans precaution, chaque morceau repart a 1 et le guide
         # affiche "1, 2, 3, 1, 1, 1" : le lecteur perd le fil au milieu
         # d une installation.
-        import re as _re
-        for chemin in sorted(guides.glob("*.pdf")):
+        motif = _re.compile("^(\d+)\s+\S")
+        for chemin in sorted(guides.rglob("*.pdf")):
             with pdfplumber.open(chemin) as pdf:
-                rendu = chr(10).join((p.extract_text() or "") for p in pdf.pages)
+                rendu = chr(10).join((p.extract_text() or "")
+                                     for p in pdf.pages)
             suites, courante = [], []
             for ligne in rendu.split(chr(10)):
-                m = _re.match(r"^(\d+)\s+@S".replace("@", chr(92)), ligne)
+                m = motif.match(ligne)
                 if m:
                     courante.append(int(m.group(1)))
                 elif courante:
@@ -357,61 +367,64 @@ def main():
     import zipfile
     from builders.toolkit import VERSION
 
-    # Deux DOSSIERS, pas deux fichiers voisins : c'est le dossier qui
-    # empeche d'envoyer la mauvaise piece jointe.
-    vente = ROOT / "dist" / "A_VENDRE" / ("TenderPilot_Sheets_v" + VERSION + ".zip")
+    vente = (ROOT / "dist" / "A_VENDRE"
+             / ("TenderPilot_Sheets_v" + VERSION + ".zip"))
     prive = (ROOT / "dist" / "PRIVE_NE_PAS_ENVOYER"
              / ("TenderPilot_OPERATEUR_v" + VERSION + ".zip"))
 
     for etiquette, archive in (("_a_vendre", vente), ("_privee", prive)):
         check("l archive" + etiquette + " existe", archive.exists(),
-              str(archive.name))
-        if not archive.exists():
-            continue
+              archive.name)
+        if archive.exists():
+            with zipfile.ZipFile(archive) as z:
+                check("l archive" + etiquette + " n est pas corrompue",
+                      z.testzip() is None)
 
-        with zipfile.ZipFile(archive) as z:
-            check("l archive" + etiquette + " n est pas corrompue",
-                  z.testzip() is None)
-            noms = z.namelist()
-
-        # Un fichier de script oublie ne provoque aucune erreur visible :
-        # une partie des sources cesse juste de repondre.
-        absents = [n for n in SCRIPT_FILES
-                   if not any(x.endswith("/script/" + n) for x in noms)]
-        check("tous les scripts sont dans l archive" + etiquette,
-              not absents, str(absents))
-
-        for attendu in ("COMMENCEZ_ICI.txt", "TenderPilot.xlsx",
-                        "1_Guide_Demarrage.pdf",
-                        "2_Catalogue_des_Sources.pdf",
-                        "3_Installation_Manuelle.pdf"):
-            check(attendu + " est dans l archive" + etiquette,
-                  any(n.endswith(attendu) for n in noms))
-
-        # Le produit web est vendu separement.
-        check("aucun guide web dans l archive" + etiquette,
-              not any("Application_Web" in n for n in noms))
-
-    # Le guide operateur explique comment fabriquer le produit : il ne doit
-    # jamais partir chez un client.
+    # Le client ne recoit AUCUN element du produit lui-meme. Sans les
+    # fichiers, le produit ne peut etre ni revendu ni redistribue.
     if vente.exists():
         with zipfile.ZipFile(vente) as z:
             noms_vente = z.namelist()
-        check("le guide operateur n est PAS dans l archive a vendre",
-              not any("0_Guide_Operateur" in n for n in noms_vente))
+        for interdit, quoi in ((".gs", "fichier de script"),
+                               (".xlsx", "classeur"),
+                               ("Installation_Manuelle", "methode manuelle"),
+                               ("Guide_Operateur", "guide operateur")):
+            check("aucun " + quoi + " dans l archive a vendre",
+                  not any(interdit in n for n in noms_vente))
+        check("l archive a vendre tient en trois fichiers",
+              len(noms_vente) == 3, str(len(noms_vente)))
+        for attendu in ("1_Guide_Demarrage.pdf", "2_Catalogue_des_Sources.pdf",
+                        "COMMENCEZ_ICI.txt"):
+            check(attendu + " est dans l archive a vendre",
+                  any(n.endswith(attendu) for n in noms_vente))
 
     if prive.exists():
         with zipfile.ZipFile(prive) as z:
             noms_prive = z.namelist()
+        absents = [n for n in SCRIPT_FILES
+                   if not any(x.endswith("/script/" + n) for x in noms_prive)]
+        check("tous les scripts sont dans l archive privee",
+              not absents, str(absents))
         check("le guide operateur est dans l archive privee",
-              any("0_Guide_Operateur" in n for n in noms_prive))
+              any("1_Guide_Operateur" in n for n in noms_prive))
+        # L operateur doit avoir sous les yeux ce que le client lit.
+        check("l archive privee contient la copie des docs client",
+              any("/docs_client/" in n for n in noms_prive))
 
-    # Les deux dossiers ne doivent jamais se melanger.
     check("un seul fichier a vendre dans A_VENDRE",
           len(list((ROOT / "dist" / "A_VENDRE").glob("*.zip"))) == 1)
     check("le dossier prive porte son avertissement",
           (ROOT / "dist" / "PRIVE_NE_PAS_ENVOYER"
            / "NE_PAS_ENVOYER_AU_CLIENT.txt").exists())
+
+    # dist/ est reconstruit a chaque build : sans copie datee, la version
+    # livree hier disparait des qu on relance.
+    archives_v = ROOT / "dist" / "ARCHIVES" / ("v" + VERSION)
+    check("la version publiee est archivee", archives_v.is_dir(),
+          str(archives_v))
+    if archives_v.is_dir():
+        check("les deux archives sont conservees",
+              len(list(archives_v.glob("*.zip"))) == 2)
 
     print(f"\n{'-' * 58}")
     if ECHECS:

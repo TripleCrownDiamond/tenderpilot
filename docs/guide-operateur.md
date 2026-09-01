@@ -94,17 +94,35 @@ Avec un DEUXIEME compte Google - pas le votre, il est deja proprietaire :
 Si les six points passent, vous pouvez vendre.
 
 > Si le menu n'apparait pas : rechargez la page une fois, Google met
-> parfois quelques secondes a charger le script. S'il manque toujours,
-> livrez la methode manuelle - l'archive contient tout ce qu'il faut.
+> parfois quelques secondes a charger le script.
+
+### Le client n'a aucun repli, et c'est voulu
+
+Il ne recoit ni les fichiers de script, ni le classeur, ni la methode
+manuelle. Il ne recoit qu'un lien et deux PDF.
+
+C'est ce qui protege le produit : sans les fichiers, on ne peut ni le
+revendre ni le redistribuer.
+
+**En contrepartie, un echec d'installation vous revient.** Le guide client
+lui dit de vous ecrire. Deux facons de vous en sortir :
+
+1. **Refaire la copie a sa place.** Vous dupliquez votre maitre, vous
+   configurez, puis vous lui transferez la propriete du fichier.
+2. **Installer manuellement pour lui**, avec le dossier `script/` de votre
+   archive operateur, sur un classeur qu'il vous partage le temps de
+   l'operation.
+
+Dans les deux cas, il ne voit jamais le code.
 
 ## 4. Ce que vous envoyez au client
 
 Apres paiement, trois choses :
 
 1. **Le lien `/copy`.**
-2. **L'archive client** (`TenderPilot_Sheets_vX_CLIENT.zip`), qui contient
-   le guide de demarrage, le catalogue des sources, et la methode manuelle
-   en secours.
+2. **L'archive client**, qui ne contient que deux PDF : le guide de
+   demarrage et le catalogue des sources. Aucun fichier de script, aucun
+   classeur.
 3. **Votre contact**, pour l'aide a l'installation.
 
 Le lien est la marchandise. **Quiconque l'a peut copier le produit.** Ne le

@@ -41,25 +41,47 @@ Ce que vous envoyez a un client est dans :
 Si vous hesitez entre deux fichiers, prenez celui de A_VENDRE.
 """
 
-# Deux archives, deux publics.
+# Deux archives, deux publics - et deux contenus qui n'ont rien en commun.
 #
-# Le client recoit un lien a dupliquer et le minimum pour demarrer. Il garde
-# la methode manuelle en secours : si le menu n'apparait pas apres la copie,
-# il doit pouvoir s'en sortir sans attendre une reponse.
+# Le CLIENT ne recoit ni les fichiers de script, ni le classeur, ni la
+# methode manuelle. Rien qu'un lien et deux PDF. C'est ce qui protege le
+# produit : sans les fichiers, on ne peut ni le revendre ni le
+# redistribuer. En contrepartie, un echec d'installation revient a
+# l'operateur - le guide client le dit clairement.
 #
-# L'operateur recoit en plus le guide de preparation et les fichiers de
-# script, dont il a besoin pour fabriquer son classeur maitre. Le guide
-# operateur ne doit JAMAIS partir chez un client : il decrit comment
-# fabriquer le produit.
+# L'OPERATEUR recoit tout : les guides de preparation, les fichiers de
+# script pour fabriquer son maitre, et une copie exacte de ce que le client
+# lit, pour savoir de quoi celui-ci parle quand il appelle.
 GUIDES_CLIENT = [
     "1_Guide_Demarrage.pdf",
     "2_Catalogue_des_Sources.pdf",
-    "3_Installation_Manuelle.pdf",
 ]
-GUIDES_OPERATEUR = ["0_Guide_Operateur.pdf"] + GUIDES_CLIENT
+GUIDES_OPERATEUR = [
+    "1_Guide_Operateur.pdf",
+    "2_Installation_Manuelle.pdf",
+    "3_Guide_Application_Web.pdf",
+]
 
-# Le premier fichier que l'acheteur voit en ouvrant l'archive. En .txt parce
-# qu'il s'ouvre partout, y compris sur un telephone, sans rien installer.
+# Les deux archives vivent dans deux DOSSIERS separes, pas cote a cote.
+#
+# Un jour de rush, on choisit une piece jointe dans une liste triee par nom :
+# le nom du dossier fait le travail que le nom du fichier ne fait pas.
+VENTE = RACINE / "dist" / "A_VENDRE"
+PRIVE = RACINE / "dist" / "PRIVE_NE_PAS_ENVOYER"
+ARCHIVES = RACINE / "dist" / "ARCHIVES"
+
+AVERTISSEMENT = """CE DOSSIER NE SORT JAMAIS D'ICI.
+
+L'archive qu'il contient inclut les fichiers de script et le guide
+operateur, qui explique comment fabriquer le produit.
+
+Ce que vous envoyez a un client est dans :
+
+    dist/A_VENDRE/
+
+Si vous hesitez entre deux fichiers, prenez celui de A_VENDRE.
+"""
+
 ACCUEIL_CLIENT = """TENDERPILOT - VOTRE VEILLE DES APPELS D'OFFRES
 Version {version}
 
@@ -78,35 +100,33 @@ EN CINQ MINUTES
 
 4. Menu TENDERPILOT > Activer l'execution automatique.
 
-C'est tout. Le detail est dans guides/1_Guide_Demarrage.pdf.
+Rien a installer, rien a copier-coller. Tout est deja dans le
+classeur que vous venez de copier.
+
+Le detail est dans 1_Guide_Demarrage.pdf.
 
 ====================================================================
 CE QUE CONTIENT CETTE ARCHIVE
 ====================================================================
 
-guides/1_Guide_Demarrage.pdf
-    Les cinq minutes ci-dessus, en detail, avec Telegram.
+1_Guide_Demarrage.pdf
+    Les quatre etapes ci-dessus, en detail, avec Telegram.
 
-guides/2_Catalogue_des_Sources.pdf
+2_Catalogue_des_Sources.pdf
     Les {nb_sources} sources surveillees, par type et par secteur.
-
-guides/3_Installation_Manuelle.pdf
-    EN CAS DE PROBLEME SEULEMENT. Si le menu TenderPilot
-    n'apparait pas apres la copie, ce guide vous fait installer
-    le classeur a la main, avec le dossier script/.
-
-script/ et TenderPilot.xlsx
-    Necessaires uniquement pour l'installation manuelle.
-    Si le lien a fonctionne, vous n'y toucherez jamais.
 
 ====================================================================
 CE QU'IL VOUS FAUT
 ====================================================================
 
 - Un compte Google (gratuit).
-- Un ordinateur. L'editeur de script n'existe pas sur telephone.
+- Un ordinateur, une seule fois, pour les deux premiers clics.
+  L'application mobile Google Sheets n'affiche pas les menus.
 - Une adresse email pour les alertes.
 - Facultatif : un bot Telegram, pour les alertes sur mobile.
+
+Ensuite, le telephone suffit : la collecte tourne chez Google et
+les alertes arrivent sur votre appareil.
 
 ====================================================================
 CE QUE TENDERPILOT NE FAIT PAS
@@ -120,7 +140,9 @@ officiel avant de candidater.
 
 ====================================================================
 
-Une question, un blocage : {contact}
+Un blocage a l'installation ? Ecrivez-moi, je m'en occupe :
+
+    {contact}
 """
 
 ACCUEIL_OPERATEUR = """TENDERPILOT - DOSSIER OPERATEUR
@@ -128,14 +150,15 @@ Version {version}
 
 CE DOSSIER N'EST PAS DESTINE A UN CLIENT.
 
-Il contient le guide qui explique comment fabriquer le produit.
-Ne l'envoyez jamais tel quel : envoyez l'archive CLIENT.
+Il contient les fichiers de script et le guide qui explique
+comment fabriquer le produit. Ne l'envoyez jamais tel quel :
+envoyez l'archive de dist/A_VENDRE.
 
 ====================================================================
 COMMENCEZ PAR
 ====================================================================
 
-    guides/0_Guide_Operateur.pdf
+    guides/1_Guide_Operateur.pdf
 
 Il vous fait fabriquer le classeur maitre, en tirer un lien de
 vente, et le tester avant la premiere vente.
@@ -144,14 +167,26 @@ vente, et le tester avant la premiere vente.
 CE QUE CONTIENT CE DOSSIER
 ====================================================================
 
-guides/0_Guide_Operateur.pdf   pour vous : preparer et vendre
-guides/1_Guide_Demarrage.pdf   ce que le client lit
-guides/2_Catalogue_des_Sources.pdf
-guides/3_Installation_Manuelle.pdf
+guides/1_Guide_Operateur.pdf        preparer, vendre, maintenir
+guides/2_Installation_Manuelle.pdf  fabriquer le maitre, depanner
+guides/3_Guide_Application_Web.pdf  l'autre produit
 
-TenderPilot.xlsx   le classeur de depart
-script/            les {nb_scripts} fichiers a coller UNE FOIS dans le maitre
-README.md          la version texte du guide d'installation
+docs_client/    copie exacte de ce que le client recoit
+script/         les {nb_scripts} fichiers a coller UNE FOIS dans le maitre
+TenderPilot.xlsx
+README.md       la version texte de l'installation manuelle
+
+====================================================================
+LE CLIENT N'A AUCUN REPLI
+====================================================================
+
+Il ne recoit ni script, ni classeur, ni methode manuelle. Si sa
+copie echoue, il vous ecrit. Vous avez alors deux options :
+
+  - refaire la copie a sa place, puis lui transferer la propriete ;
+  - installer manuellement, avec le dossier script/ ci-dessus.
+
+Dans les deux cas, il ne voit jamais le code.
 
 ====================================================================
 AVANT DE VENDRE
@@ -166,7 +201,7 @@ AVANT DE VENDRE
 3. Testez le lien avec un DEUXIEME compte Google.
 
 4. Renseignez le lien dans data/livraison.json et relancez
-   python build.py : les guides et l'archive client le reprennent.
+   python build.py.
 
 Lien actuellement configure :
    {lien}
@@ -198,27 +233,44 @@ def livraison():
     return conf
 
 
-def construire_une(nom, accueil, guides, dossier):
-    """Ecrit une archive et renvoie son chemin.
+def construire_client(nom):
+    """L'archive du client : un lien, deux PDF, rien d'autre.
 
-    Les deux archives partagent le classeur, les scripts et le README :
-    l'operateur en a besoin pour fabriquer son maitre, le client pour
-    l'installation manuelle de secours.
+    Volontairement plate, sans sous-dossier : trois fichiers se lisent d'un
+    coup d'oeil, une arborescence donne l'impression d'un logiciel a
+    installer - exactement ce qu'on veut eviter de suggerer.
     """
     from builders.toolkit import VERSION
 
     conf = livraison()
-    scripts = fichiers_script()
-    dossier.mkdir(parents=True, exist_ok=True)
-    archive = dossier / (nom + ".zip")
+    VENTE.mkdir(parents=True, exist_ok=True)
+    archive = VENTE / (nom + ".zip")
 
-    # ZIP_DEFLATED : une archive de cette taille passe en piece jointe
-    # partout, y compris sur une connexion mobile.
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr(nom + "/COMMENCEZ_ICI.txt", accueil.format(
+        z.writestr(nom + "/COMMENCEZ_ICI.txt", ACCUEIL_CLIENT.format(
+            version=VERSION,
+            nb_sources=nombre_de_sources(),
+            lien=conf["lien_copie"],
+            contact=conf["contact"]))
+        for guide in GUIDES_CLIENT:
+            z.write(LIVRABLE / "guides" / "client" / guide, nom + "/" + guide)
+
+    return archive
+
+
+def construire_operateur(nom):
+    """L'archive de l'operateur : tout, y compris ce que lit le client."""
+    from builders.toolkit import VERSION
+
+    conf = livraison()
+    scripts = fichiers_script()
+    PRIVE.mkdir(parents=True, exist_ok=True)
+    archive = PRIVE / (nom + ".zip")
+
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr(nom + "/COMMENCEZ_ICI.txt", ACCUEIL_OPERATEUR.format(
             version=VERSION,
             nb_scripts=len([f for f in scripts if f.endswith(".gs")]),
-            nb_sources=nombre_de_sources(),
             lien=conf["lien_copie"],
             contact=conf["contact"]))
 
@@ -227,10 +279,34 @@ def construire_une(nom, accueil, guides, dossier):
 
         for fichier in scripts:
             z.write(LIVRABLE / fichier, nom + "/script/" + fichier)
-        for guide in guides:
-            z.write(LIVRABLE / "guides" / guide, nom + "/guides/" + guide)
+        for guide in GUIDES_OPERATEUR:
+            z.write(LIVRABLE / "guides" / "operateur" / guide,
+                    nom + "/guides/" + guide)
+        # Ce que le client lit, mot pour mot : utile quand il appelle.
+        for guide in GUIDES_CLIENT:
+            z.write(LIVRABLE / "guides" / "client" / guide,
+                    nom + "/docs_client/" + guide)
 
     return archive
+
+
+def archiver(archives):
+    """Conserve une copie datee de chaque version publiee.
+
+    dist/ est reconstruit a chaque build : sans cette copie, la version
+    livree hier disparait des qu'on relance. Or un client qui appelle dans
+    six mois se refere a ce qu'il a recu, pas a la version courante.
+    """
+    from builders.toolkit import VERSION
+
+    dossier = ARCHIVES / ("v" + VERSION)
+    dossier.mkdir(parents=True, exist_ok=True)
+    gardees = []
+    for source in archives:
+        cible = dossier / source.name
+        cible.write_bytes(source.read_bytes())
+        gardees.append(cible)
+    return gardees
 
 
 def construire():
@@ -240,23 +316,24 @@ def construire():
         print("Le livrable n'existe pas. Lancer d'abord : python build.py")
         return None
 
-    manquants = [g for g in GUIDES_OPERATEUR
-                 if not (LIVRABLE / "guides" / g).exists()]
-    if manquants:
-        print("Guides manquants : " + ", ".join(manquants))
-        return None
+    for jeu, dossier in ((GUIDES_CLIENT, "client"),
+                         (GUIDES_OPERATEUR, "operateur")):
+        manquants = [g for g in jeu
+                     if not (LIVRABLE / "guides" / dossier / g).exists()]
+        if manquants:
+            print("Guides manquants : " + ", ".join(manquants))
+            return None
 
     # Le client recoit un nom de produit propre, pas un nom de fichier
     # interne : "TenderPilot_Sheets_v1.0.0.zip" se presente mieux dans une
     # conversation WhatsApp que "..._CLIENT.zip".
     archives = [
-        construire_une("TenderPilot_Sheets_v" + VERSION,
-                       ACCUEIL_CLIENT, GUIDES_CLIENT, VENTE),
-        construire_une("TenderPilot_OPERATEUR_v" + VERSION,
-                       ACCUEIL_OPERATEUR, GUIDES_OPERATEUR, PRIVE),
+        construire_client("TenderPilot_Sheets_v" + VERSION),
+        construire_operateur("TenderPilot_OPERATEUR_v" + VERSION),
     ]
     (PRIVE / "NE_PAS_ENVOYER_AU_CLIENT.txt").write_text(
         AVERTISSEMENT, encoding="utf-8", newline=chr(10))
+    archiver(archives)
     return archives
 
 
@@ -268,25 +345,33 @@ def verifier(archive):
             raise RuntimeError("Archive corrompue : " + casse)
         noms = z.namelist()
 
-    scripts = [n for n in noms if "/script/" in n and n.endswith(".gs")]
-    attendus = [f for f in fichiers_script() if f.endswith(".gs")]
-    if len(scripts) != len(attendus):
-        raise RuntimeError(str(len(scripts)) + " scripts dans l'archive, "
-                           + str(len(attendus)) + " attendus")
+    a_vendre = archive.parent == VENTE
 
-    for indispensable in ("COMMENCEZ_ICI.txt", "TenderPilot.xlsx",
-                          "appsscript.json", "1_Guide_Demarrage.pdf"):
-        if not any(n.endswith(indispensable) for n in noms):
-            raise RuntimeError(indispensable + " absent de " + archive.name)
+    if not any(n.endswith("COMMENCEZ_ICI.txt") for n in noms):
+        raise RuntimeError("COMMENCEZ_ICI.txt absent de " + archive.name)
 
-    # Le guide de l'application web est un autre produit.
-    if any("Application_Web" in n for n in noms):
-        raise RuntimeError("Le guide de l'application web est dans l'archive")
-
-    # Le guide operateur explique comment fabriquer le produit : il ne doit
-    # jamais partir chez un client.
-    if archive.parent == VENTE and any("0_Guide_Operateur" in n for n in noms):
-        raise RuntimeError("Le guide operateur est dans l'archive a vendre")
+    if a_vendre:
+        # Le client ne doit recevoir AUCUN element du produit lui-meme :
+        # ni script, ni classeur, ni methode manuelle. Sans les fichiers,
+        # le produit ne peut etre ni revendu ni redistribue.
+        interdits = [n for n in noms
+                     if n.endswith((".gs", ".xlsx", ".json", ".md"))
+                     or "Installation_Manuelle" in n
+                     or "Guide_Operateur" in n]
+        if interdits:
+            raise RuntimeError("Contenu interdit dans l'archive client : "
+                               + ", ".join(sorted(interdits)[:4]))
+        for guide in GUIDES_CLIENT:
+            if not any(n.endswith(guide) for n in noms):
+                raise RuntimeError(guide + " absent de " + archive.name)
+    else:
+        attendus = [f for f in fichiers_script() if f.endswith(".gs")]
+        presents = [n for n in noms if "/script/" in n and n.endswith(".gs")]
+        if len(presents) != len(attendus):
+            raise RuntimeError(str(len(presents)) + " scripts, "
+                               + str(len(attendus)) + " attendus")
+        if not any("1_Guide_Operateur" in n for n in noms):
+            raise RuntimeError("Le guide operateur manque a son archive")
 
     return noms
 
@@ -300,6 +385,10 @@ def main():
         print("  " + str(archive.relative_to(RACINE)) + "  ("
               + str(archive.stat().st_size // 1024) + " ko, "
               + str(len(noms)) + " fichiers)")
+
+    from builders.toolkit import VERSION
+    print("  " + str((ARCHIVES / ("v" + VERSION)).relative_to(RACINE))
+          + "  (copie conservee)")
 
     if livraison()["lien_copie"].startswith("["):
         print("  ! Le lien de vente n'est pas renseigne "

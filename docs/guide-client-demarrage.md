@@ -19,6 +19,8 @@ Google vous propose **Creer une copie**. Acceptez.
 Le classeur s'ouvre : c'est le votre. Vous en etes proprietaire, personne
 d'autre n'y a acces.
 
+Rien a installer, rien a copier-coller. Tout est deja dedans.
+
 > Si Google demande de vous connecter, faites-le : le classeur doit se
 > creer dans VOTRE Drive.
 
@@ -119,8 +121,9 @@ Faites-le une fois par mois, ou quand on vous annonce une mise a jour.
 
 ## Que faire si
 
-**Le menu TenderPilot n'apparait pas.** Rechargez la page. S'il manque
-toujours, utilisez la methode manuelle : `3_Installation_Manuelle.pdf`.
+**Le menu TenderPilot n'apparait pas.** Rechargez la page une fois : Google
+met parfois quelques secondes a charger le script. S'il manque toujours,
+ecrivez-moi - je m'en occupe, vous n'avez rien a installer vous-meme.
 
 **Aucune opportunite n'arrive.** Avez-vous lance *Executer maintenant* ?
 Sinon, regardez l'onglet LOGS : il dit ce qui s'est passe.
