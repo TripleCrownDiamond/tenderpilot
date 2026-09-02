@@ -1239,9 +1239,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "Entrepreneuriat",
     "Subvention",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif. Programme d'entrepreneuriat pour jeunes Africains. Contient des stories d'entrepreneurs et des appels. Flux fiable."
+    "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Portraits d entrepreneurs, pas d appels. Le programme TEF s ouvre une fois par an et s annonce ailleurs. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "ADAPT-FUND",
@@ -1251,9 +1251,9 @@ var SCHEMA = {
     "International",
     "Environnement",
     "Subvention",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif. Subventions pour projets d'adaptation au changement climatique dans les pays en developpement."
+    "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Recits de projets et lecons apprises. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "AFRILABS-NEWS",
@@ -1263,9 +1263,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "Numerique",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif (296ko, 10 items). Actualites et partenariats du reseau AfriLabs. Contient des opportunities de collaboration."
+    "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Annonces de partenariats. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "PROPARCO-NEWS",
@@ -1275,9 +1275,9 @@ var SCHEMA = {
     "International",
     "Finance",
     "Investissement",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif (96ko, 10 items). Actualites d'investissement du Groupe AFD. Secteur prive, PME, climat."
+    "Verifie le 2026-09-02 par collecte reelle : 5 sur 10 items sont de vraies opportunites. Les 5 retenues sont des communiques contenant le mot financement, pas des appels : faux positifs. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "ACBF-NEWS",
@@ -1287,9 +1287,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "Gouvernance et institutions",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif (77ko, 10 items). Actualites sur le renforcement des capacites en Afrique."
+    "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Communiques institutionnels. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "AU-NEWS",
@@ -1299,9 +1299,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "Gouvernance et institutions",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif (64ko, 10 items). Communiques officiels de l'UA. Contient des appels et programmes."
+    "Verifie le 2026-09-02 par collecte reelle : 1 sur 10 items sont de vraies opportunites. Communiques officiels, dont certains remontent a 2019. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "UNHABITAT-NEWS",
@@ -1311,9 +1311,9 @@ var SCHEMA = {
     "International",
     "Infrastructures et BTP",
     "",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : feed RSS actif (377ko, 10 items). Actualites urbaines et developpement local. Contient des seminaires et appels."
+    "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Actualites urbaines et formulaires d inscription a des evenements. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "ADB-NEWS",
@@ -1359,9 +1359,9 @@ var SCHEMA = {
     "International",
     "Administration publique",
     "Actualites",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-09-01 : 5 articles editorial (39ko). Veille strategique sur les marches publics : UEMOA, UE, innovation, IA. Pas des appels d'offres mais analyse du marche. Articles recents (2025-2026)."
+    "Verifie le 2026-09-02 par collecte reelle : 37 sur 55 items sont de vraies opportunites. Blog editorial sur les marches publics, archives depuis 2016. Les 37 retenues parlent DE marches publics, elles n en sont pas. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   ],
   [
     "UNICEF-SUPPLY",

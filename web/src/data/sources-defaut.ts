@@ -7,7 +7,7 @@
  *
  * 104 sources : 71 flux RSS, 19 API JSON,
  * 14 collectes HTML, 0 manuelle(s).
- * 57 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 49 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -1046,8 +1046,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": "Entrepreneuriat",
     "typeDefaut": "Subvention",
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif. Programme d'entrepreneuriat pour jeunes Africains. Contient des stories d'entrepreneurs et des appels. Flux fiable."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Portraits d entrepreneurs, pas d appels. Le programme TEF s ouvre une fois par an et s annonce ailleurs. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "ADAPT-FUND",
@@ -1057,8 +1057,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": "Environnement",
     "typeDefaut": "Subvention",
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif. Subventions pour projets d'adaptation au changement climatique dans les pays en developpement."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Recits de projets et lecons apprises. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "AFRILABS-NEWS",
@@ -1068,8 +1068,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": "Numerique",
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif (296ko, 10 items). Actualites et partenariats du reseau AfriLabs. Contient des opportunities de collaboration."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Annonces de partenariats. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "PROPARCO-NEWS",
@@ -1079,8 +1079,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": "Finance",
     "typeDefaut": "Investissement",
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif (96ko, 10 items). Actualites d'investissement du Groupe AFD. Secteur prive, PME, climat."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 5 sur 10 items sont de vraies opportunites. Les 5 retenues sont des communiques contenant le mot financement, pas des appels : faux positifs. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "ACBF-NEWS",
@@ -1090,8 +1090,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": "Gouvernance et institutions",
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif (77ko, 10 items). Actualites sur le renforcement des capacites en Afrique."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Communiques institutionnels. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "AU-NEWS",
@@ -1101,8 +1101,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": "Gouvernance et institutions",
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif (64ko, 10 items). Communiques officiels de l'UA. Contient des appels et programmes."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 1 sur 10 items sont de vraies opportunites. Communiques officiels, dont certains remontent a 2019. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "UNHABITAT-NEWS",
@@ -1112,8 +1112,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": "Infrastructures et BTP",
     "typeDefaut": null,
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif (377ko, 10 items). Actualites urbaines et developpement local. Contient des seminaires et appels."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Actualites urbaines et formulaires d inscription a des evenements. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "ADB-NEWS",
@@ -1156,8 +1156,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": "Administration publique",
     "typeDefaut": "Actualites",
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : 5 articles editorial (39ko). Veille strategique sur les marches publics : UEMOA, UE, innovation, IA. Pas des appels d'offres mais analyse du marche. Articles recents (2025-2026)."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 par collecte reelle : 37 sur 55 items sont de vraies opportunites. Blog editorial sur les marches publics, archives depuis 2016. Les 37 retenues parlent DE marches publics, elles n en sont pas. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
   },
   {
     "code": "UNICEF-SUPPLY",
