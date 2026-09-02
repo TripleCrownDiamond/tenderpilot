@@ -209,6 +209,171 @@ export function couleurStatut(statut: StatutDelai | null | undefined): string {
 
 // --------------------------------------------------------- deduplication --
 
+// ------------------------------------------------------------- SECTEURS
+
+/**
+ * Ce qu on affiche quand aucune tentative n a abouti.
+ *
+ * Une cellule vide est ambigue : le client ne sait pas si l information
+ * manque a la source ou si le produit a un defaut. Une valeur explicite
+ * repond, et devient une entree de filtre utilisable - il peut aller voir
+ * ce qui n a pas ete classe.
+ *
+ * A DISTINGUER D "Autre", qui veut dire autre chose : classe, mais aucune
+ * categorie ne convient. Ici, on n a pas su.
+ *
+ * Pose en DERNIER, apres le defaut de la source, le modele et la deduction
+ * par mots-cles.
+ */
+export const SECTEUR_INCONNU = "Non precise";
+
+/**
+ * Vocabulaire des secteurs, partage par tout le produit.
+ *
+ * Vit ici, a cote de TYPES_ANNONCE : le modele et la deduction
+ * deterministe doivent puiser dans la meme liste.
+ */
+export const SECTEURS_ANNONCE = [
+  "Agriculture et agroalimentaire",
+  "Eau et assainissement",
+  "Education et formation",
+  "Energie",
+  "Environnement et climat",
+  "Entrepreneuriat et PME",
+  "Finance",
+  "Genre et inclusion",
+  "Gouvernance et institutions",
+  "Humanitaire, paix et securite",
+  "Infrastructures et BTP",
+  "Numerique et technologie",
+  "Sante",
+  "Transport et logistique",
+  "Culture et arts",
+  "Autre",
+] as const;
+
+/**
+ * Mots qui designent un secteur sans ambiguite.
+ *
+ * MESURE DU 2026-09-02 : 390 opportunites sur 449 n avaient AUCUN secteur,
+ * soit 87 %. Un client sans classement intelligent n avait donc pas de
+ * filtre secteur du tout.
+ *
+ * Les termes sont choisis pour etre SPECIFIQUES. "Projet", "programme" ou
+ * "appui" ne figurent nulle part : ils designent tout et donc rien. Mieux
+ * vaut une colonne vide qu un secteur faux - une annonce mal rangee est une
+ * annonce que le client ne trouvera pas.
+ *
+ * Francais et anglais melanges : les sources sont bilingues.
+ */
+const MOTS_SECTEUR: readonly (readonly [string, readonly string[]])[] = [
+  ["Sante", ["sante", "health", "medical", "medicaux", "hopital", "hospital",
+    "clinique", "clinical", "medicament", "pharmaceutic", "vaccin", "vaccine",
+    "nutrition", "epidemi", "maladie", "disease", "patient", "soins",
+    "medico", "chirurg", "dispensaire", "infirmerie", "maternite",
+    "centre de sante", "sanitaire"]],
+  ["Eau et assainissement", ["assainissement", "sanitation", "eau potable",
+    "drinking water", "forage", "borehole", "adduction", "hydraulique",
+    "latrine", "hygiene", "wash"]],
+  ["Energie", ["energie", "energy", "electri", "solaire", "solar",
+    "photovoltai", "reseau electrique", "grid", "renouvelable", "renewable",
+    "centrale", "power plant", "compteur", "eclairage"]],
+  ["Agriculture et agroalimentaire", ["agricole", "agriculture", "agro",
+    "elevage", "livestock", "semence", "seed", "irrigation", "peche",
+    "fisheries", "recolte", "harvest", "farmer", "agriculteur", "betail"]],
+  ["Education et formation", ["education", "scolaire", "school", "enseign",
+    "universit", "student", "etudiant", "formation professionnelle",
+    "curriculum", "pedagog", "alphabetisation", "literacy",
+    "salle de classe", "salles de classe", "ecole", "lycee", "college",
+    "apprenant", "eleve", "eleves", "classroom"]],
+  ["Numerique et technologie", ["numerique", "digital", "informatique",
+    "logiciel", "software", "internet", "cybersecur", "donnees", "data",
+    "intelligence artificielle", "artificial intelligence", "serveur",
+    "ordinateur", "computer", "telecom", "connectivite"]],
+  ["Infrastructures et BTP", ["construction", "travaux de rehabilitation",
+    "batiment", "building", "genie civil", "civil works", "voirie",
+    "amenagement", "refection", "pistes rurales", "pont", "bridge"]],
+  ["Transport et logistique", ["transport", "logistique", "logistics",
+    "vehicule", "vehicle", "fret", "freight", "portuaire", "aeroport",
+    "airport", "route nationale", "ferroviaire", "railway"]],
+  ["Environnement et climat", ["environnement", "environmental", "climat",
+    "climate", "biodiversit", "foret", "forest", "dechets", "waste",
+    "pollution", "carbone", "carbon", "adaptation", "resilience"]],
+  ["Finance", ["microfinance", "bancaire", "banking", "microcredit", "assurance",
+    "insurance", "fiscal", "budgetaire", "audit financier", "tresorerie"]],
+  ["Genre et inclusion", ["genre", "gender", "femme", "women", "handicap",
+    "disabilit", "inclusion", "egalite", "equality", "jeunes filles"]],
+  ["Humanitaire, paix et securite", ["humanitaire", "humanitarian",
+    "refugie", "refugee", "deplace", "displaced", "urgence", "emergency",
+    "paix", "peace", "securite civile", "conflit", "conflict", "deminage"]],
+  ["Gouvernance et institutions", ["gouvernance", "governance",
+    "etat de droit", "rule of law", "justice", "judiciaire", "election",
+    "parlement", "decentralisation", "societe civile", "civil society",
+    "transparence", "anticorruption", "corruption"]],
+  ["Culture et arts", ["culturel", "artistique", "artist",
+    "patrimoine", "heritage", "musee", "museum", "cinema", "audiovisuel",
+    "musique", "music", "theatre"]],
+  ["Entrepreneuriat et PME", ["entrepreneur", "startup", "start-up", "pme",
+    "sme", "incubat", "accelerat", "petites et moyennes entreprises",
+    "business plan", "artisan"]],
+];
+
+/**
+ * Deduit un secteur du titre et du resume, sans modele.
+ *
+ * TROIS PRECAUTIONS.
+ *
+ * On ne devine pas. Sans correspondance nette, la colonne reste VIDE - une
+ * annonce mal rangee est une annonce que le client ne trouvera pas.
+ *
+ * Le titre pese plus que le resume : un resume mentionne souvent le contexte
+ * du bailleur plutot que l objet du marche. On cherche donc d abord dans le
+ * titre seul, et seulement ensuite dans l ensemble.
+ *
+ * Un secteur deja renseigne - par la source ou par le modele - n est jamais
+ * ecrase.
+ */
+export function deduireSecteur(titre: unknown, _resume?: unknown): string {
+  const nettoyer = (v: unknown): string => {
+    const sansAccents = String(v ?? "").normalize("NFD").split("")
+      .filter((ch) => { const n = ch.charCodeAt(0); return n < 0x300 || n > 0x36f; })
+      .join("").toLowerCase();
+    let out = "";
+    for (const ch of sansAccents) {
+      out += (ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9") ? ch : " ";
+    }
+    return " " + out.split(" ").filter(Boolean).join(" ") + " ";
+  };
+
+  // UNE SEULE PASSE, SUR LE TITRE. La seconde passe sur le resume a ete
+  // retiree apres mesure : elle produisait l essentiel des erreurs, parce
+  // qu un resume parle du contexte du bailleur plutot que de l objet du
+  // marche. Un secteur faux est PIRE qu un secteur vide - le client ne
+  // trouvera pas l annonce.
+  const t = nettoyer(titre);
+  const jetons = new Set(t.split(" ").filter(Boolean));
+
+  // UN TERME D UN SEUL MOT DOIT CORRESPONDRE A UN MOT ENTIER.
+  //
+  // Mesure du 2026-09-02 : cherche en sous-chaine, "election" se trouvait a
+  // l interieur de "selection" et rangeait "Cabinet pour la selection de 20
+  // campements" en Gouvernance. Les expressions de plusieurs mots, elles,
+  // restent cherchees en sous-chaine : elles sont assez specifiques.
+  const correspond = (m: string): boolean => {
+    if (m.includes(" ")) return t.includes(m);
+    if (jetons.has(m)) return true;
+    // Une racine volontairement tronquee - "electri", "biodiversit" - vise
+    // les mots qui COMMENCENT par elle.
+    for (const jeton of jetons) if (jeton.startsWith(m)) return true;
+    return false;
+  };
+
+  for (const [secteur, mots] of MOTS_SECTEUR) {
+    if (mots.some(correspond)) return secteur;
+  }
+  return "";
+}
+
 // ------------------------------------------------------- TYPES D ANNONCE
 
 /**

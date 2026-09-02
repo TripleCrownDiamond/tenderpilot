@@ -217,7 +217,9 @@ complet sans elle.
 | couleurs, jours restants, alertes J-7 J-3 J-1 | idem |
 | **filtre par type** (huit valeurs propres) | idem |
 | filtre par pays | idem |
-| secteur : vide pour 87 % des annonces | **secteur par annonce** |
+| **filtre par type** : huit valeurs propres | idem |
+| secteur : deduit du titre, une annonce sur deux | **presque toutes classees** |
+| le reste affiche *Non precise* | idem |
 | les articles et FAQ entrent | **ecartes** |
 | resume : extrait brut de la source | **une phrase lisible** |
 | — | zone de candidature signalee |

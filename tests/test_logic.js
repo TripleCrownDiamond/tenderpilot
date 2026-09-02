@@ -835,6 +835,60 @@ console.log("\n[Test LLM] Robustesse, zone et preferences du client");
 }
 
 // ==========================================================================
+console.log("\n[Test classement sans modele] Types et secteurs, sans aucune cle");
+{
+  const C = require(path.join(SCRIPT, 'Core.gs'));
+
+  // --- LES TYPES ----------------------------------------------------------
+  // Meme jeu d essai que web/tests/moteur.test.ts. Une divergence entre les
+  // deux moteurs ferait voir deux tableaux differents au meme client.
+  ['Appel d\'Offre', 'APPEL D OFFRES', 'appel doffres', 'Invitation for Bids',
+   'Marche de Fournitures'].forEach(brut => {
+    check('type normalise : ' + brut,
+          C.normaliserType(brut) === 'Appel d\'offres', C.normaliserType(brut));
+  });
+  check('Request for Expression of Interest devient AMI',
+        C.normaliserType('Request for Expression of Interest') === 'AMI');
+  check('une reference n est pas un type',
+        C.normaliserType('AVIS N° 001/2026/PRMP-ABE/APM du 19 Janvier 2026') === '');
+  check('un libelle inconnu est conserve',
+        C.normaliserType('Concession de service') === 'Concession de service');
+
+  // --- LES SECTEURS -------------------------------------------------------
+  check('secteur deduit : centre de sante',
+        C.deduireSecteur("Rehabilitation du Centre de Sante d'Ayomi") === 'Sante');
+  check('secteur deduit : electrification',
+        C.deduireSecteur("Travaux d'electrification solaire a Kampti") === 'Energie');
+  check('secteur deduit : eau potable',
+        C.deduireSecteur("Systemes d'Approvisionnement en Eau Potable")
+          === 'Eau et assainissement');
+
+  // Les trois erreurs mesurees le 2026-09-02, chacune d une cause differente.
+  check('un mot manquant : medico-social est de la sante',
+        C.deduireSecteur('Construction du Centre medico-social chirurgical de GBADA')
+          === 'Sante');
+  check('un mot manquant : salles de classe est de l education',
+        C.deduireSecteur("Construction d'un module de trois salles de classe")
+          === 'Education et formation');
+  check('election ne doit pas se trouver dans selection',
+        C.deduireSecteur('Cabinet international pour la selection de 20 campements') === '');
+
+  check('sans correspondance nette, on ne devine pas',
+        C.deduireSecteur('Un titre parfaitement neutre sans aucun mot cle') === ''
+        && C.deduireSecteur('') === '' && C.deduireSecteur(null) === '');
+  check('une racine tronquee vise les mots qui commencent par elle',
+        C.deduireSecteur("Travaux d'electrification") === 'Energie'
+        && C.deduireSecteur('Biodiversity review') === 'Environnement et climat');
+
+  check('Non precise plutot qu une cellule vide',
+        C.SECTEUR_INCONNU === 'Non precise' && C.SECTEUR_INCONNU !== 'Autre');
+  check('les deux moteurs partagent le meme vocabulaire de secteurs',
+        C.SECTEURS_ANNONCE.length === 16
+        && C.SECTEURS_ANNONCE[0] === 'Agriculture et agroalimentaire'
+        && C.SECTEURS_ANNONCE[15] === 'Autre', String(C.SECTEURS_ANNONCE.length));
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

@@ -15,6 +15,9 @@ import {
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
   construireIndex,
   trouverDoublon,
+  normaliserType,
+  deduireSecteur,
+  SECTEUR_INCONNU,
 } from "../src/lib/domain/regles";
 import {
   Depot, Envoyeur, OpportuniteStockee, Recuperateur, SourceCollecte,
@@ -397,4 +400,77 @@ test("un flux normal n est jamais touche par cette reparation", () => {
   </channel></rss>`;
   const e = analyserFlux(xml);
   assert.deepEqual(e.map((x) => x.titre), ["Premier avis", "Second avis"]);
+});
+
+// ------------------------------------------------- classement sans modele
+
+test("un meme type ecrit de quatre facons devient une seule valeur", () => {
+  // Mesure du 2026-09-02 : la colonne Type portait 14 libelles pour 8
+  // notions. "Appel d offres" 90 fois et "Appel d Offre" 43 fois - deux
+  // entrees de filtre pour la meme chose.
+  for (const brut of ["Appel d'Offre", "APPEL D OFFRES", "appel doffres",
+                      "Invitation for Bids", "Marche de Fournitures"]) {
+    assert.equal(normaliserType(brut), "Appel d'offres", brut);
+  }
+  assert.equal(normaliserType("Request for Expression of Interest"), "AMI");
+  assert.equal(normaliserType("Subvention"), "Subvention");
+});
+
+test("une reference n'est pas un type", () => {
+  // L'analyseur ABE deversait ceci dans la colonne Type. La limite de
+  // longueur existante - 60 caracteres - ne suffisait pas : 45 caracteres.
+  assert.equal(normaliserType("AVIS N° 001/2026/PRMP-ABE/APM du 19 Janvier 2026"), "");
+  assert.equal(normaliserType("N° 0022 PRMP-ABE/PI_DAF_98927/APM"), "");
+});
+
+test("un libelle inconnu est conserve, pas range dans Autre", () => {
+  // Une source peut employer un terme juste que nous n'avons pas rencontre.
+  assert.equal(normaliserType("Concession de service"), "Concession de service");
+});
+
+test("le secteur se deduit du titre, sans aucune cle", () => {
+  assert.equal(deduireSecteur("Rehabilitation du Centre de Sante d'Ayomi"), "Sante");
+  assert.equal(deduireSecteur("Travaux d'electrification solaire a Kampti"), "Energie");
+  assert.equal(deduireSecteur("Systemes d'Approvisionnement en Eau Potable"),
+               "Eau et assainissement");
+  assert.equal(deduireSecteur("Acquisition d'equipements informatiques"),
+               "Numerique et technologie");
+});
+
+test("les trois erreurs mesurees le 2026-09-02 ne reviennent pas", () => {
+  // Ces trois-la etaient fausses avant correction, et chacune illustre une
+  // cause differente.
+
+  // Un mot manquant : "medico" n'etait pas dans le vocabulaire, l'annonce
+  // tombait dans Infrastructures a cause de "Construction".
+  assert.equal(deduireSecteur("Construction du Centre medico-social chirurgical de GBADA"),
+               "Sante");
+
+  // Un autre mot manquant : "salles de classe" absent.
+  assert.equal(deduireSecteur("Construction d'un module de trois salles de classe"),
+               "Education et formation");
+
+  // LE PLUS INSTRUCTIF : "election" se trouvait a l'interieur de
+  // "selection". Un terme d'un seul mot doit correspondre a un MOT ENTIER.
+  assert.equal(deduireSecteur("Cabinet international pour la selection de 20 campements"), "");
+});
+
+test("sans correspondance nette, on ne devine pas", () => {
+  // Un secteur faux est PIRE qu'un secteur absent : le client ne trouvera
+  // pas l'annonce en filtrant.
+  assert.equal(deduireSecteur("Un titre parfaitement neutre sans aucun mot cle"), "");
+  assert.equal(deduireSecteur(""), "");
+  assert.equal(deduireSecteur(null), "");
+});
+
+test("une racine tronquee vise les mots qui commencent par elle", () => {
+  assert.equal(deduireSecteur("Travaux d'electrification"), "Energie");
+  assert.equal(deduireSecteur("Biodiversity review"), "Environnement et climat");
+});
+
+test("Non precise plutot qu'une cellule vide", () => {
+  // Une cellule vide est ambigue : information manquante, ou defaut du
+  // produit ? Une valeur explicite repond, et devient filtrable.
+  assert.equal(SECTEUR_INCONNU, "Non precise");
+  assert.notEqual(SECTEUR_INCONNU, "Autre");
 });

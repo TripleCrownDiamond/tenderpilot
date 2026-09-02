@@ -66,6 +66,171 @@ function couleurStatut(statut) {
   return SCHEMA.COULEURS[statut] || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
 }
 
+// ------------------------------------------------------------- SECTEURS
+
+/**
+ * Ce qu on affiche quand aucune tentative n a abouti.
+ *
+ * Une cellule vide est ambigue : le client ne sait pas si l information
+ * manque a la source ou si le produit a un defaut. Une valeur explicite
+ * repond, et devient une entree de filtre utilisable.
+ *
+ * A DISTINGUER D "Autre" : classe, mais aucune categorie ne convient. Ici,
+ * on n a pas su.
+ */
+var SECTEUR_INCONNU = 'Non precise';
+
+var SECTEURS_ANNONCE = [
+  "Agriculture et agroalimentaire",
+  "Eau et assainissement",
+  "Education et formation",
+  "Energie",
+  "Environnement et climat",
+  "Entrepreneuriat et PME",
+  "Finance",
+  "Genre et inclusion",
+  "Gouvernance et institutions",
+  "Humanitaire, paix et securite",
+  "Infrastructures et BTP",
+  "Numerique et technologie",
+  "Sante",
+  "Transport et logistique",
+  "Culture et arts",
+  "Autre",
+];
+
+/**
+ * Mots qui designent un secteur sans ambiguite.
+ *
+ * MESURE DU 2026-09-02 : 390 opportunites sur 449 n avaient AUCUN secteur,
+ * soit 87 %. Un client sans classement intelligent n avait donc pas de
+ * filtre secteur du tout.
+ *
+ * Les termes sont choisis pour etre SPECIFIQUES. "Projet", "programme" ou
+ * "appui" ne figurent nulle part : ils designent tout et donc rien. Mieux
+ * vaut une colonne vide qu un secteur faux - une annonce mal rangee est une
+ * annonce que le client ne trouvera pas.
+ *
+ * Francais et anglais melanges : les sources sont bilingues.
+ */
+var MOTS_SECTEUR = [
+  ["Sante", ["sante", "health", "medical", "medicaux", "hopital", "hospital",
+    "clinique", "clinical", "medicament", "pharmaceutic", "vaccin", "vaccine",
+    "nutrition", "epidemi", "maladie", "disease", "patient", "soins",
+    "medico", "chirurg", "dispensaire", "infirmerie", "maternite",
+    "centre de sante", "sanitaire"]],
+  ["Eau et assainissement", ["assainissement", "sanitation", "eau potable",
+    "drinking water", "forage", "borehole", "adduction", "hydraulique",
+    "latrine", "hygiene", "wash"]],
+  ["Energie", ["energie", "energy", "electri", "solaire", "solar",
+    "photovoltai", "reseau electrique", "grid", "renouvelable", "renewable",
+    "centrale", "power plant", "compteur", "eclairage"]],
+  ["Agriculture et agroalimentaire", ["agricole", "agriculture", "agro",
+    "elevage", "livestock", "semence", "seed", "irrigation", "peche",
+    "fisheries", "recolte", "harvest", "farmer", "agriculteur", "betail"]],
+  ["Education et formation", ["education", "scolaire", "school", "enseign",
+    "universit", "student", "etudiant", "formation professionnelle",
+    "curriculum", "pedagog", "alphabetisation", "literacy",
+    "salle de classe", "salles de classe", "ecole", "lycee", "college",
+    "apprenant", "eleve", "eleves", "classroom"]],
+  ["Numerique et technologie", ["numerique", "digital", "informatique",
+    "logiciel", "software", "internet", "cybersecur", "donnees", "data",
+    "intelligence artificielle", "artificial intelligence", "serveur",
+    "ordinateur", "computer", "telecom", "connectivite"]],
+  ["Infrastructures et BTP", ["construction", "travaux de rehabilitation",
+    "batiment", "building", "genie civil", "civil works", "voirie",
+    "amenagement", "refection", "pistes rurales", "pont", "bridge"]],
+  ["Transport et logistique", ["transport", "logistique", "logistics",
+    "vehicule", "vehicle", "fret", "freight", "portuaire", "aeroport",
+    "airport", "route nationale", "ferroviaire", "railway"]],
+  ["Environnement et climat", ["environnement", "environmental", "climat",
+    "climate", "biodiversit", "foret", "forest", "dechets", "waste",
+    "pollution", "carbone", "carbon", "adaptation", "resilience"]],
+  ["Finance", ["microfinance", "bancaire", "banking", "microcredit", "assurance",
+    "insurance", "fiscal", "budgetaire", "audit financier", "tresorerie"]],
+  ["Genre et inclusion", ["genre", "gender", "femme", "women", "handicap",
+    "disabilit", "inclusion", "egalite", "equality", "jeunes filles"]],
+  ["Humanitaire, paix et securite", ["humanitaire", "humanitarian",
+    "refugie", "refugee", "deplace", "displaced", "urgence", "emergency",
+    "paix", "peace", "securite civile", "conflit", "conflict", "deminage"]],
+  ["Gouvernance et institutions", ["gouvernance", "governance",
+    "etat de droit", "rule of law", "justice", "judiciaire", "election",
+    "parlement", "decentralisation", "societe civile", "civil society",
+    "transparence", "anticorruption", "corruption"]],
+  ["Culture et arts", ["culturel", "artistique", "artist",
+    "patrimoine", "heritage", "musee", "museum", "cinema", "audiovisuel",
+    "musique", "music", "theatre"]],
+  ["Entrepreneuriat et PME", ["entrepreneur", "startup", "start-up", "pme",
+    "sme", "incubat", "accelerat", "petites et moyennes entreprises",
+    "business plan", "artisan"]],
+];
+
+/**
+ * Deduit un secteur du titre et du resume, sans modele.
+ *
+ * TROIS PRECAUTIONS.
+ *
+ * On ne devine pas. Sans correspondance nette, la colonne reste VIDE - une
+ * annonce mal rangee est une annonce que le client ne trouvera pas.
+ *
+ * Le titre pese plus que le resume : un resume mentionne souvent le contexte
+ * du bailleur plutot que l objet du marche. On cherche donc d abord dans le
+ * titre seul, et seulement ensuite dans l ensemble.
+ *
+ * Un secteur deja renseigne - par la source ou par le modele - n est jamais
+ * ecrase.
+ */
+function deduireSecteur(titre, _resume) {
+  function nettoyer(v) {
+    var sansAccents = String(v === null || v === undefined ? '' : v)
+      .normalize('NFD').split('')
+      .filter(function (ch) {
+        var n = ch.charCodeAt(0);
+        return n < 0x300 || n > 0x36f;
+      })
+      .join('').toLowerCase();
+    var out = '';
+    for (var i = 0; i < sansAccents.length; i++) {
+      var ch = sansAccents.charAt(i);
+      out += ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) ? ch : ' ';
+    }
+    return ' ' + out.split(' ').filter(function (x) { return x; }).join(' ') + ' ';
+  };
+
+  // UNE SEULE PASSE, SUR LE TITRE. La seconde passe sur le resume a ete
+  // retiree apres mesure : elle produisait l essentiel des erreurs, parce
+  // qu un resume parle du contexte du bailleur plutot que de l objet du
+  // marche. Un secteur faux est PIRE qu un secteur vide - le client ne
+  // trouvera pas l annonce.
+  const t = nettoyer(titre);
+  var jetons = {};
+  t.split(' ').filter(function (x) { return x; })
+    .forEach(function (x) { jetons[x] = true; });
+
+  // UN TERME D UN SEUL MOT DOIT CORRESPONDRE A UN MOT ENTIER.
+  //
+  // Mesure du 2026-09-02 : cherche en sous-chaine, "election" se trouvait a
+  // l interieur de "selection" et rangeait "Cabinet pour la selection de 20
+  // campements" en Gouvernance. Les expressions de plusieurs mots, elles,
+  // restent cherchees en sous-chaine : elles sont assez specifiques.
+  function correspond(m) {
+    if (m.indexOf(' ') !== -1) return t.indexOf(m) !== -1;
+    if (jetons[m]) return true;
+    // Une racine volontairement tronquee - "electri", "biodiversit" - vise
+    // les mots qui COMMENCENT par elle.
+    var cles = Object.keys(jetons);
+    for (var k = 0; k < cles.length; k++) {
+      if (cles[k].indexOf(m) === 0) return true;
+    }
+    return false;
+  }
+
+  for (var s = 0; s < MOTS_SECTEUR.length; s++) {
+    if (MOTS_SECTEUR[s][1].some(correspond)) return MOTS_SECTEUR[s][0];
+  }
+  return '';
+}
+
 // -------------------------------------------------------- TYPES D ANNONCE
 
 /**
@@ -376,8 +541,13 @@ function normalizeOpportunity(brut, source) {
     org: String(brut.org || source.name || '').trim(),
     country: String(brut.country || source.country || '').trim(),
     // Normalise sans LLM : un client sans cle doit pouvoir filtrer.
-    type: normaliserType(brut.type || source.type),
-    sector: String(brut.sector || source.sector || '').trim(),
+    // Meme raison que pour le secteur : une cellule vide est ambigue.
+    type: normaliserType(brut.type || source.type) || SECTEUR_INCONNU,
+    // Deduit du titre quand ni la source ni le modele ne le disent :
+    // 87 % des annonces n avaient aucun secteur. Sans correspondance
+    // nette, la colonne reste vide - on ne devine pas.
+    sector: String(brut.sector || source.sector || '').trim()
+      || deduireSecteur(brut.title) || SECTEUR_INCONNU,
     source: String(source.id || '').trim(),
     url: String(brut.url || '').trim(),
     pdf: String(brut.pdf || '').trim(),
@@ -401,6 +571,8 @@ if (typeof module !== 'undefined') {
     fraicheurSource_: fraicheurSource_,
     JOURS_SOURCE_SILENCIEUSE: JOURS_SOURCE_SILENCIEUSE,
     normalizeOpportunity: normalizeOpportunity,
-    normaliserType: normaliserType, TYPES_ANNONCE: TYPES_ANNONCE
+    normaliserType: normaliserType, TYPES_ANNONCE: TYPES_ANNONCE,
+    deduireSecteur: deduireSecteur, SECTEURS_ANNONCE: SECTEURS_ANNONCE,
+    SECTEUR_INCONNU: SECTEUR_INCONNU
   };
 }

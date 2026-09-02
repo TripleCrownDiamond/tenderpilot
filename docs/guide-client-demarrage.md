@@ -163,7 +163,9 @@ condition. Si vous ne faites rien, tout ce qui suit continue de marcher :
 | Les couleurs, les jours restants | oui |
 | Les alertes email et Telegram a J-7, J-3, J-1 | oui |
 | L'absence de doublons | oui |
-| Le secteur et le type | **par source**, pas par annonce |
+| **Le filtre par type** | oui, huit valeurs propres |
+| **Le filtre par secteur** | oui, deduit du titre pour une annonce sur deux |
+| Ce qui n'a pas pu etre classe | affiche **Non precise**, jamais une case vide |
 | Le resume | l'extrait brut publie par la source |
 
 Les deux lignes en gras meritent d'etre soulignees : **le tri des echeances
@@ -179,10 +181,10 @@ Si vous fournissez une cle, quatre choses changent :
 1. **Les articles n'entrent plus.** Certaines sources melangent des appels
    et des billets de blog. Le classement ecarte ce a quoi on ne peut pas
    repondre : un communique, une page de FAQ, un portrait.
-2. **Le secteur et le type deviennent justes.** Sans cle, une source donne
-   le meme secteur a toutes ses annonces - la Banque mondiale en publie
-   quarante etiquetees pareil. Avec, chaque annonce est classee pour
-   elle-meme.
+2. **Le secteur est trouve plus souvent, et plus finement.** Sans cle, il
+   est deduit du titre : environ une annonce sur deux y gagne un secteur, le
+   reste affiche *Non precise*. Avec, le modele lit aussi le corps de
+   l'annonce et classe presque tout.
 3. **Les resumes deviennent lisibles.** Un titre administratif de trois
    lignes devient une phrase.
 4. **La pertinence geographique est signalee.** Une annonce reservee a un

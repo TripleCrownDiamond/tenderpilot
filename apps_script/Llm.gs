@@ -60,14 +60,13 @@ var LLM_PAYS_DEFAUT = ['Benin'];
  * chose, et les filtres du classeur deviennent inutilisables. Toute valeur
  * hors liste est rejetee, pas rangee dans "Autre" en douce.
  */
-var LLM_SECTEURS = [
-  'Agriculture et agroalimentaire', 'Eau et assainissement',
-  'Education et formation', 'Energie', 'Environnement et climat',
-  'Entrepreneuriat et PME', 'Finance', 'Genre et inclusion',
-  'Gouvernance et institutions', 'Humanitaire, paix et securite',
-  'Infrastructures et BTP', 'Numerique et technologie', 'Sante',
-  'Transport et logistique', 'Culture et arts', 'Autre'
-];
+/**
+ * Le vocabulaire des secteurs vient de Core.gs : le modele et la deduction
+ * deterministe DOIVENT choisir dans la meme liste, comme pour les types.
+ */
+var LLM_SECTEURS = (typeof SECTEURS_ANNONCE !== 'undefined')
+  ? SECTEURS_ANNONCE
+  : require('./Core.gs').SECTEURS_ANNONCE;
 
 /**
  * Le vocabulaire des types vient de Core.gs : le modele et la normalisation

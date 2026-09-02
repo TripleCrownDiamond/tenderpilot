@@ -1,4 +1,4 @@
-import { TYPES_ANNONCE } from "./regles";
+import { TYPES_ANNONCE, SECTEURS_ANNONCE } from "./regles";
 
 /**
  * TenderPilot - intelligence optionnelle.
@@ -378,24 +378,11 @@ export function enLots<T>(elements: readonly T[], taille: number): T[][] {
  * Toute valeur hors de ces listes est rejetee, pas rangee dans "Autre" en
  * douce.
  */
-export const SECTEURS = [
-  "Agriculture et agroalimentaire",
-  "Eau et assainissement",
-  "Education et formation",
-  "Energie",
-  "Environnement et climat",
-  "Entrepreneuriat et PME",
-  "Finance",
-  "Genre et inclusion",
-  "Gouvernance et institutions",
-  "Humanitaire, paix et securite",
-  "Infrastructures et BTP",
-  "Numerique et technologie",
-  "Sante",
-  "Transport et logistique",
-  "Culture et arts",
-  "Autre",
-] as const;
+/**
+ * Le vocabulaire des secteurs vient de regles.ts : le modele et la deduction
+ * deterministe DOIVENT choisir dans la meme liste, comme pour les types.
+ */
+export const SECTEURS = SECTEURS_ANNONCE;
 
 /**
  * Le vocabulaire des types vient de regles.ts : le modele et la
