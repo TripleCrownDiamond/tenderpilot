@@ -419,6 +419,85 @@ raisonnables.
 
 ---
 
+## Le flux d'actualités d'un bailleur n'est pas un flux d'opportunités
+
+Mesuré deux fois, sur quatorze flux, les 1er et 2 septembre 2026. C'est le
+piège le plus coûteux du catalogage, parce qu'il ne ressemble pas à une
+panne : le flux répond 200, il livre dix éléments frais et datés, tous les
+voyants sont au vert. Il ne contient simplement aucune opportunité.
+
+Premier lot, huit flux désactivés :
+
+| Flux | Vraies opportunités |
+|---|---|
+| Tony Elumelu, ACBF, Adaptation Fund, AfriLabs, ONU-Habitat | 0 sur 10 chacun |
+| Union africaine | 1 sur 10 |
+| Proparco | 5 sur 10, mais des communiqués contenant le mot « financement » |
+| J360 | 37 sur 55 « retenues », alors que c'est un blog **sur** les marchés publics |
+
+Second lot, six pistes explorées puis écartées :
+
+| Flux | Vraies opportunités | Contenu réel |
+|------|---------------------|--------------|
+| GEF | 0 sur 6 | des **fiches de personnel** — noms et titres d'employés |
+| Oxfam | 0 sur 6 | communiqués de presse |
+| ACTED | 0 sur 6 | récits de projets |
+| IFDD | 1 sur 6 | un appel noyé dans des comptes rendus |
+| SGCI | 1 sur 6 | un rappel d'échéance |
+| Grand Challenges Canada | 2 sur 6 | annonces de lancement |
+
+**La règle.** Une source est bonne quand son URL est *consacrée aux appels*.
+Elle est mauvaise quand c'est le fil d'actualité général de l'organisme —
+même quand l'organisme finance réellement, et même quand le flux est frais.
+Les bailleurs publient leurs appels sur une page dédiée ; leur RSS sert la
+communication.
+
+Ce qui marche partage ce trait, sans exception mesurée : Terra Viva Grants
+(7 opportunités sur 8), catalogue de financements ; SBEE, SONEB, DNCMP,
+Enabel, pages de marchés ; l'API de la Banque mondiale ; Wellcome et Grand
+Challenges, pages de programmes.
+
+**Le corollaire, qui fait gagner du temps.** Avant de tester un flux, regarder
+son URL. `/feed/`, `/rss.xml`, `/news/` à la racine d'un organisme : très
+probablement de la communication. `/appels-doffres/`, `/tenders/`,
+`/funding-opportunities/`, `/grant-opportunities/` : là il y a une chance.
+
+**Le second corollaire.** Un filtre par mots-clés ne rattrape pas ce défaut.
+Mesuré : il gardait 37 des 55 articles de J360, parce qu'un article *sur* les
+marchés publics emploie le vocabulaire des marchés publics. Il rejetait en
+revanche UNDP-BFA-00733, un vrai marché de travaux, faute d'échéance lisible.
+Le tri par vocabulaire retient le sujet traité, jamais la nature de l'annonce.
+
+### Pistes fermées, et pourquoi
+
+Inutile de les retester sans élément nouveau.
+
+| Piste | Constat du 2026-09-02 |
+|-------|------------------------|
+| ONU Femmes, page marchés | 19 000 caractères, **tout est menu** ; les dates repérées sont un calendrier de sélection |
+| CRDI, page financements | chargement JavaScript, rien en HTML |
+| Grand Challenges Canada, page appels | idem |
+| AUF, GlobalGiving | HTTP 403 |
+| OIF, Expertise France, IDRC, Fondation de France, ONU Femmes RSS, WFP, OPEC, IsDB, Norec | HTTP 404 sur toutes les adresses de flux essayées |
+
+### Une piste ouverte, qui vaut le déplacement
+
+**Le portail européen Funding & Tenders.** Son API de recherche répond
+publiquement, sans authentification :
+
+    POST https://api.tech.ec.europa.eu/search-api/prod/rest/search?apiKey=SEDIA
+
+Un appel générique renvoie 4,17 millions de résultats — tout le portail,
+événements et documents compris. Le jeu de données de référence complet
+(`.../opportunities/data/referenceData/grantsTenders.json`) fait **129 Mo**,
+au-delà de la limite de 50 Mo d'Apps Script.
+
+Filtrer sur les appels ouverts demande la bonne forme de requête, et une
+tentative sur `type` + `status` a rendu HTTP 500. Le format exact est à
+relever sur le trafic du portail lui-même. Le Bénin étant éligible à de
+nombreux programmes européens, c'est la piste la plus prometteuse restante —
+compter une demi-journée, pas un essai.
+
 ## Conventions d'écriture
 
 - Commentaires et identifiants en **français sans accents**, dans le code comme
