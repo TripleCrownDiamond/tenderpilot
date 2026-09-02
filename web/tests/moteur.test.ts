@@ -13,11 +13,14 @@ import { test } from "node:test";
 
 import {
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
+  construireIndex,
+  trouverDoublon,
 } from "../src/lib/domain/regles";
 import {
   Depot, Envoyeur, OpportuniteStockee, Recuperateur, SourceCollecte,
   enregistrerOuMettreAJour, executer, referenceSuivante,
 } from "../src/lib/run";
+import { analyserFlux } from "../src/lib/domain/rss";
 
 function jourRelatif(n: number): string {
   const d = new Date();
@@ -340,4 +343,58 @@ test("references sequentielles sans trou", async () => {
   );
   assert.deepEqual(bilan.nouvelles.map((o) => o.reference),
                    ["TP-000001", "TP-000002"]);
+});
+
+// ------------------------------------------------- identite d une annonce
+
+test("deux avis d une meme page de liste ne sont pas des doublons", () => {
+  // Mesure du 2026-09-02 : la cle URL seule confondait des avis differents.
+  // La DNCMP publiait 43 marches, un seul etait enregistre. La SBEE, 7 pour
+  // 1. Le lien ne suffit pas a identifier un avis.
+  const a = { titre: "Acquisition de mobiliers de bureaux",
+              lien: "https://marches-publics.sbee.bj/" } as never;
+  const b = { titre: "Acquisition de compteurs communicants",
+              lien: "https://marches-publics.sbee.bj/" } as never;
+  const index = construireIndex([{ ...(a as object), id: "1",
+                                   reference: "TP-000001" }] as never);
+  assert.equal(trouverDoublon(b, index), null,
+    "deux avis distincts sur la meme page doivent rester distincts");
+});
+
+test("le meme avis recollecte reste reconnu", () => {
+  const a = { titre: "Acquisition de mobiliers de bureaux",
+              lien: "https://marches-publics.sbee.bj/" } as never;
+  const index = construireIndex([{ ...(a as object), id: "1",
+                                   reference: "TP-000001" }] as never);
+  assert.ok(trouverDoublon(a, index), "un avis deja suivi ne doit pas se dedoubler");
+});
+
+test("un flux dont tous les titres sont identiques remonte les descriptions", () => {
+  // Le flux de la DNCMP intitule ses 43 elements "Appel d'Offre" - un
+  // libelle de categorie. L objet reel est dans la description.
+  const xml = `<rss><channel>
+    <item><title>Appel d'Offre</title>
+      <description>Acquisition d une infrastructure hyperconvergee</description>
+      <link>https://www.marches-public.bj/appels-doffres</link></item>
+    <item><title>Appel d'Offre</title>
+      <description>Renouvellement des licences MICROSOFT O365</description>
+      <link>https://www.marches-public.bj/appels-doffres</link></item>
+  </channel></rss>`;
+  const e = analyserFlux(xml);
+  assert.equal(e.length, 2);
+  assert.match(e[0].titre, /infrastructure hyperconvergee/);
+  assert.match(e[1].titre, /MICROSOFT O365/);
+  // Le libelle de categorie n est pas perdu : il devient le type.
+  assert.equal(e[0].type, "Appel d'Offre");
+});
+
+test("un flux normal n est jamais touche par cette reparation", () => {
+  const xml = `<rss><channel>
+    <item><title>Premier avis</title><description>Corps A</description>
+      <link>https://exemple.org/1</link></item>
+    <item><title>Second avis</title><description>Corps B</description>
+      <link>https://exemple.org/2</link></item>
+  </channel></rss>`;
+  const e = analyserFlux(xml);
+  assert.deepEqual(e.map((x) => x.titre), ["Premier avis", "Second avis"]);
 });

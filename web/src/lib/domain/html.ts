@@ -188,9 +188,9 @@ export function analyserArmp(html: string): EntreeFlux[] {
  * officielle, son type de marche, sa date de publication ET sa date limite
  * de depot, en clair dans la page.
  *
- * Les avis n'ont pas d'adresse propre - le portail affiche tout sur une
- * seule page et le bouton "Telecharger l'avis" pointe vers un PDF. On
- * renvoie donc vers le portail lui-meme.
+ * Chaque avis a bien une adresse propre : /demande-dossier/appel-doffre/<id>.
+ * Le contraire fut longtemps ecrit ici, et ce commentaire a coute six
+ * marches sur sept - voir lienAvisSbee_.
  */
 export function analyserSbee(html: string): EntreeFlux[] {
   if (!html) return [];
@@ -211,9 +211,21 @@ export function analyserSbee(html: string): EntreeFlux[] {
     const limite = champ("Date limite de d[e\u00e9]p[o\u00f4]t");
     const publie = champ("Date de publication");
 
+    // MESURE DU 2026-09-02 : ce lien etait code en dur sur la page de
+    // liste, identique pour les sept avis. Or clesDedup fabrique une cle a
+    // partir de l URL : les sept avis partageaient donc la meme cle, le
+    // premier s inscrivait et les six autres etaient pris pour des
+    // doublons. La source beninoise la plus complete livrait UN marche sur
+    // SEPT, sans le moindre message. Le site expose pourtant un lien par
+    // avis - /demande-dossier/appel-doffre/113, /118, /122 - et un PDF.
+    const lienAvis = nettoyerLien(
+      /href="([^"]*\/demande-dossier\/appel-doffre\/[0-9]+)"/i.exec(bloc)?.[1]
+      || /href="([^"]*\/uploads\/[^"]+)"/i.exec(bloc)?.[1]
+      || "https:\/\/marches-publics.sbee.bj\/");
+
     return {
       titre,
-      lien: "https://marches-publics.sbee.bj/",
+      lien: lienAvis,
       // "27-08-2026 07:00:00" : on ne garde que la date.
       publie: publie ? extraireDeadline("date limite " + jourSeul(publie)) : null,
       resume: [type && ("Type : " + type), reference].filter(Boolean).join(" - "),

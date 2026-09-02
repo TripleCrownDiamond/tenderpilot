@@ -68,12 +68,31 @@ function couleurStatut(statut) {
 
 /**
  * Cles de deduplication, dans l'ordre de fiabilite - section 7 :
- * 1. lien officiel, 2. reference officielle, 3. titre + organisation +
- * deadline. Une seule correspondance suffit a reconnaitre un doublon.
+ * 1. lien officiel + titre, 2. reference officielle, 3. titre + organisation
+ * + deadline. Une seule correspondance suffit a reconnaitre un doublon.
+ *
+ * MESURE DU 2026-09-02. Le lien seul faisait office d identite, et c etait
+ * faux. Beaucoup de portails pointent chaque avis vers la meme page de
+ * liste : trouverDoublon s arretant a la premiere cle qui correspond, la
+ * cle URL suffisait a confondre des avis differents.
+ *
+ * Degats constates en production, sur des sources actives :
+ *   DNCMP Benin ..... 43 avis publies, 1 seul enregistre
+ *   SBEE ............  7 avis,          1 seul
+ *   DEDRAS ..........  2 avis,          1 seul
+ *
+ * La cle URL porte donc aussi le titre. Deux avis distincts sur une meme
+ * page restent distincts ; un meme avis recollecte reste reconnu. Le
+ * compromis est assume : si une source reecrit le titre d un avis, il peut
+ * creer une seconde ligne. Une ligne en double se voit et se supprime ;
+ * quarante-deux marches jamais enregistres ne se voient pas.
  */
 function clesDedup(opp) {
   var cles = [];
-  if (!estVide(opp.url)) cles.push('url:' + normalizeText(opp.url));
+  // Voir la note ci-dessus : le lien seul confondait des avis distincts.
+  if (!estVide(opp.url)) {
+    cles.push('url:' + normalizeText(opp.url) + '|' + normalizeText(opp.title));
+  }
   if (!estVide(opp.ref)) cles.push('ref:' + normalizeText(opp.ref));
   if (!estVide(opp.title)) {
     cles.push('t:' + [normalizeText(opp.title), normalizeText(opp.org),

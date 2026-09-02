@@ -87,6 +87,14 @@ export interface Config {
   envoiTelegram: boolean;
   telegramToken: string;
   telegramChatId: string;
+
+  /**
+   * Preferences de tri du client, appliquees apres le jugement du modele.
+   *
+   * Absentes, elles valent leurs defauts prudents : la zone etiquette sans
+   * supprimer, les evenements sont ecartes. Voir domain/llm.ts.
+   */
+  preferences?: import("./llm").Preferences;
   /**
    * Reprendre les annonces dont l'echeance est deja passee.
    *
@@ -202,13 +210,32 @@ export function couleurStatut(statut: StatutDelai | null | undefined): string {
 // --------------------------------------------------------- deduplication --
 
 /**
+ * MESURE DU 2026-09-02. Le lien seul faisait office d identite, et c etait
+ * faux. Beaucoup de portails pointent chaque avis vers la meme page de
+ * liste : trouverDoublon s arretant a la premiere cle qui correspond, la
+ * cle URL suffisait a confondre des avis differents.
+ *
+ * Degats constates en production, sur des sources actives :
+ *   DNCMP Benin ..... 43 avis publies, 1 seul enregistre
+ *   SBEE ............  7 avis,          1 seul
+ *   DEDRAS ..........  2 avis,          1 seul
+ *
+ * La cle URL porte donc aussi le titre. Deux avis distincts sur une meme
+ * page restent distincts ; un meme avis recollecte reste reconnu. Le
+ * compromis est assume : si une source reecrit le titre d un avis, il peut
+ * creer une seconde ligne. Une ligne en double se voit et se supprime ;
+ * quarante-deux marches jamais enregistres ne se voient pas.
+ *
  * Cles de deduplication, par ordre de fiabilite :
  * 1. lien officiel, 2. reference officielle, 3. titre + organisation +
  * deadline. Une seule correspondance suffit a reconnaitre un doublon.
  */
 export function clesDedup(o: Opportunite): string[] {
   const cles: string[] = [];
-  if (!estVide(o.lien)) cles.push("url:" + normaliser(o.lien));
+  // Voir la note ci-dessus : le lien seul confondait des avis distincts.
+  if (!estVide(o.lien)) {
+    cles.push("url:" + normaliser(o.lien) + "|" + normaliser(o.titre));
+  }
   if (!estVide(o.reference)) cles.push("ref:" + normaliser(o.reference));
   if (!estVide(o.titre)) {
     cles.push("t:" + [normaliser(o.titre), normaliser(o.organisation),

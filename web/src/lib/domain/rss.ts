@@ -247,6 +247,41 @@ export function extraireDeadline(texte: unknown): string | null {
 }
 
 /**
+ * Repare les flux dont chaque element porte le meme titre.
+ *
+ * MESURE DU 2026-09-02 sur le flux de la DNCMP, la direction beninoise des
+ * marches publics : ses 43 elements portent tous le titre "Appel d'Offre" -
+ * un libelle de categorie, pas un intitule - et tous le meme lien. L objet
+ * reel du marche est dans <description>, l acheteur dans <author>.
+ *
+ * Deux consequences, toutes deux graves. Les cles de deduplication devenant
+ * identiques, 42 marches sur 43 n etaient jamais enregistres. Et les rares
+ * lignes ecrites s intitulaient "Appel d'Offre", ce qui n apprend rien.
+ *
+ * La regle est deliberement etroite : il faut que TOUS les elements
+ * partagent le meme titre et que les descriptions, elles, different. Un flux
+ * normal n est jamais touche.
+ */
+function reparerTitresIdentiques(entrees: EntreeFlux[]): EntreeFlux[] {
+  if (entrees.length < 2) return entrees;
+
+  const titres = new Set(entrees.map((e) => e.titre.trim().toLowerCase()));
+  if (titres.size !== 1) return entrees;
+
+  const resumes = new Set(entrees.map((e) => (e.resume ?? "").trim().toLowerCase()));
+  if (resumes.size < entrees.length) return entrees;
+
+  const categorie = entrees[0].titre.trim();
+  return entrees.map((e) => ({
+    ...e,
+    titre: tronquer(e.resume) || e.titre,
+    // Le libelle de categorie reste utile : il dit la nature de l avis.
+    resume: categorie,
+    type: e.type ?? categorie,
+  }));
+}
+
+/**
  * Transforme le XML d'un flux RSS ou Atom en liste d'entrees.
  *
  * Retourne [] plutot que de lever une erreur sur un flux illisible : une
@@ -256,7 +291,7 @@ export function analyserFlux(xml: unknown): EntreeFlux[] {
   if (!xml) return [];
   const blocs = String(xml).match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) ?? [];
 
-  return blocs.map((bloc) => {
+  const entrees: EntreeFlux[] = blocs.map((bloc) => {
     const titre = retirerBalises(contenuBalise(bloc, "title"));
     const resume = retirerBalises(
       contenuBalise(bloc, "description")
@@ -274,4 +309,6 @@ export function analyserFlux(xml: unknown): EntreeFlux[] {
       deadline: extraireDeadline(`${titre} ${resume}`),
     };
   }).filter((e) => e.titre);
+
+  return reparerTitresIdentiques(entrees);
 }

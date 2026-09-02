@@ -224,15 +224,35 @@ function analyserPageArmp(html, source) {
 }
 
 /**
+ * Lien propre a un avis SBEE.
+ *
+ * Mesure du 2026-09-02 : le lien etait code en dur sur la page de liste,
+ * identique pour les sept avis. Or la cle de deduplication est fabriquee a
+ * partir de l URL : les sept partageaient la meme cle, le premier
+ * s inscrivait, les six autres etaient jetes comme doublons. La source
+ * beninoise la plus complete livrait UN marche sur SEPT, sans message.
+ *
+ * Le site expose pourtant un lien par avis - /demande-dossier/appel-doffre/113,
+ * /118, /122 - et un PDF en repli.
+ */
+function lienAvisSbee_(bloc) {
+  var m = /href="([^"]*\/demande-dossier\/appel-doffre\/[0-9]+)"/i.exec(bloc);
+  if (m) return nettoyerLien(m[1]);
+  m = /href="([^"]*\/uploads\/[^"]+)"/i.exec(bloc);
+  if (m) return nettoyerLien(m[1]);
+  return 'https:\/\/marches-publics.sbee.bj\/';
+}
+
+/**
  * Analyseur du portail de marches de la SBEE (electricite, Benin).
  *
  * La source beninoise la plus complete : chaque avis porte sa reference
  * officielle, son type de marche, sa date de publication ET sa date limite
  * de depot, en clair dans la page.
  *
- * Les avis n'ont pas d'adresse propre - le portail affiche tout sur une
- * seule page et le bouton "Telecharger l'avis" pointe vers un PDF. On
- * renvoie donc vers le portail lui-meme.
+ * Chaque avis a bien une adresse propre : /demande-dossier/appel-doffre/<id>.
+ * Le contraire fut longtemps ecrit ici, et ce commentaire a coute six
+ * marches sur sept - voir lienAvisSbee_.
  */
 function analyserPageSbee(html, source) {
   if (!html) return [];
@@ -261,7 +281,7 @@ function analyserPageSbee(html, source) {
 
     return normalizeOpportunity({
       title: titre,
-      url: 'https://marches-publics.sbee.bj/',
+      url: lienAvisSbee_(bloc),
       summary: morceaux.join(' - '),
       // "27-08-2026 07:00:00" : on ne garde que la date.
       published: publie ? extractDeadline('date limite ' + jourSeul_(publie)) : null,
