@@ -150,51 +150,114 @@ def feuille_logs(wb):
 def feuille_demarrage(wb):
     ws = wb.active
     ws.title = "LISEZ_MOI"
-    ws.column_dimensions["A"].width = 4
-    ws.column_dimensions["B"].width = 104
+    ws.column_dimensions["A"].width = 3
+    ws.column_dimensions["B"].width = 80
     ws.sheet_view.showGridLines = False
 
+    # Style constants for this page only
+    F_SECTION = Font(name="Calibri", size=12, bold=True, color=HEAD_BG)
+    F_HIGHLIGHT = Font(name="Calibri", size=10, bold=True, color=INK)
+    ROW_HEIGHT = 20
+    ROW_HEIGHT_TALL = 30
+    BLANK_HEIGHT = 10
+
+    # (row_type, text) where row_type is:
+    #   "title"    = big title (TENDERPILOT)
+    #   "version"  = version line
+    #   "section"  = section header
+    #   "body"     = normal body text
+    #   "bullet"   = numbered/bulleted step
+    #   "blank"    = empty spacer row
+    #   "color"    = color legend line (with color dot placeholder)
     lignes = [
-        (F_TITLE, "TENDERPILOT"),
-        (F_MUTED, f"Version {VERSION} - schema {S.SCHEMA_VERSION}"),
-        (None, ""),
-        (F_TITLE, "Ce que fait ce classeur"),
-        (F_BODY, "Il collecte des opportunites depuis vos sources, evite les "
-                 "doublons, calcule les jours restants, colore les lignes et "
-                 "envoie un email quand une echeance approche."),
-        (None, ""),
-        (F_TITLE, "Mise en route"),
-        (F_BODY, "1. Onglet CONFIG : renseignez NOTIFICATION_EMAIL."),
-        (F_BODY, "2. Onglet SOURCES : 25 flux d appels d offres du PNUD sont "
-                 "deja actifs, un par pays. Mettez Active a NON pour les pays "
-                 "qui ne vous concernent pas."),
-        (F_BODY, "3. Menu TenderPilot puis Executer maintenant."),
-        (F_BODY, "4. Menu TenderPilot puis Activer l execution automatique "
-                 "(8h, 13h, 18h)."),
-        (None, ""),
-        (F_TITLE, "Les couleurs"),
-        (F_BODY, "OUVERT (vert) : plus de 15 jours restants."),
-        (F_BODY, "A SURVEILLER (jaune) : 8 a 15 jours."),
-        (F_BODY, "BIENTOT (orange) : 4 a 7 jours."),
-        (F_BODY, "URGENT (rouge) : 0 a 3 jours."),
-        (F_BODY, "EXPIRE (gris) : deadline depassee."),
-        (F_BODY, "DATE A VERIFIER : aucune deadline connue."),
-        (F_BODY, "La couleur est posee par le script. La colonne "
-                 "Statut_Delai contient toujours la meme information en "
-                 "texte : aucune information ne depend uniquement de la "
-                 "couleur."),
-        (None, ""),
-        (F_TITLE, "Le menu"),
-        (F_BODY, "Le menu TenderPilot n'existe que dans Google Sheets, apres "
-                 "installation du script. Dans Excel, le classeur s'ouvre et "
-                 "se lit, mais aucune automatisation ne tourne."),
+        ("title",    "TENDERPILOT"),
+        ("version",  f"Version {VERSION}"),
+        ("blank",    ""),
+        ("section",  "Ce que fait TenderPilot"),
+        ("body",     "TenderPilot surveille les appels d offres, marches "
+                     "publics, subventions et bourses. Il collecte les "
+                     "annonces, evite les doublons, calcule les jours "
+                     "restants avant la date limite, colore les lignes "
+                     "et vous envoie un email ou une notification Telegram "
+                     "quand une echeance approche."),
+        ("blank",    ""),
+        ("section",  "Demarrer en 2 etapes"),
+        ("bullet",  "1.  Menu TenderPilot > Activer l execution automatique."),
+        ("bullet",  "2.  Onglet CONFIG : renseignez votre adresse email "
+                     "(NOTIFICATION_EMAIL) pour recevoir les alertes."),
+        ("blank",    ""),
+        ("section",  "Lire le tableau"),
+        ("body",     "Chaque ligne est une opportunite. Les colonnes "
+                     "importantes : opportunite, organisation, pays, type, "
+                     "secteur, date limite, jours restants, statut."),
+        ("blank",    ""),
+        ("section",  "Les couleurs"),
+        ("body",     "Le systeme colore chaque ligne selon le delai restant. "
+                     "La colonne Statut_Delai donne la meme information en "
+                     "texte."),
+        ("color",    "OUVERT  (vert)      plus de 15 jours"),
+        ("color",    "A SURVEILLER (jaune)   8 a 15 jours"),
+        ("color",    "BIENTOT (orange)     4 a 7 jours"),
+        ("color",    "URGENT (rouge)       0 a 3 jours"),
+        ("color",    "EXPIRE (gris)        deadline depassee"),
+        ("color",    "DATE A VERIFIER      aucune deadline connue"),
+        ("blank",    ""),
+        ("section",  "Notifications"),
+        ("body",     "Par defaut, les alertes partent par email. Pour "
+                     "recevoir aussi sur Telegram, creez un bot via "
+                     "@BotFather puis renseignez TELEGRAM_TOKEN et "
+                     "TELEGRAM_CHAT_ID dans l onglet CONFIG."),
+        ("blank",    ""),
+        ("section",  "Classement intelligent (optionnel)"),
+        ("body",     "Sans cle : collecte, dates, couleurs, alertes - le "
+                     "produit est complet. Avec une cle LLM : en plus, "
+                     "tri par type et secteur, resume lisible, articles et "
+                     "FAQ ecartes. Fournissez votre cle dans CONFIG (LLM_CLE) "
+                     "et activez USE_LLM. Le modele ne touche jamais aux "
+                     "dates."),
+        ("blank",    ""),
+        ("section",  "Ce que TenderPilot ne fait pas"),
+        ("body",     "Il ne remplit pas vos dossiers. Il n invente aucune "
+                     "date limite : quand la source ne l ecrit pas, la case "
+                     "reste vide. Il ne garantit pas l exhaustivite. "
+                     "Verifiez toujours l avis officiel avant de candidater."),
     ]
-    for i, (police, texte) in enumerate(lignes, start=2):
-        if not texte:
+
+    row = 2
+    for row_type, texte in lignes:
+        if row_type == "blank":
+            ws.row_dimensions[row].height = BLANK_HEIGHT
+            row += 1
             continue
-        c = ws.cell(row=i, column=2, value=texte)
-        c.font = police or F_BODY
+
+        c = ws.cell(row=row, column=2, value=texte)
         c.alignment = Alignment(wrap_text=True, vertical="top")
+
+        if row_type == "title":
+            c.font = F_TITLE
+            ws.row_dimensions[row].height = 28
+        elif row_type == "version":
+            c.font = F_MUTED
+            ws.row_dimensions[row].height = ROW_HEIGHT
+        elif row_type == "section":
+            c.font = F_SECTION
+            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
+            # thin rule above section
+            c.border = Border(top=THIN)
+        elif row_type == "bullet":
+            c.font = F_BODY
+            c.alignment = Alignment(wrap_text=True, vertical="top",
+                                     indent=1)
+            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
+        elif row_type == "color":
+            c.font = Font(name="Consolas", size=10, color=INK)
+            ws.row_dimensions[row].height = ROW_HEIGHT
+        else:  # body
+            c.font = F_BODY
+            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
+
+        row += 1
+
     return ws
 
 
