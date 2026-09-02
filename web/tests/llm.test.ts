@@ -33,6 +33,7 @@ import {
   choisirDansListe,
   appliquerClassement,
   filtrerPertinentes,
+  filtrerOpportunites,
   invitePourClassement,
   SECTEURS,
   TYPES,
@@ -61,6 +62,7 @@ const entree = (extra: Record<string, unknown> = {}) => ({
   secteur: undefined as string | null | undefined,
   type: undefined as string | null | undefined,
   pertinent: undefined as boolean | undefined,
+  opportunite: undefined as boolean | undefined,
   ...extra,
 });
 
@@ -279,6 +281,57 @@ test("le doute profite a l'annonce : sans verdict, elle est conservee", () => {
   ] as Array<{ titre: string; pertinent?: boolean }>);
   assert.deepEqual(gardees.map((e) => e.titre),
     ["vue et jugee pertinente", "jamais vue par le modele"]);
+});
+
+// ------------------------------------------------------ CE QUI EST UN APPEL
+
+test("une FAQ sur un appel n est pas l appel", () => {
+  // Cas reel, verifie avec Mistral le 2026-09-02 : sur le flux d Open
+  // Technology Fund, "Request for Proposals: Security Lab" est un appel,
+  // "Frequently Asked Questions: Security Lab RFP" n en est pas un. Un
+  // filtre par mots-cles retenait les deux - les deux contiennent "RFP".
+  const lot = [
+    entree({ titre: "Request for Proposals: Security Lab" }),
+    entree({ titre: "Frequently Asked Questions: Security Lab RFP" }),
+    entree({ titre: "How OTF Security Lab Improves Internet Freedom" }),
+  ];
+  const sortie = appliquerClassement(lot, [
+    { i: 0, opportunite: true }, { i: 1, opportunite: false },
+    { i: 2, opportunite: false },
+  ]);
+  assert.deepEqual(sortie.map((e) => e.opportunite), [true, false, false]);
+  assert.equal(filtrerOpportunites(sortie).length, 1);
+});
+
+test("une annonce que le modele n a pas jugee est conservee", () => {
+  // Le doute profite a l annonce : mieux vaut une ligne de trop qu un
+  // marche manque.
+  const gardees = filtrerOpportunites([
+    { titre: "jugee article", opportunite: false },
+    { titre: "jugee appel", opportunite: true },
+    { titre: "jamais vue" },
+  ] as Array<{ titre: string; opportunite?: boolean }>);
+  assert.deepEqual(gardees.map((e) => e.titre), ["jugee appel", "jamais vue"]);
+});
+
+test("le tri final exige les deux verdicts", () => {
+  const gardees = filtrerPertinentes([
+    { titre: "appel ouvert au Benin", opportunite: true, pertinent: true },
+    { titre: "appel reserve a un autre pays", opportunite: true, pertinent: false },
+    { titre: "article sur le Benin", opportunite: false, pertinent: true },
+  ] as Array<{ titre: string; opportunite?: boolean; pertinent?: boolean }>);
+  assert.deepEqual(gardees.map((e) => e.titre), ["appel ouvert au Benin"]);
+});
+
+test("l invite demande si l on PEUT CANDIDATER, pas si ca parle du pays", () => {
+  // Mesure du 2026-09-02 : formulee "l avis concerne-t-il le Benin", la
+  // question faisait rejeter un appel mondial d Open Technology Fund
+  // auquel une structure beninoise peut parfaitement candidater.
+  const invite = invitePourClassement([{ titre: "Un avis" }], "le Benin");
+  assert.match(invite, /PEUT CANDIDATER/);
+  assert.match(invite, /appel mondial/);
+  assert.match(invite, /opportunite/);
+  assert.match(invite, /FAQ/);
 });
 
 // ------------------------------------------------------------ L'ACTIVATION

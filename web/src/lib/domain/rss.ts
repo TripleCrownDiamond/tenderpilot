@@ -38,6 +38,8 @@ export interface EntreeFlux {
    */
   secteur?: string | null;
   pertinent?: boolean;
+  /** false = article, FAQ, communique : rien a quoi repondre. */
+  opportunite?: boolean;
 }
 
 /**

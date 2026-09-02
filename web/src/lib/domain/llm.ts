@@ -373,19 +373,30 @@ export function invitePourClassement(
   }).join("\n");
 
   return [
-    "Tu classes des avis de marches publics et d appels a financement.",
+    "Tu tries des annonces relevees sur des sites de bailleurs et d acheteurs",
+    "publics. Certaines sont de vraies opportunites, d autres sont des",
+    "articles, des FAQ, des communiques ou des annonces de partenariat.",
     "",
     "Pour CHAQUE annonce, renvoie un objet JSON avec exactement ces cles :",
-    '  i        - le numero de l annonce, entier',
-    '  secteur  - une valeur EXACTE de cette liste : ' + SECTEURS.join(" | "),
-    '  type     - une valeur EXACTE de cette liste : ' + TYPES.join(" | "),
-    '  resume   - une phrase de 20 mots maximum, en francais',
-    '  pertinent- true si l avis concerne ' + zone + ', false sinon',
+    "  i           - le numero de l annonce, entier",
+    "  opportunite - true si on peut DEPOSER un dossier ou une offre en",
+    "                reponse a cette annonce. false pour un article, une FAQ,",
+    "                un communique, un portrait, un compte rendu, une page de",
+    "                presentation ou une inscription a un evenement.",
+    "  secteur     - une valeur EXACTE de : " + SECTEURS.join(" | "),
+    "  type        - une valeur EXACTE de : " + TYPES.join(" | "),
+    "  resume      - une phrase de 20 mots maximum, en francais",
+    "  pertinent   - true si une organisation ou une entreprise de " + zone,
+    "                PEUT CANDIDATER. Un appel mondial ou ouvert a tous les",
+    "                pays est pertinent : reponds true. Ne mets false que si",
+    "                l annonce est reservee a un autre pays ou une autre region.",
     "",
     "REGLES ABSOLUES :",
-    "- Ne renvoie AUCUNE date, sous aucune forme. Pas de deadline, pas d echeance,",
-    "  pas de date de publication. Ces informations sont lues ailleurs.",
+    "- Ne renvoie AUCUNE date, sous aucune forme. Pas de deadline, pas",
+    "  d echeance, pas de date de publication. Elles sont lues ailleurs.",
     "- N invente pas de libelle : si aucun secteur ne convient, mets Autre.",
+    "- Une FAQ ou une page d explication SUR un appel n est pas l appel :",
+    "  opportunite = false.",
     "- Reponds UNIQUEMENT par un tableau JSON, sans texte avant ni apres.",
     "",
     "Annonces :",
@@ -405,7 +416,7 @@ export function invitePourClassement(
 export function appliquerClassement<T extends {
   titre: string; deadline: string | null; publie: string | null;
   resume: string; type?: string | null; secteur?: string | null;
-  pertinent?: boolean;
+  pertinent?: boolean; opportunite?: boolean;
 }>(lot: readonly T[], brut: unknown): T[] {
   const parIndex = new Map<number, Record<string, unknown>>();
   if (Array.isArray(brut)) {
@@ -429,6 +440,8 @@ export function appliquerClassement<T extends {
       resume: resume || entree.resume,
       pertinent: typeof verdict.pertinent === "boolean"
         ? verdict.pertinent : entree.pertinent,
+      opportunite: typeof verdict.opportunite === "boolean"
+        ? verdict.opportunite : entree.opportunite,
 
       // Rien de ce qui suit ne vient du modele. Jamais.
       deadline: entree.deadline,
@@ -444,8 +457,24 @@ export function appliquerClassement<T extends {
  * n a pas de verdict et reste. Le doute profite a l annonce : mieux vaut
  * une ligne de trop qu un marche manque.
  */
-export function filtrerPertinentes<T extends { pertinent?: boolean }>(
+export function filtrerPertinentes<T extends {
+  pertinent?: boolean; opportunite?: boolean;
+}>(entrees: readonly T[]): T[] {
+  return entrees.filter((e) => e.pertinent !== false && e.opportunite !== false);
+}
+
+/**
+ * Ce qui n est pas une opportunite, sans juger de la zone.
+ *
+ * Separe du tri par zone parce que les deux erreurs ne se valent pas : jeter
+ * une FAQ ne coute rien, jeter un appel mondial ouvert a tous coute un
+ * marche. Mesure du 2026-09-02 : l invite d origine demandait si l avis
+ * "concerne le Benin", et le modele repondait non pour un appel mondial
+ * d Open Technology Fund auquel une structure beninoise peut parfaitement
+ * candidater. La question est desormais "peut-elle deposer".
+ */
+export function filtrerOpportunites<T extends { opportunite?: boolean }>(
   entrees: readonly T[],
 ): T[] {
-  return entrees.filter((e) => e.pertinent !== false);
+  return entrees.filter((e) => e.opportunite !== false);
 }
