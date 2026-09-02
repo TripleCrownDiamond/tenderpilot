@@ -20,7 +20,8 @@
 
 /** Repertoire des analyseurs d'API, par nom de methode. */
 var ANALYSEURS_JSON = {
-  'worldbank.org': analyserApiWorldBank
+  'worldbank.org': analyserApiWorldBank,
+  'fundpilote.com': analyserApiFundpilote
 };
 
 /** Retourne l'analyseur correspondant a une methode JSON:<nom>, ou null. */
@@ -111,11 +112,108 @@ function analyserApiWorldBank(corps, source) {
   return resultats.filter(function (o) { return o.title; });
 }
 
+/**
+ * Opportunites de subventions, bourses et appels a projets via l'API
+ * publique de Fundpilote.
+ *
+ * Mesure du 2026-09-02, sans aucun identifiant :
+ *   GET /api/v1/opportunities/  ->  200, count=283, 20 par page.
+ *
+ * ATTENTION, piege verifie ce jour-la. La reponse ANONYME ne contient PAS
+ * application_url, source_url, description, eligibility, how_to_apply ni
+ * editorial_note : ces champs n'existent que pour une session connectee.
+ * L'analyseur d'origine construisait donc le lien avec deux chaines vides
+ * et rendait des annonces SANS LIEN - un defaut muet, du meme genre que
+ * l'analyseur AfDB absent cote web pendant des mois.
+ *
+ * Le lien est donc bati depuis l'id : /opportunities/<id> repond 200 et
+ * redirige vers la page publique de l'annonce.
+ *
+ * Les champs descriptifs anonymes sont des codes opaques (GOU-11, ORG-ONGL,
+ * PRO-01) : illisibles pour un lecteur, ils n'ont rien a faire dans un
+ * resume. Seul eligible_countries, en ISO3, est exploitable - et il est
+ * precieux, c'est lui qui dit si l'annonce concerne le Benin.
+ */
+function analyserApiFundpilote(corps, source) {
+  var donnees;
+  try {
+    donnees = JSON.parse(corps);
+  } catch (e) {
+    return [];
+  }
+  var resultats = donnees && donnees.results;
+  if (!resultats || !resultats.length) return [];
+
+  var TYPE_MAP = {
+    grant: 'Subvention',
+    bourse: 'Bourse',
+    aap: 'Appel a projets',
+    ami: 'AMI',
+    formation: 'Formation',
+    fellowship: 'Bourse',
+    investment: 'Investissement'
+  };
+
+  var sortie = [];
+  resultats.forEach(function (a) {
+    var titre = String(a.title || '').trim();
+    if (!titre) return;
+
+    // Les deux premieres n'existent que pour une session connectee ; l'id
+    // est toujours la. On garde les deux au cas ou l'API changerait.
+    var lien = nettoyerLien(
+      String(a.application_url || '').trim()
+      || String(a.source_url || '').trim()
+      || (a.id ? 'https://fundpilote.com/opportunities/' + String(a.id) : ''));
+    if (!lien) return;
+
+    var devise = String(a.currency || '').trim();
+    // Un minimum a zero n est pas une information : l API le pose par
+    // defaut sur la moitie des annonces.
+    var brutMin = a.amount_min ? String(a.amount_min) : '';
+    var min = Number(brutMin) > 0 ? brutMin : '';
+    var max = a.amount_max ? String(a.amount_max) : '';
+    var montant = (min && max) ? (min + ' - ' + max + ' ' + devise).trim()
+      : max ? ('jusqu a ' + max + ' ' + devise).trim()
+      : min ? ('a partir de ' + min + ' ' + devise).trim() : '';
+
+    var pays = [];
+    if (Object.prototype.toString.call(a.eligible_countries) === '[object Array]') {
+      pays = a.eligible_countries.map(function (c) { return String(c).trim(); })
+        .filter(function (c) { return c; }).slice(0, 12);
+    }
+
+    var description = String(a.description || '').trim();
+    var eligibilite = String(a.eligibility || '').trim();
+
+    var morceaux = [];
+    if (description) morceaux.push(description.slice(0, 200));
+    if (eligibilite) morceaux.push('Eligibilite : ' + eligibilite.slice(0, 120));
+    if (pays.length) morceaux.push('Pays eligibles : ' + pays.join(', '));
+    if (montant) morceaux.push('Budget : ' + montant);
+
+    var typeBrut = String(a.funding_type || '').trim();
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: lien,
+      summary: morceaux.join(' - ').slice(0, 500),
+      published: null,
+      deadline: isoDepuis_(a.deadline),
+      org: String(a.sponsor_name || '').trim(),
+      type: TYPE_MAP[typeBrut] || typeBrut
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     analyseurJson_: analyseurJson_,
     isoDepuis_: isoDepuis_,
     analyserApiWorldBank: analyserApiWorldBank,
+    analyserApiFundpilote: analyserApiFundpilote,
     ANALYSEURS_JSON: ANALYSEURS_JSON
   };
 }
