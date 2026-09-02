@@ -36,6 +36,8 @@ import {
   filtrerOpportunites,
   phraseZone,
   PAYS_DEFAUT,
+  PAYS_DISPONIBLES,
+  appliquerPreferences,
   invitePourClassement,
   SECTEURS,
   TYPES,
@@ -287,8 +289,62 @@ test("le doute profite a l'annonce : sans verdict, elle est conservee", () => {
 
 // ---------------------------------------------------------------- LA ZONE
 
-test("la zone du MVP : le Benin et ses trois voisins", () => {
-  assert.deepEqual([...PAYS_DEFAUT], ["Benin", "Togo", "Niger", "Burkina Faso"]);
+test("un seul pays coche au depart, mais rien de ferme", () => {
+  assert.deepEqual([...PAYS_DEFAUT], ["Benin"]);
+  // Le registre couvre bien plus : le client elargit sans toucher au code.
+  assert.ok(PAYS_DISPONIBLES.length >= 15, String(PAYS_DISPONIBLES.length));
+  for (const p of ["Togo", "Niger", "Burkina Faso", "Senegal", "Nigeria"]) {
+    assert.ok(PAYS_DISPONIBLES.includes(p), p + " doit etre disponible");
+  }
+});
+
+test("la zone etiquette, elle ne supprime pas", () => {
+  // Les deux erreurs ne se valent pas : une ligne de trop coute un
+  // defilement, une opportunite supprimee coute un marche. Un salon a
+  // Nairobi peut valoir le deplacement.
+  const lot = [
+    { titre: "marche au Benin", opportunite: true, pertinent: true },
+    { titre: "marche au Kenya", opportunite: true, pertinent: false },
+    { titre: "article", opportunite: false, pertinent: true },
+  ];
+  // Par defaut : la zone n enleve rien, seul l article part.
+  assert.deepEqual(appliquerPreferences(lot).map((e) => e.titre),
+    ["marche au Benin", "marche au Kenya"]);
+  // Le client qui veut couper par zone le demande explicitement.
+  assert.deepEqual(
+    appliquerPreferences(lot, { filtrerParZone: true }).map((e) => e.titre),
+    ["marche au Benin"]);
+});
+
+test("salons et ateliers : ecartes par defaut, disponibles sur demande", () => {
+  const lot = [
+    { titre: "appel d offres", opportunite: true, type: "Appel d offres" },
+    { titre: "salon a Nairobi", opportunite: true, type: "Evenement" },
+  ];
+  assert.deepEqual(appliquerPreferences(lot).map((e) => e.titre), ["appel d offres"]);
+  assert.deepEqual(
+    appliquerPreferences(lot, { inclureEvenements: true }).map((e) => e.titre),
+    ["appel d offres", "salon a Nairobi"]);
+});
+
+test("ce qui n est pas une opportunite ne rentre jamais, quelles que soient les preferences", () => {
+  const lot = [{ titre: "un article", opportunite: false, type: "Evenement",
+                 pertinent: true }];
+  for (const p of [{}, { filtrerParZone: true }, { inclureEvenements: true },
+                   { filtrerParZone: false, inclureEvenements: true }]) {
+    assert.equal(appliquerPreferences(lot, p).length, 0, JSON.stringify(p));
+  }
+});
+
+test("une annonce non jugee traverse toutes les preferences", () => {
+  const lot: Array<{ titre: string; opportunite?: boolean; pertinent?: boolean }> =
+    [{ titre: "jamais vue par le modele" }];
+  assert.equal(appliquerPreferences(lot, { filtrerParZone: true }).length, 1);
+});
+
+test("Evenement fait partie du vocabulaire ferme", () => {
+  assert.ok(TYPES.includes("Evenement" as never));
+  assert.equal(choisirDansListe("evenement", TYPES), "Evenement");
 });
 
 test("la zone se met en phrase lisible par un modele", () => {
@@ -301,6 +357,7 @@ test("les appels mondiaux comptent, sauf si le client les refuse", () => {
   // Le Benin est la cible d abord, jamais la limite : un cabinet beninois
   // candidate hors du Benin, dans la sous-region et dans le monde.
   assert.match(phraseZone(PAYS_DEFAUT, true), /appels mondiaux/);
+  assert.match(phraseZone(PAYS_DEFAUT, true), /^Benin/);
   assert.ok(!/appels mondiaux/.test(phraseZone(PAYS_DEFAUT, false)));
   assert.match(phraseZone(PAYS_DEFAUT, false), /uniquement/);
 });

@@ -83,15 +83,34 @@ export const LLM_DEFAUTS = {
 };
 
 /**
- * Zone suivie par defaut : le Benin et ses trois voisins immediats.
+ * Zone selectionnee par defaut : le Benin seul.
  *
- * Ce n est qu un point de depart. Le client elargit ou reduit depuis le
- * CONFIG, et reactive dans l onglet SOURCES les pays qu il veut suivre - le
- * registre porte deja deux sources multilaterales pour chaque pays de la
- * CEDEAO, plus une cinquantaine d autres en veille.
+ * Un seul pays coche au depart, mais rien de ferme. Le registre porte deja
+ * des sources pour toute la CEDEAO et une cinquantaine d autres en veille -
+ * Kenya, Afrique du Sud, Maghreb. Un cabinet beninois candidate hors du
+ * Benin ; un salon a Nairobi peut valoir le deplacement.
+ *
+ * D ou la conception : la selection ETIQUETTE, elle ne supprime pas. Voir
+ * Preferences.filtrerParZone, faux par defaut.
  */
-export const PAYS_DEFAUT: readonly string[] = [
-  "Benin", "Togo", "Niger", "Burkina Faso",
+export const PAYS_DEFAUT: readonly string[] = ["Benin"];
+
+/**
+ * Ce que le registre couvre deja, au-dela de la selection par defaut.
+ *
+ * Rien n est bloque : ces pays ont des sources au registre, pretes a
+ * servir. Le client ajoute ceux qu il veut a PAYS_SUIVIS, et le guide de
+ * demarrage montre comment.
+ *
+ * Le Benin a neuf sources actives - portails nationaux compris. Les autres
+ * pays de la CEDEAO en ont deux chacun, PNUD et Banque mondiale, sans
+ * portail national. C est une difference qu il faut dire au client plutot
+ * que de la lui laisser decouvrir.
+ */
+export const PAYS_DISPONIBLES: readonly string[] = [
+  "Benin", "Togo", "Niger", "Burkina Faso", "Cote d'Ivoire", "Senegal",
+  "Mali", "Ghana", "Nigeria", "Guinee", "Guinee-Bissau", "Cap-Vert",
+  "Gambie", "Liberia", "Sierra Leone",
 ];
 
 /**
@@ -159,7 +178,7 @@ export function texteVisible(html: string): string {
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<[^>]+>/g, " ")
-    .replace(/[\s ]+/g, " ")
+    .replace(/[\s?]+/g, " ")
     .trim();
 }
 
@@ -385,6 +404,7 @@ export const TYPES = [
   "Bourse",
   "Investissement",
   "Recrutement",
+  "Evenement",
   "Autre",
 ] as const;
 
@@ -430,12 +450,15 @@ export function invitePourClassement(
     "",
     "Pour CHAQUE annonce, renvoie un objet JSON avec exactement ces cles :",
     "  i           - le numero de l annonce, entier",
-    "  opportunite - true si on peut DEPOSER un dossier ou une offre en",
-    "                reponse a cette annonce. false pour un article, une FAQ,",
-    "                un communique, un portrait, un compte rendu, une page de",
-    "                presentation ou une inscription a un evenement.",
+    "  opportunite - true s il y a QUELQUE CHOSE A FAIRE avant une date :",
+    "                deposer une offre, candidater, soumettre un projet,",
+    "                s inscrire a un salon, un atelier, une formation, une",
+    "                conference. false pour un article, une FAQ, un",
+    "                communique, un portrait, un compte rendu ou une simple",
+    "                page de presentation - rien a quoi repondre.",
     "  secteur     - une valeur EXACTE de : " + SECTEURS.join(" | "),
     "  type        - une valeur EXACTE de : " + TYPES.join(" | "),
+    "                Un salon, un atelier, une conference : Evenement.",
     "  resume      - une phrase de 20 mots maximum, en francais",
     "  pertinent   - true si une organisation ou une entreprise de " + zone,
     "                PEUT CANDIDATER. Un appel mondial ou ouvert a tous les",
@@ -508,24 +531,76 @@ export function appliquerClassement<T extends {
  * n a pas de verdict et reste. Le doute profite a l annonce : mieux vaut
  * une ligne de trop qu un marche manque.
  */
-export function filtrerPertinentes<T extends {
-  pertinent?: boolean; opportunite?: boolean;
-}>(entrees: readonly T[]): T[] {
-  return entrees.filter((e) => e.pertinent !== false && e.opportunite !== false);
+/**
+ * Ce que le client veut voir.
+ *
+ * Une seule regle est absolue et ne se regle pas : ce qui n est pas une
+ * opportunite ne rentre pas. Un article, une FAQ, un communique n ont pas
+ * de suite a donner - ils occupent une ligne et ne feront jamais rien.
+ *
+ * Tout le reste est un choix, et les valeurs par defaut sont prudentes.
+ */
+export interface Preferences {
+  /**
+   * Retirer les annonces jugees hors zone ?
+   *
+   * FAUX par defaut, et c est delibere. Le verdict du modele ETIQUETTE, il
+   * n efface pas. Le vrai levier geographique est ailleurs : le registre est
+   * par pays, le client active le Kenya s il veut le Kenya. Supprimer une
+   * ligne sur un jugement probabiliste coute un marche ; l afficher coute un
+   * defilement. Les deux erreurs ne se valent pas.
+   */
+  filtrerParZone?: boolean;
+
+  /**
+   * Garder les salons, ateliers, formations et conferences ?
+   *
+   * FAUX par defaut : une veille de marches publics n en veut pas. Mais ce
+   * sont de vraies occasions - on s y inscrit, on y expose - et quelqu un
+   * d autre les voudra.
+   */
+  inclureEvenements?: boolean;
+}
+
+/**
+ * Applique les preferences du client.
+ *
+ * Une entree que le modele n a pas jugee - lot perdu, reponse illisible -
+ * n a pas de verdict et reste. Le doute profite toujours a l annonce.
+ */
+export function appliquerPreferences<T extends {
+  pertinent?: boolean; opportunite?: boolean; type?: string | null;
+}>(entrees: readonly T[], prefs: Preferences = {}): T[] {
+  return entrees.filter((e) => {
+    if (e.opportunite === false) return false;
+    if (!prefs.inclureEvenements && e.type === "Evenement") return false;
+    if (prefs.filtrerParZone && e.pertinent === false) return false;
+    return true;
+  });
 }
 
 /**
  * Ce qui n est pas une opportunite, sans juger de la zone.
  *
- * Separe du tri par zone parce que les deux erreurs ne se valent pas : jeter
- * une FAQ ne coute rien, jeter un appel mondial ouvert a tous coute un
- * marche. Mesure du 2026-09-02 : l invite d origine demandait si l avis
- * "concerne le Benin", et le modele repondait non pour un appel mondial
- * d Open Technology Fund auquel une structure beninoise peut parfaitement
- * candidater. La question est desormais "peut-elle deposer".
+ * Separe du reste parce que les deux erreurs ne se valent pas : jeter une
+ * FAQ ne coute rien, jeter un appel mondial ouvert a tous coute un marche.
+ * Mesure du 2026-09-02 : l invite d origine demandait si l avis "concerne le
+ * Benin", et le modele repondait non pour un appel mondial d Open Technology
+ * Fund auquel une structure beninoise peut parfaitement candidater.
  */
 export function filtrerOpportunites<T extends { opportunite?: boolean }>(
   entrees: readonly T[],
 ): T[] {
   return entrees.filter((e) => e.opportunite !== false);
+}
+
+/**
+ * Ancien tri, conserve pour les appelants qui veulent explicitement couper
+ * par zone. Prefer appliquerPreferences : la zone y est un choix, pas un
+ * comportement impose.
+ */
+export function filtrerPertinentes<T extends {
+  pertinent?: boolean; opportunite?: boolean;
+}>(entrees: readonly T[]): T[] {
+  return entrees.filter((e) => e.pertinent !== false && e.opportunite !== false);
 }

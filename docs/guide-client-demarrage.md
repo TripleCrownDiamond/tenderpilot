@@ -107,15 +107,67 @@ Quand `Deadline` est vide, c'est que la source n'a pas publie de date.
 **Nous n'en inventons jamais** - une date devinee vous ferait manquer un
 depot. Ouvrez l'avis officiel avec le lien de la ligne.
 
-## 6. Rester a jour
+## 6. Suivre d'autres pays
+
+Au depart, **seul le Benin est coche**. C'est le reglage de sortie d'usine,
+pas une limite : votre classeur porte deja des sources pour toute l'Afrique
+de l'Ouest, et d'autres au-dela.
+
+Beaucoup d'entreprises beninoises repondent a des marches hors du Benin -
+dans la sous-region, parfois dans le monde entier. TenderPilot ne vous en
+empeche jamais.
+
+**Pour ouvrir a un autre pays :**
+
+1. Menu **TenderPilot > Afficher / masquer l'onglet SOURCES**.
+2. Trouvez les lignes du pays voulu dans la colonne **Pays_Defaut**.
+3. Mettez **OUI** dans la colonne **Active**.
+4. Menu **TenderPilot > Executer maintenant**.
+
+Pour cesser de suivre un pays, remettez **NON**. Rien n'est perdu : les
+opportunites deja collectees restent dans votre tableau.
+
+### Ce que vous trouverez, pays par pays
+
+| Zone | Ce qui est couvert |
+|------|--------------------|
+| **Benin** | portails nationaux, SBEE, SONEB, ABE, DEDRAS, plus PNUD et Banque mondiale |
+| **Reste de la CEDEAO** | PNUD et Banque mondiale pour chaque pays |
+| **Afrique et international** | bailleurs, fondations, appels a projets et subventions |
+
+Soyons clairs sur la difference : le Benin est couvert en profondeur, avec
+ses portails nationaux. Les autres pays le sont par les grands bailleurs
+seulement. C'est deja beaucoup - la Banque mondiale et le PNUD publient
+l'essentiel des marches finances - mais ce n'est pas la meme densite.
+
+**Les appels ouverts a tous les pays vous sont montres de toute facon.** Une
+bourse mondiale, un appel a projets international : vous pouvez y candidater
+depuis Cotonou, donc ils apparaissent, quel que soit le pays coche.
+
+### Les salons et ateliers
+
+Ils n'apparaissent pas par defaut : ce ne sont pas des marches, et ils
+rempliraient le tableau. Si vous les voulez - un salon professionnel a
+Nairobi, une formation financee - demandez-le, c'est une case a cocher.
+
+## 7. Rester a jour
 
 Menu **TenderPilot > Synchroniser les sources**.
 
-Les sources evoluent : une adresse change, un site est ajoute. La
-synchronisation aligne votre classeur sans rien vous faire perdre :
+Les sources evoluent : une adresse change, un site est ajoute. **Nous en
+ajoutons regulierement, pays par pays** - c'est par ici qu'elles arrivent
+chez vous.
+
+La synchronisation aligne votre classeur sans rien vous faire perdre :
 
 - vos propres sources restent ;
-- ce que vous avez desactive reste desactive.
+- ce que vous avez desactive reste desactive - une mise a jour n'annule
+  jamais votre choix ;
+- les nouvelles sources arrivent avec notre reglage de depart.
+
+Apres une synchronisation, ouvrez l'onglet SOURCES : la colonne
+**Pays_Defaut** vous dit ce qui est arrive et pour quel pays. A vous de
+cocher ce qui vous interesse.
 
 Faites-le une fois par mois, ou quand on vous annonce une mise a jour.
 
