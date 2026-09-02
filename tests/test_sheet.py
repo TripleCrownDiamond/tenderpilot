@@ -106,6 +106,14 @@ def main():
     check("une source sans flux n'est jamais active",
           all(l["Active"] == "NON" for l in manuelles),
           str([l["Source_ID"] for l in manuelles if l["Active"] != "NON"]))
+    # Une frappe comme "ON" au lieu de "OUI", ou "OU" au lieu de "OUI",
+    # eteint une source sans le moindre message : estVrai() ne reconnait que
+    # true/vrai/oui/yes/1, et le moteur web ne compare qu'a "OUI". Le
+    # registre a deja porte un "ON" pendant plusieurs jours.
+    check("la colonne Active ne contient que OUI ou NON",
+          all(str(l["Active"]).strip() in ("OUI", "NON") for l in lignes_src),
+          str([(l["Source_ID"], l["Active"]) for l in lignes_src
+               if str(l["Active"]).strip() not in ("OUI", "NON")]))
     check("les sources sont reparties sur plusieurs pays",
           len({l["Pays_Defaut"] for l in lignes_src}) >= 10,
           str(len({l["Pays_Defaut"] for l in lignes_src})) + " pays")

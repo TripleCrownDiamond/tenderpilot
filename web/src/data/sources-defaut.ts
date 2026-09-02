@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 90 sources : 61 flux RSS, 18 API JSON,
- * 11 collectes HTML, 0 manuelle(s).
- * 44 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 104 sources : 71 flux RSS, 19 API JSON,
+ * 14 collectes HTML, 0 manuelle(s).
+ * 57 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -726,7 +726,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://armp.bj/category/actualites/appels-doffres/",
     "paysDefaut": "Benin",
     "secteurDefaut": "Gouvernance et institutions",
-    "typeDefaut": null,
+    "typeDefaut": "AMI",
     "active": false,
     "statut": "Verifie le 2026-08-31 : 9 avis, le plus recent du 02/03/2026. L'ARMP publie 1 a 2 avis par an : inactive par defaut pour ne pas encombrer."
   },
@@ -737,7 +737,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://marches-publics.sbee.bj/",
     "paysDefaut": "Benin",
     "secteurDefaut": "Energie",
-    "typeDefaut": null,
+    "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 8 avis, tous dates. La source beninoise la plus complete : reference, type de marche, publication et date limite en clair."
   },
@@ -748,7 +748,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://web.soneb.bj/marches-publics",
     "paysDefaut": "Benin",
     "secteurDefaut": "Eau et assainissement",
-    "typeDefaut": null,
+    "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 30 avis, tous avec date de publication et de cloture. Table Drupal stable."
   },
@@ -759,7 +759,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://www.abe.bj/appels-doffres/",
     "paysDefaut": "Benin",
     "secteurDefaut": "Environnement",
-    "typeDefaut": null,
+    "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 9 avis en premiere page (22 au total), 7 avec echeance. Les avis echus ne sont pas ecartes : l'ABE n'offre aucun filtre d'URL."
   },
@@ -792,7 +792,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://mcabeninreg.bj/feed/",
     "paysDefaut": "Benin",
     "secteurDefaut": "Infrastructures et BTP",
-    "typeDefaut": null,
+    "typeDefaut": "Appel d'offres",
     "active": false,
     "statut": "Verifie le 2026-08-31 : flux MIXTE - 1 avis de marche sur 10 items, le reste est de l'actualite. Inactive par defaut : a activer pour la veille projet."
   },
@@ -803,7 +803,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "url": "https://eprocurement.dedras.org/toutvoir",
     "paysDefaut": "Benin",
     "secteurDefaut": null,
-    "typeDefaut": null,
+    "typeDefaut": "Demande de cotation",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 98 avis, tous avec type, date de publication et limite de depot. ONG locale : demandes de cotation et AMI que les grands agregateurs ne couvrent pas."
   },
@@ -1026,5 +1026,159 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": null,
     "active": false,
     "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+  },
+  {
+    "code": "OTF-GRANTS",
+    "nom": "Open Technology Fund - RFP et subventions tech",
+    "methode": "RSS",
+    "url": "https://www.opentech.fund/feed",
+    "paysDefaut": "International",
+    "secteurDefaut": "Technologie",
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif avec RFP (Request for Proposals) et subventions tech. Thematiques : Internet freedom, censure numerique, securite. Flux fiable, mises a jour regulieres."
+  },
+  {
+    "code": "TEF-GRANTS",
+    "nom": "Tony Elumelu Foundation - programme entrepreneuriat",
+    "methode": "RSS",
+    "url": "https://www.tonyelumelufoundation.org/feed",
+    "paysDefaut": "Afrique (multi-pays)",
+    "secteurDefaut": "Entrepreneuriat",
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif. Programme d'entrepreneuriat pour jeunes Africains. Contient des stories d'entrepreneurs et des appels. Flux fiable."
+  },
+  {
+    "code": "ADAPT-FUND",
+    "nom": "Fonds d'adaptation - subventions climat",
+    "methode": "RSS",
+    "url": "https://www.adaptation-fund.org/feed",
+    "paysDefaut": "International",
+    "secteurDefaut": "Environnement",
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif. Subventions pour projets d'adaptation au changement climatique dans les pays en developpement."
+  },
+  {
+    "code": "AFRILABS-NEWS",
+    "nom": "AfriLabs - actualites et partenariats",
+    "methode": "RSS",
+    "url": "https://www.afrilabs.com/feed",
+    "paysDefaut": "Afrique (multi-pays)",
+    "secteurDefaut": "Numerique",
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (296ko, 10 items). Actualites et partenariats du reseau AfriLabs. Contient des opportunities de collaboration."
+  },
+  {
+    "code": "PROPARCO-NEWS",
+    "nom": "Proparco - actualites investissements",
+    "methode": "RSS",
+    "url": "https://www.proparco.fr/rss.xml",
+    "paysDefaut": "International",
+    "secteurDefaut": "Finance",
+    "typeDefaut": "Investissement",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (96ko, 10 items). Actualites d'investissement du Groupe AFD. Secteur prive, PME, climat."
+  },
+  {
+    "code": "ACBF-NEWS",
+    "nom": "Fonds africain de capacitation - actualites",
+    "methode": "RSS",
+    "url": "https://www.acbf-pact.org/news/feed",
+    "paysDefaut": "Afrique (multi-pays)",
+    "secteurDefaut": "Gouvernance et institutions",
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (77ko, 10 items). Actualites sur le renforcement des capacites en Afrique."
+  },
+  {
+    "code": "AU-NEWS",
+    "nom": "Union africaine - actualites officielles",
+    "methode": "RSS",
+    "url": "https://www.au.int/rss.xml",
+    "paysDefaut": "Afrique (multi-pays)",
+    "secteurDefaut": "Gouvernance et institutions",
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (64ko, 10 items). Communiques officiels de l'UA. Contient des appels et programmes."
+  },
+  {
+    "code": "UNHABITAT-NEWS",
+    "nom": "ONU-Habitat - actualites et appels",
+    "methode": "RSS",
+    "url": "https://www.unhabitat.org/rss.xml",
+    "paysDefaut": "International",
+    "secteurDefaut": "Infrastructures et BTP",
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (377ko, 10 items). Actualites urbaines et developpement local. Contient des seminaires et appels."
+  },
+  {
+    "code": "ADB-NEWS",
+    "nom": "Banque asiatique de developpement - actualites",
+    "methode": "RSS",
+    "url": "https://www.adb.org/rss.xml",
+    "paysDefaut": "Asie",
+    "secteurDefaut": "Finance",
+    "typeDefaut": "Investissement",
+    "active": false,
+    "statut": "Verifie le 2026-09-01 : feed RSS actif (114ko, 10 items). Actualites et opportunites. Hors zone CEDEAO : inactive par defaut."
+  },
+  {
+    "code": "WELLCOME-GRANTS",
+    "nom": "Wellcome Trust - programmes de financement recherche",
+    "methode": "HTML:wellcome.org",
+    "url": "https://wellcome.org/research-funding/schemes",
+    "paysDefaut": "International",
+    "secteurDefaut": "Sante",
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 13 programmes de financement (Discovery Awards, Early-Career, Career Development, Springboard, etc.). JSON embarque dans la page avec statut, deadline, montant. 4 ouverts, 7 fermes, 2 any-time."
+  },
+  {
+    "code": "GC-GRANTS",
+    "nom": "Grand Challenges Gates Foundation - opportunites de financement",
+    "methode": "HTML:grandchallenges.org",
+    "url": "https://www.grandchallenges.org/grant-opportunities",
+    "paysDefaut": "International",
+    "secteurDefaut": "Health et developpement",
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : JSON embarque dans __NEXT_DATA__ avec 3 defis actifs (Pathogen Sequencing, Micronutrient Status, Keystone Symposia). Dates UNIX, domaine, lien de candidature. Filtrage par date_end > maintenant."
+  },
+  {
+    "code": "J360-NEWS",
+    "nom": "J360 - actualites marches publics et achats publics",
+    "methode": "RSS",
+    "url": "https://www.j360.info/en/news/rss/",
+    "paysDefaut": "International",
+    "secteurDefaut": "Administration publique",
+    "typeDefaut": "Actualites",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : 5 articles editorial (39ko). Veille strategique sur les marches publics : UEMOA, UE, innovation, IA. Pas des appels d'offres mais analyse du marche. Articles recents (2025-2026)."
+  },
+  {
+    "code": "UNICEF-SUPPLY",
+    "nom": "UNICEF Supply Division - tender calendars",
+    "methode": "HTML:unicef.org/supply",
+    "url": "https://www.unicef.org/supply/tender-calendars",
+    "paysDefaut": "International",
+    "secteurDefaut": "Sante et equipements médicaux",
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
+  },
+  {
+    "code": "FUNDPILOTE-API",
+    "nom": "Fundpilote - subventions et appels a projets (agregateur)",
+    "methode": "JSON:fundpilote.com",
+    "url": "https://fundpilote.com/api/v1/opportunities/",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-02 : API publique SANS authentification (200, count=283, 20 par page). 15 ouvertes sur 20 en page 1, aucune expiree. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. La reponse anonyme ne porte NI application_url NI source_url : le lien est bati depuis l id (/opportunities/<id>)."
   }
 ];

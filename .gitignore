@@ -44,3 +44,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Artefact d outil local, sans rapport avec le projet.
+.freebuff/

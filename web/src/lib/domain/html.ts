@@ -469,6 +469,248 @@ export function analyserAfd(html: string): EntreeFlux[] {
   }).filter((e): e is EntreeFlux => e !== null);
 }
 
+/**
+ * Analyseur des programmes de financement de Wellcome Trust.
+ *
+ * La page /research-funding/schemes embarque un JSON dans __NEXT_DATA__
+ * contenant initialListings : un tableau de programmes avec titre, statut
+ * (Open/Closed), date de cloture, montant, duree et pays eligible.
+ *
+ * Seuls les programmes ouverts (scheme_status === "Open") sont remontes :
+ * les programmes clos ne representent rien a soumissionner.
+ */
+export function analyserWellcome(html: string): EntreeFlux[] {
+  if (!html) return [];
+  // Le JSON est dans un script __NEXT_DATA__
+  const match = /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  if (!match) return [];
+
+  let data: unknown;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    return [];
+  }
+
+  // Le cast doit decrire toute la chaine : un simple Record<string, unknown>
+  // rend .props inconnu, et .pageProps ne compile plus.
+  const listings = (data as {
+    props?: { pageProps?: { initialListings?: unknown } };
+  })?.props?.pageProps?.initialListings;
+  if (!Array.isArray(listings)) return [];
+
+  return listings
+    .filter((l: Record<string, unknown>) => l.scheme_status === "Open")
+    .map((l): EntreeFlux | null => {
+      const titre = String(l.title ?? "").trim();
+      if (!titre) return null;
+
+      const url = String(l.url ?? "").trim();
+      const lien = url ? nettoyerLien("https://wellcome.org" + url) : "";
+      const resume = nettoyerHtml(String(l.listing_summary ?? ""));
+      const duree = nettoyerHtml(String(l.duration_of_funding ?? ""));
+      const montant = nettoyerHtml(String(l.level_of_funding ?? ""));
+      const cloture = String(l.scheme_closes_for_applications ?? "").trim();
+      const freq = String(l.frequency ?? "").trim();
+
+      const zones = Array.isArray(l.location_ref)
+        ? (l.location_ref as Record<string, unknown>[])
+            .map((z) => String(z.name ?? "").trim())
+            .filter(Boolean)
+        : [];
+
+      const resumeComplet = [
+        resume,
+        montant && `Budget : ${montant}`,
+        duree && `Duree : ${duree}`,
+        zones.length && `Zones : ${zones.join(", ")}`,
+        freq && `Frequence : ${freq}`,
+      ].filter(Boolean).join(" - ").slice(0, 500);
+
+      return {
+        titre,
+        lien,
+        publie: null,
+        resume: resumeComplet,
+        deadline: cloture ? extraireDeadline(`closing date ${cloture}`) : null,
+        organisation: "Wellcome Trust",
+        type: "Subvention",
+      };
+    })
+    .filter((e): e is EntreeFlux => e !== null);
+}
+
+/**
+ * Analyseur des tender calendars de UNICEF Supply Division.
+ *
+ * La page /supply/tender-calendars liste les categories de marches (Education,
+ * Medical Devices, Medicines, Nutrition, SIE, Vaccines, WASH) avec des liens
+ * vers des sous-pages HTML et des PDFs de calendrier.
+ *
+ * Chaque categorie est remontee comme une entree. Les dates extraites des
+ * sous-pages HTML (quand disponibles) sont incluses dans le resume. Les PDFs
+ * sont references comme lien secondaire.
+ */
+export function analyserUnicefSupply(html: string): EntreeFlux[] {
+  if (!html) return [];
+  const entrees: EntreeFlux[] = [];
+  const vus = new Set<string>();
+
+  // Extraire les liens vers les sous-pages de tender calendars
+  const subPages = [...html.matchAll(/href="(\/supply\/(?:documents\/)?[a-z-]+tender-calendar[^"]*)"/gi)];
+  for (const m of subPages) {
+    const slug = m[1];
+    if (vus.has(slug)) continue;
+    vus.add(slug);
+
+    // Titre depuis le slug : "education-tender-calendar" -> "Education"
+    const slugClean = slug.replace(/.*\//, "");
+    const nomCategorie = slugClean
+      .replace(/-tender-calendar.*$/i, "")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const lien = nettoyerLien("https://www.unicef.org" + slug);
+
+    entrees.push({
+      titre: `UNICEF Supply - ${nomCategorie} tender calendar`,
+      lien,
+      publie: null,
+      resume: `Calendrier des marches UNICEF pour ${nomCategorie}. Consultez la page pour les dates de soumission.`,
+      deadline: null,
+      organisation: "UNICEF Supply Division",
+      type: "Appel d'offres",
+    });
+  }
+
+  // Extraire les liens PDF de calendriers
+  const pdfLinks = [...html.matchAll(/href="(\/supply\/media\/[^"']+\.pdf)"/gi)];
+  for (const m of pdfLinks) {
+    const pdfUrl = m[1];
+    if (vus.has(pdfUrl)) continue;
+    vus.add(pdfUrl);
+
+    // Titre depuis le nom du fichier
+    const nomFichier = pdfUrl.split("/").pop()?.replace(/\.pdf$/i, "") ?? "";
+    const titre = nomFichier
+      .replace(/-/g, " ")
+      .replace(/UNICEF\s*/i, "")
+      .replace(/file\s*/i, "")
+      .trim();
+
+    entrees.push({
+      titre: `UNICEF Supply - ${titre}`,
+      lien: nettoyerLien("https://www.unicef.org" + pdfUrl),
+      publie: null,
+      resume: `Calendrier des marches UNICEF. PDF a consulter pour les dates de soumission.`,
+      deadline: null,
+      organisation: "UNICEF Supply Division",
+      type: "Appel d'offres",
+    });
+  }
+
+  // Extraire les liens vers d'autres pages de calendars (SIE, Vaccines, WASH)
+  const otherPages = [...html.matchAll(/href="(\/supply\/(?:safe-injection|tentative-vaccine|water-sanitation)[^"]*)"/gi)];
+  for (const m of otherPages) {
+    const slug = m[1];
+    if (vus.has(slug)) continue;
+    vus.add(slug);
+
+    const slugClean = slug.replace(/.*\//, "");
+    const nomCategorie = slugClean
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace(/Tender Calendar.*$/i, "tender calendar")
+      .replace(/Tender Issuance Dates$/i, "tender issuance dates");
+
+    entrees.push({
+      titre: `UNICEF Supply - ${nomCategorie}`,
+      lien: nettoyerLien("https://www.unicef.org" + slug),
+      publie: null,
+      resume: `Calendrier des marches UNICEF. Consultez la page pour les dates de soumission.`,
+      deadline: null,
+      organisation: "UNICEF Supply Division",
+      type: "Appel d'offres",
+    });
+  }
+
+  return entrees;
+}
+
+/**
+ * Analyseur des opportunites de financement de Grand Challenges (Gates Foundation).
+ *
+ * La page /grant-opportunities embarque un JSON dans __NEXT_DATA__
+ * contenant initialData.listing.data : un tableau de defis avec titre,
+ * dates, domaine, lien de candidature et description.
+ *
+ * Seuls les defis dont la date de fin est dans le futur sont remontes :
+ * les defis expires ne representent rien a soumissionner.
+ */
+export function analyserGrandChallenges(html: string): EntreeFlux[] {
+  if (!html) return [];
+  // Le JSON est dans un script avec ou sans id="__NEXT_DATA__"
+  const match = /<script[^>]*>([\s\S]*?)window\.process\s*=\s*\{env:/i.exec(html)
+    ?? /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  if (!match) return [];
+
+  // Chercher le JSON complet dans la page
+  const jsonMatch = /__NEXT_DATA__[^{]*(\{[\s\S]*?\})\s*;?\s*<\/script>/i.exec(html);
+  if (!jsonMatch) return [];
+
+  let data: unknown;
+  try {
+    data = JSON.parse(jsonMatch[1]);
+  } catch {
+    return [];
+  }
+
+  const listing = (data as {
+    props?: { pageProps?: { initialData?: { listing?: { data?: unknown } } } };
+  })?.props?.pageProps?.initialData?.listing?.data;
+  if (!Array.isArray(listing)) return [];
+
+  const maintenant = Date.now();
+
+  return listing
+    .filter((g: Record<string, unknown>) => {
+      // Filtrer les defis expires
+      const dateEnd = typeof g.date_end === "number" ? g.date_end * 1000 : 0;
+      return !g.hidden && dateEnd > maintenant;
+    })
+    .map((g): EntreeFlux | null => {
+      const titre = String(g.title ?? "").trim();
+      if (!titre) return null;
+
+      const slug = String(g.url ?? "").trim();
+      const lien = slug
+        ? nettoyerLien("https://www.grandchallenges.org" + slug)
+        : String(g.apply_link ?? "");
+      const challenge = String(g.challenge_goal ?? "").trim();
+      const initiative = String(g.initiative_title ?? "").trim();
+      const description = nettoyerHtml(String(g.opportunity_description_summary ?? g.opportunity_description ?? ""));
+      const dateEnd = typeof g.date_end === "number" ? new Date(g.date_end * 1000) : null;
+
+      const resumeComplet = [
+        description,
+        challenge && `Domaine : ${challenge}`,
+        initiative && `Initiative : ${initiative}`,
+        dateEnd && `Cloture : ${dateEnd.toLocaleDateString("fr-FR")}`,
+      ].filter(Boolean).join(" - ").slice(0, 500);
+
+      return {
+        titre,
+        lien,
+        publie: null,
+        resume: resumeComplet,
+        deadline: dateEnd ? dateEnd.toISOString().slice(0, 10) : null,
+        organisation: "Grand Challenges / Gates Foundation",
+        type: "Subvention",
+      };
+    })
+    .filter((e): e is EntreeFlux => e !== null);
+}
+
 /** Analyseurs disponibles, par nom de methode "HTML:<nom>". */
 export const ANALYSEURS_HTML: Record<string, (html: string) => EntreeFlux[]> = {
   "gouv.bj": analyserGouvBj,
@@ -482,6 +724,9 @@ export const ANALYSEURS_HTML: Record<string, (html: string) => EntreeFlux[]> = {
   "abe.bj": analyserAbe,
   "dedras.org": analyserDedras,
   "afd.fr": analyserAfd,
+  "wellcome.org": analyserWellcome,
+  "grandchallenges.org": analyserGrandChallenges,
+  "unicef.org/supply": analyserUnicefSupply,
 };
 
 /** Retourne l'analyseur d'une methode "HTML:<nom>", ou null. */

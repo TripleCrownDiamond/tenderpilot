@@ -27,7 +27,10 @@ var ANALYSEURS_HTML = {
   'bceao.int': analyserPageBceao,
   'abe.bj': analyserPageAbe,
   'dedras.org': analyserPageDedras,
-  'afd.fr': analyserPageAfd
+  'afd.fr': analyserPageAfd,
+  'wellcome.org': analyserPageWellcome,
+  'grandchallenges.org': analyserPageGrandChallenges,
+  'unicef.org/supply': analyserPageUnicefSupply
 };
 
 /** Retourne l'analyseur correspondant a une methode HTML:<nom>, ou null. */
@@ -503,6 +506,222 @@ function analyserPageAfd(html, source) {
   }).filter(function (o) { return o && o.title; });
 }
 
+/**
+ * Analyseur des programmes de financement de Wellcome Trust.
+ *
+ * La page /research-funding/schemes embarque un JSON dans __NEXT_DATA__
+ * contenant initialListings : un tableau de programmes avec titre, statut
+ * (Open/Closed), date de cloture, montant, duree et pays eligible.
+ */
+function analyserPageWellcome(html, source) {
+  if (!html) return [];
+  var match = /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i.exec(String(html));
+  if (!match) return [];
+
+  var data;
+  try {
+    data = JSON.parse(match[1]);
+  } catch (e) {
+    return [];
+  }
+
+  var listings = data && data.props && data.props.pageProps && data.props.pageProps.initialListings;
+  if (!listings || !listings.length) return [];
+
+  var resultats = [];
+  listings.forEach(function (l) {
+    if (l.scheme_status !== 'Open') return;
+
+    var titre = String(l.title || '').trim();
+    if (!titre) return;
+
+    var url = String(l.url || '').trim();
+    var lien = url ? nettoyerLien('https://wellcome.org' + url) : '';
+    var resume = nettoyerHtml(String(l.listing_summary || ''));
+    var duree = nettoyerHtml(String(l.duration_of_funding || ''));
+    var montant = nettoyerHtml(String(l.level_of_funding || ''));
+    var cloture = String(l.scheme_closes_for_applications || '').trim();
+    var freq = String(l.frequency || '').trim();
+
+    var zones = [];
+    if (Array.isArray(l.location_ref)) {
+      l.location_ref.forEach(function (z) {
+        var n = String(z.name || '').trim();
+        if (n) zones.push(n);
+      });
+    }
+
+    var morceaux = [];
+    if (resume) morceaux.push(resume);
+    if (montant) morceaux.push('Budget : ' + montant);
+    if (duree) morceaux.push('Duree : ' + duree);
+    if (zones.length) morceaux.push('Zones : ' + zones.join(', '));
+    if (freq) morceaux.push('Frequence : ' + freq);
+
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: lien,
+      summary: morceaux.join(' - ').slice(0, 500),
+      deadline: cloture ? extractDeadline('closing date ' + cloture) : null,
+      org: 'Wellcome Trust',
+      type: 'Subvention'
+    }, source));
+  });
+
+  return resultats.filter(function (o) { return o.title; });
+}
+
+/**
+ * Analyseur des opportunites de financement de Grand Challenges (Gates Foundation).
+ *
+ * La page /grant-opportunities embarque un JSON dans __NEXT_DATA__
+ * contenant initialData.listing.data : un tableau de defis avec titre,
+ * dates, domaine, lien de candidature et description.
+ */
+function analyserPageGrandChallenges(html, source) {
+  if (!html) return [];
+  var jsonMatch = /__NEXT_DATA__[^{]*(\{[\s\S]*?\})\s*;?\s*<\/script>/i.exec(String(html));
+  if (!jsonMatch) return [];
+
+  var data;
+  try {
+    data = JSON.parse(jsonMatch[1]);
+  } catch (e) {
+    return [];
+  }
+
+  var listing = data && data.props && data.props.pageProps && data.props.pageProps.initialData
+    && data.props.pageProps.initialData.listing && data.props.pageProps.initialData.listing.data;
+  if (!listing || !listing.length) return [];
+
+  var maintenant = Date.now();
+  var resultats = [];
+
+  listing.forEach(function (g) {
+    if (g.hidden) return;
+    var dateEnd = typeof g.date_end === 'number' ? g.date_end * 1000 : 0;
+    if (dateEnd <= maintenant) return;
+
+    var titre = String(g.title || '').trim();
+    if (!titre) return;
+
+    var slug = String(g.url || '').trim();
+    var lien = slug ? nettoyerLien('https://www.grandchallenges.org' + slug) : String(g.apply_link || '');
+    var challenge = String(g.challenge_goal || '').trim();
+    var initiative = String(g.initiative_title || '').trim();
+    var description = nettoyerHtml(String(g.opportunity_description_summary || g.opportunity_description || ''));
+    var dateEndObj = typeof g.date_end === 'number' ? new Date(g.date_end * 1000) : null;
+
+    var morceaux = [];
+    if (description) morceaux.push(description);
+    if (challenge) morceaux.push('Domaine : ' + challenge);
+    if (initiative) morceaux.push('Initiative : ' + initiative);
+    if (dateEndObj) morceaux.push('Cloture : ' + dateEndObj.toLocaleDateString('fr-FR'));
+
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: lien,
+      summary: morceaux.join(' - ').slice(0, 500),
+      deadline: dateEndObj ? dateEndObj.toISOString().slice(0, 10) : null,
+      org: 'Grand Challenges / Gates Foundation',
+      type: 'Subvention'
+    }, source));
+  });
+
+  return resultats.filter(function (o) { return o && o.title; });
+}
+
+/**
+ * Analyseur des tender calendars de UNICEF Supply Division.
+ *
+ * La page /supply/tender-calendars liste les categories de marches avec des
+ * liens vers des sous-pages HTML et des PDFs de calendrier.
+ */
+function analyserPageUnicefSupply(html, source) {
+  if (!html) return [];
+  var resultats = [];
+  var vus = {};
+
+  // Extraire les liens vers les sous-pages de tender calendars
+  var subPages = String(html).match(/href="(\/supply\/(?:documents\/)?[a-z-]+tender-calendar[^"]*)"/gi) || [];
+  subPages.forEach(function (m) {
+    var lien = m.match(/href="([^"]+)"/i);
+    if (!lien) return;
+    var slug = lien[1];
+    if (vus[slug]) return;
+    vus[slug] = true;
+
+    var slugClean = slug.replace(/.*\//, '');
+    var nomCategorie = slugClean
+      .replace(/-tender-calendar.*$/i, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+
+    resultats.push(normalizeOpportunity({
+      title: 'UNICEF Supply - ' + nomCategorie + ' tender calendar',
+      url: nettoyerLien('https://www.unicef.org' + slug),
+      summary: 'Calendrier des marches UNICEF pour ' + nomCategorie + '. Consultez la page pour les dates de soumission.',
+      deadline: null,
+      org: 'UNICEF Supply Division',
+      type: "Appel d'offres"
+    }, source));
+  });
+
+  // Extraire les liens PDF
+  var pdfLinks = String(html).match(/href="(\/supply\/media\/[^"']+\.pdf)"/gi) || [];
+  pdfLinks.forEach(function (m) {
+    var lien = m.match(/href="([^"]+)"/i);
+    if (!lien) return;
+    var pdfUrl = lien[1];
+    if (vus[pdfUrl]) return;
+    vus[pdfUrl] = true;
+
+    var nomFichier = pdfUrl.split('/').pop().replace(/\.pdf$/i, '');
+    var titre = nomFichier
+      .replace(/-/g, ' ')
+      .replace(/UNICEF\s*/i, '')
+      .replace(/file\s*/i, '')
+      .trim();
+
+    resultats.push(normalizeOpportunity({
+      title: 'UNICEF Supply - ' + titre,
+      url: nettoyerLien('https://www.unicef.org' + pdfUrl),
+      summary: 'Calendrier des marches UNICEF. PDF a consulter pour les dates de soumission.',
+      deadline: null,
+      org: 'UNICEF Supply Division',
+      type: "Appel d'offres"
+    }, source));
+  });
+
+  // Autres pages (SIE, Vaccines, WASH)
+  var otherPages = String(html).match(/href="(\/supply\/(?:safe-injection|tentative-vaccine|water-sanitation)[^"]*)"/gi) || [];
+  otherPages.forEach(function (m) {
+    var lien = m.match(/href="([^"]+)"/i);
+    if (!lien) return;
+    var slug = lien[1];
+    if (vus[slug]) return;
+    vus[slug] = true;
+
+    var slugClean = slug.replace(/.*\//, '');
+    var nomCategorie = slugClean
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, function(c) { return c.toUpperCase(); })
+      .replace(/Tender Calendar.*$/i, 'tender calendar')
+      .replace(/Tender Issuance Dates$/i, 'tender issuance dates');
+
+    resultats.push(normalizeOpportunity({
+      title: 'UNICEF Supply - ' + nomCategorie,
+      url: nettoyerLien('https://www.unicef.org' + slug),
+      summary: 'Calendrier des marches UNICEF. Consultez la page pour les dates de soumission.',
+      deadline: null,
+      org: 'UNICEF Supply Division',
+      type: "Appel d'offres"
+    }, source));
+  });
+
+  return resultats.filter(function (o) { return o && o.title; });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     analyseurHtml_: analyseurHtml_,
@@ -518,6 +737,9 @@ if (typeof module !== 'undefined') {
     analyserPageAbe: analyserPageAbe,
     analyserPageDedras: analyserPageDedras,
     analyserPageAfd: analyserPageAfd,
+    analyserPageWellcome: analyserPageWellcome,
+    analyserPageGrandChallenges: analyserPageGrandChallenges,
+    analyserPageUnicefSupply: analyserPageUnicefSupply,
     ANALYSEURS_HTML: ANALYSEURS_HTML
   };
 }

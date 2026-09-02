@@ -890,7 +890,7 @@ var SCHEMA = {
     "https://armp.bj/category/actualites/appels-doffres/",
     "Benin",
     "Gouvernance et institutions",
-    "",
+    "AMI",
     "NON",
     "",
     "Verifie le 2026-08-31 : 9 avis, le plus recent du 02/03/2026. L'ARMP publie 1 a 2 avis par an : inactive par defaut pour ne pas encombrer."
@@ -902,7 +902,7 @@ var SCHEMA = {
     "https://marches-publics.sbee.bj/",
     "Benin",
     "Energie",
-    "",
+    "Appel d'offres",
     "OUI",
     "",
     "Verifie le 2026-08-31 : 8 avis, tous dates. La source beninoise la plus complete : reference, type de marche, publication et date limite en clair."
@@ -914,7 +914,7 @@ var SCHEMA = {
     "https://web.soneb.bj/marches-publics",
     "Benin",
     "Eau et assainissement",
-    "",
+    "Appel d'offres",
     "OUI",
     "",
     "Verifie le 2026-08-31 : 30 avis, tous avec date de publication et de cloture. Table Drupal stable."
@@ -926,7 +926,7 @@ var SCHEMA = {
     "https://www.abe.bj/appels-doffres/",
     "Benin",
     "Environnement",
-    "",
+    "Appel d'offres",
     "OUI",
     "",
     "Verifie le 2026-08-31 : 9 avis en premiere page (22 au total), 7 avec echeance. Les avis echus ne sont pas ecartes : l'ABE n'offre aucun filtre d'URL."
@@ -962,7 +962,7 @@ var SCHEMA = {
     "https://mcabeninreg.bj/feed/",
     "Benin",
     "Infrastructures et BTP",
-    "",
+    "Appel d'offres",
     "NON",
     "",
     "Verifie le 2026-08-31 : flux MIXTE - 1 avis de marche sur 10 items, le reste est de l'actualite. Inactive par defaut : a activer pour la veille projet."
@@ -974,7 +974,7 @@ var SCHEMA = {
     "https://eprocurement.dedras.org/toutvoir",
     "Benin",
     "",
-    "",
+    "Demande de cotation",
     "OUI",
     "",
     "Verifie le 2026-08-31 : 98 avis, tous avec type, date de publication et limite de depot. ONG locale : demandes de cotation et AMI que les grands agregateurs ne couvrent pas."
@@ -1218,6 +1218,174 @@ var SCHEMA = {
     "NON",
     "",
     "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+  ],
+  [
+    "OTF-GRANTS",
+    "Open Technology Fund - RFP et subventions tech",
+    "RSS",
+    "https://www.opentech.fund/feed",
+    "International",
+    "Technologie",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif avec RFP (Request for Proposals) et subventions tech. Thematiques : Internet freedom, censure numerique, securite. Flux fiable, mises a jour regulieres."
+  ],
+  [
+    "TEF-GRANTS",
+    "Tony Elumelu Foundation - programme entrepreneuriat",
+    "RSS",
+    "https://www.tonyelumelufoundation.org/feed",
+    "Afrique (multi-pays)",
+    "Entrepreneuriat",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif. Programme d'entrepreneuriat pour jeunes Africains. Contient des stories d'entrepreneurs et des appels. Flux fiable."
+  ],
+  [
+    "ADAPT-FUND",
+    "Fonds d'adaptation - subventions climat",
+    "RSS",
+    "https://www.adaptation-fund.org/feed",
+    "International",
+    "Environnement",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif. Subventions pour projets d'adaptation au changement climatique dans les pays en developpement."
+  ],
+  [
+    "AFRILABS-NEWS",
+    "AfriLabs - actualites et partenariats",
+    "RSS",
+    "https://www.afrilabs.com/feed",
+    "Afrique (multi-pays)",
+    "Numerique",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (296ko, 10 items). Actualites et partenariats du reseau AfriLabs. Contient des opportunities de collaboration."
+  ],
+  [
+    "PROPARCO-NEWS",
+    "Proparco - actualites investissements",
+    "RSS",
+    "https://www.proparco.fr/rss.xml",
+    "International",
+    "Finance",
+    "Investissement",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (96ko, 10 items). Actualites d'investissement du Groupe AFD. Secteur prive, PME, climat."
+  ],
+  [
+    "ACBF-NEWS",
+    "Fonds africain de capacitation - actualites",
+    "RSS",
+    "https://www.acbf-pact.org/news/feed",
+    "Afrique (multi-pays)",
+    "Gouvernance et institutions",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (77ko, 10 items). Actualites sur le renforcement des capacites en Afrique."
+  ],
+  [
+    "AU-NEWS",
+    "Union africaine - actualites officielles",
+    "RSS",
+    "https://www.au.int/rss.xml",
+    "Afrique (multi-pays)",
+    "Gouvernance et institutions",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (64ko, 10 items). Communiques officiels de l'UA. Contient des appels et programmes."
+  ],
+  [
+    "UNHABITAT-NEWS",
+    "ONU-Habitat - actualites et appels",
+    "RSS",
+    "https://www.unhabitat.org/rss.xml",
+    "International",
+    "Infrastructures et BTP",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (377ko, 10 items). Actualites urbaines et developpement local. Contient des seminaires et appels."
+  ],
+  [
+    "ADB-NEWS",
+    "Banque asiatique de developpement - actualites",
+    "RSS",
+    "https://www.adb.org/rss.xml",
+    "Asie",
+    "Finance",
+    "Investissement",
+    "NON",
+    "",
+    "Verifie le 2026-09-01 : feed RSS actif (114ko, 10 items). Actualites et opportunites. Hors zone CEDEAO : inactive par defaut."
+  ],
+  [
+    "WELLCOME-GRANTS",
+    "Wellcome Trust - programmes de financement recherche",
+    "HTML:wellcome.org",
+    "https://wellcome.org/research-funding/schemes",
+    "International",
+    "Sante",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : 13 programmes de financement (Discovery Awards, Early-Career, Career Development, Springboard, etc.). JSON embarque dans la page avec statut, deadline, montant. 4 ouverts, 7 fermes, 2 any-time."
+  ],
+  [
+    "GC-GRANTS",
+    "Grand Challenges Gates Foundation - opportunites de financement",
+    "HTML:grandchallenges.org",
+    "https://www.grandchallenges.org/grant-opportunities",
+    "International",
+    "Health et developpement",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : JSON embarque dans __NEXT_DATA__ avec 3 defis actifs (Pathogen Sequencing, Micronutrient Status, Keystone Symposia). Dates UNIX, domaine, lien de candidature. Filtrage par date_end > maintenant."
+  ],
+  [
+    "J360-NEWS",
+    "J360 - actualites marches publics et achats publics",
+    "RSS",
+    "https://www.j360.info/en/news/rss/",
+    "International",
+    "Administration publique",
+    "Actualites",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : 5 articles editorial (39ko). Veille strategique sur les marches publics : UEMOA, UE, innovation, IA. Pas des appels d'offres mais analyse du marche. Articles recents (2025-2026)."
+  ],
+  [
+    "UNICEF-SUPPLY",
+    "UNICEF Supply Division - tender calendars",
+    "HTML:unicef.org/supply",
+    "https://www.unicef.org/supply/tender-calendars",
+    "International",
+    "Sante et equipements médicaux",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
+  ],
+  [
+    "FUNDPILOTE-API",
+    "Fundpilote - subventions et appels a projets (agregateur)",
+    "JSON:fundpilote.com",
+    "https://fundpilote.com/api/v1/opportunities/",
+    "International",
+    "",
+    "Subvention",
+    "OUI",
+    "",
+    "Verifie le 2026-09-02 : API publique SANS authentification (200, count=283, 20 par page). 15 ouvertes sur 20 en page 1, aucune expiree. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. La reponse anonyme ne porte NI application_url NI source_url : le lien est bati depuis l id (/opportunities/<id>)."
   ]
 ]
 };
