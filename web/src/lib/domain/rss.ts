@@ -28,6 +28,16 @@ export interface EntreeFlux {
    */
   organisation?: string | null;
   type?: string | null;
+
+  /**
+   * Champs poses par le LLM quand il est actif, absents sinon.
+   *
+   * Le registre ne porte qu'un secteur par source - et 82 sources sur 99
+   * n'en portent aucun. Classer annonce par annonce est donc le premier
+   * apport du modele, pas un raffinement.
+   */
+  secteur?: string | null;
+  pertinent?: boolean;
 }
 
 /**
