@@ -192,10 +192,241 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
   }).filter((e): e is EntreeFlux => e !== null);
 }
 
+
+/**
+ * Appels et marches du portail europeen Funding & Tenders.
+ *
+ * MESURE DU 2026-09-02, sans authentification. L API accepte ses filtres a
+ * UNE SEULE condition : un POST multipart dont chaque partie declare son
+ * type de contenu. Les autres formes rendent 200 mais IGNORENT le filtre -
+ * 4 175 120 resultats au lieu de 1 421 - et le GET rend 405. Une requete
+ * sans type de contenu par partie rend 500.
+ *
+ * Trois familles utiles, une fois le bruit ecarte :
+ *   type=1  Horizon Europe, 1 226 appels, echeances a venir
+ *   type=2  EuropeAid, 24 appels - LA COOPERATION AU DEVELOPPEMENT, ou le
+ *           Benin est pleinement eligible
+ *   type=8  EIT, DIGITAL, Europe Creative, 171 appels
+ *
+ * type=0 est ecarte : ce sont les marches des institutions europeennes
+ * elles-memes - fournitures de bureau a Bruxelles, personnel a Strasbourg -
+ * sans rapport avec un soumissionnaire beninois.
+ *
+ * Statuts 31094501 (a venir) et 31094502 (ouvert). 31094503 est clos.
+ */
+export function analyserEuropa(corps: string): EntreeFlux[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const resultats = (donnees as { results?: unknown })?.results;
+  if (!Array.isArray(resultats)) return [];
+
+  return resultats.map((brut): EntreeFlux | null => {
+    const x = brut as { metadata?: Record<string, unknown>; url?: unknown };
+    const m = x.metadata ?? {};
+    const prem = (cle: string): string => {
+      const v = m[cle];
+      return Array.isArray(v) ? String(v[0] ?? "").trim() : String(v ?? "").trim();
+    };
+
+    const titre = retirerBalises(reparerCaracteres(prem("title")));
+    if (!titre) return null;
+
+    const identifiant = prem("identifier");
+    const lien = nettoyerLien(
+      (Array.isArray(x.url) ? String(x.url[0] ?? "") : String(x.url ?? ""))
+      || (identifiant
+        ? "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen"
+          + "/opportunities/topic-details/" + encodeURIComponent(identifiant)
+        : ""));
+    if (!lien) return null;
+
+    const programme = prem("frameworkProgramme") || prem("programmePeriod");
+    const description = retirerBalises(reparerCaracteres(prem("description")));
+
+    return {
+      titre,
+      lien,
+      publie: enIso(prem("startDate")),
+      resume: [identifiant && ("Reference : " + identifiant),
+               programme && ("Programme : " + programme),
+               description].filter(Boolean).join(" - ").slice(0, 500),
+      deadline: enIso(prem("deadlineDate") || prem("closingDate")),
+      organisation: "Commission europeenne",
+      type: prem("type") === "2" ? "Appel a projets" : null,
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
+}
+
+/**
+ * Subventions federales americaines, via l API publique de Grants.gov.
+ *
+ * Mesure du 2026-09-02 : POST JSON simple, sans authentification, 1 034
+ * subventions ouvertes dont 31 mentionnant l Afrique.
+ *
+ * ATTENTION, a dire au client. La plupart des subventions federales exigent
+ * un enregistrement SAM.gov d entite americaine. Certaines - Departement d
+ * Etat, USAID - acceptent les organisations etrangeres, mais l eligibilite
+ * se verifie AVIS PAR AVIS. Ce n est pas un guichet ouvert.
+ *
+ * Les dates arrivent en MM/JJ/AAAA, pas en ISO.
+ */
+export function analyserGrantsGov(corps: string): EntreeFlux[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const data = (donnees as { data?: { oppHits?: unknown } })?.data;
+  const avis = data?.oppHits;
+  if (!Array.isArray(avis)) return [];
+
+  // "11/17/2026" -> "2026-11-17". enIso passerait par new Date(), dont la
+  // lecture des dates americaines depend de l environnement.
+  const depuisUs = (v: unknown): string | null => {
+    const t = String(v ?? "").trim();
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+    return m ? m[3] + "-" + m[1] + "-" + m[2] : enIso(t);
+  };
+
+  return avis.map((brut): EntreeFlux | null => {
+    const o = brut as Record<string, unknown>;
+    const titre = retirerBalises(reparerCaracteres(String(o.title ?? "").trim()));
+    const numero = String(o.number ?? "").trim();
+    if (!titre || !numero) return null;
+
+    return {
+      titre,
+      lien: nettoyerLien(
+        "https://www.grants.gov/search-results-detail/" + encodeURIComponent(String(o.id ?? ""))),
+      publie: depuisUs(o.openDate),
+      resume: ["Reference : " + numero,
+               o.agencyCode && ("Agence : " + String(o.agencyCode)),
+               "Eligibilite a verifier sur l avis officiel"]
+        .filter(Boolean).join(" - ").slice(0, 500),
+      deadline: depuisUs(o.closeDate),
+      organisation: String(o.agencyCode ?? "").trim() || "Gouvernement des Etats-Unis",
+      type: "Subvention",
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
+}
+
+
+// --------------------------------------------------------- FORMES DE REQUETE
+
+/**
+ * Ce qu il faut envoyer quand un simple GET ne suffit pas.
+ *
+ * Deux sources sur cent six en ont besoin. Les autres n en declarent aucune
+ * et restent en GET, sans changement.
+ */
+export interface RequeteJson {
+  methode?: "GET" | "POST";
+  entetes?: Record<string, string>;
+  corps?: string;
+  contentType?: string;
+}
+
+/**
+ * Corps multipart, construit a la main.
+ *
+ * C EST LA LIGNE QUI DEBLOQUE TOUT, et elle merite son explication. Le
+ * portail europeen n applique ses filtres que si CHAQUE PARTIE declare son
+ * type de contenu. Une bibliotheque HTTP qui pose les parties sans
+ * Content-Type obtient un 500 ; une requete en parametre d URL ou en corps
+ * JSON obtient un 200 trompeur, filtre ignore.
+ *
+ * Ecrit a la main plutot que confie a une bibliotheque pour une seconde
+ * raison, decisive ici : Apps Script ne sait pas typer les parties d un
+ * multipart via UrlFetchApp. Une chaine construite nous-memes tourne a
+ * l identique dans les deux moteurs.
+ */
+export function corpsMultipart(
+  champs: readonly [string, string][], frontiere: string,
+): string {
+  let corps = "";
+  for (const [cle, valeur] of champs) {
+    corps += "--" + frontiere + "\r\n"
+      + 'Content-Disposition: form-data; name="' + cle + '"\r\n'
+      + "Content-Type: application/json\r\n\r\n"
+      + valeur + "\r\n";
+  }
+  return corps + "--" + frontiere + "--\r\n";
+}
+
+/** Frontiere fixe : rien dans les donnees envoyees ne peut la contenir. */
+export const FRONTIERE_MULTIPART = "----TenderPilotFrontiere";
+
+/**
+ * Requete du portail europeen.
+ *
+ * type 1, 2 et 8 : Horizon Europe, EuropeAid et les programmes thematiques.
+ * type 0 est ecarte - marches internes des institutions europeennes.
+ * status 31094501 et 31094502 : a venir et ouvert. 31094503 est clos.
+ */
+function requeteEuropa(): RequeteJson {
+  const filtre = {
+    bool: {
+      must: [
+        { terms: { type: ["1", "2", "8"] } },
+        { terms: { status: ["31094501", "31094502"] } },
+        // Ecarte les echeances passees des le serveur : 2324 -> 2314, et
+        // surtout une reponse plus legere pour Apps Script.
+        { range: { deadlineDate: { gte: "now" } } },
+      ],
+    },
+  };
+  return {
+    methode: "POST",
+    contentType: "multipart/form-data; boundary=" + FRONTIERE_MULTIPART,
+    corps: corpsMultipart([
+      ["query", JSON.stringify(filtre)],
+      ["languages", JSON.stringify(["en", "fr"])],
+      // DECROISSANT, et ce n est pas un caprice. Un appel en deux etapes
+      // porte PLUSIEURS echeances, et le tri croissant retient la plus
+      // ancienne - souvent passee. Mesure du 2026-09-02 : croissant rend 0
+      // echeance a venir sur 100, decroissant en rend 92.
+      //
+      // La contrepartie est assumee : on voit d abord les echeances les plus
+      // lointaines. Le filtre d entree du moteur ecarte de toute facon ce
+      // qui reste d expire.
+      ["sort", JSON.stringify({ field: "deadlineDate", order: "DESC" })],
+    ], FRONTIERE_MULTIPART),
+  };
+}
+
+/** Requete de Grants.gov : un corps JSON ordinaire. */
+function requeteGrantsGov(): RequeteJson {
+  return {
+    methode: "POST",
+    contentType: "application/json",
+    corps: JSON.stringify({ rows: 100, keyword: "", oppStatuses: "posted" }),
+  };
+}
+
+export const REQUETES_JSON: Record<string, () => RequeteJson> = {
+  "ec.europa.eu": requeteEuropa,
+  "grants.gov": requeteGrantsGov,
+};
+
+/** Forme de requete d une methode "JSON:<nom>", ou undefined pour un GET. */
+export function requeteJson(methode: string): RequeteJson | undefined {
+  const m = /^JSON:(.+)$/i.exec(String(methode ?? "").trim());
+  if (!m) return undefined;
+  const fabrique = REQUETES_JSON[m[1].trim()];
+  return fabrique ? fabrique() : undefined;
+}
+
 /** Analyseurs disponibles, par nom de methode "JSON:<nom>". */
 export const ANALYSEURS_JSON: Record<string, (corps: string) => EntreeFlux[]> = {
   "worldbank.org": analyserWorldBank,
   "fundpilote.com": analyserFundpilote,
+  "ec.europa.eu": analyserEuropa,
+  "grants.gov": analyserGrantsGov,
 };
 
 /** Retourne l'analyseur d'une methode "JSON:<nom>", ou null. */

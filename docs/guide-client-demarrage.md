@@ -150,7 +150,65 @@ Ils n'apparaissent pas par defaut : ce ne sont pas des marches, et ils
 rempliraient le tableau. Si vous les voulez - un salon professionnel a
 Nairobi, une formation financee - demandez-le, c'est une case a cocher.
 
-## 7. Rester a jour
+## 7. Le classement intelligent, si vous le voulez
+
+**TenderPilot fonctionne entierement sans cela.** C'est une option, pas une
+condition. Si vous ne faites rien, tout ce qui suit continue de marcher :
+
+| Ce qui marche sans aucune cle | |
+|---|---|
+| La collecte de toutes vos sources | oui |
+| **La lecture des dates limites** | oui |
+| **Les annonces deja echues ne rentrent pas** | oui |
+| Les couleurs, les jours restants | oui |
+| Les alertes email et Telegram a J-7, J-3, J-1 | oui |
+| L'absence de doublons | oui |
+| Le secteur et le type | **par source**, pas par annonce |
+| Le resume | l'extrait brut publie par la source |
+
+Les deux lignes en gras meritent d'etre soulignees : **le tri des echeances
+ne depend pas du classement intelligent.** Les dates sont lues par le
+programme, jamais par un modele - c'est une regle du produit, pas un hasard.
+Un modele produit toujours une date plausible plutot que rien, et une
+echeance inventee vous ferait manquer un depot.
+
+### Ce que le classement ajoute
+
+Si vous fournissez une cle, quatre choses changent :
+
+1. **Les articles n'entrent plus.** Certaines sources melangent des appels
+   et des billets de blog. Le classement ecarte ce a quoi on ne peut pas
+   repondre : un communique, une page de FAQ, un portrait.
+2. **Le secteur et le type deviennent justes.** Sans cle, une source donne
+   le meme secteur a toutes ses annonces - la Banque mondiale en publie
+   quarante etiquetees pareil. Avec, chaque annonce est classee pour
+   elle-meme.
+3. **Les resumes deviennent lisibles.** Un titre administratif de trois
+   lignes devient une phrase.
+4. **La pertinence geographique est signalee.** Une annonce reservee a un
+   autre pays est marquee - mais **elle n'est pas supprimee**, sauf si vous
+   le demandez. Un appel mondial reste toujours visible : vous pouvez y
+   candidater depuis Cotonou.
+
+### Ce qu'il faut savoir avant d'activer
+
+**La cle est la votre, et c'est vous qui payez.** Nous n'y avons pas acces.
+Ouvrez un compte chez un fournisseur - Mistral, par exemple - et collez la
+cle dans CONFIG.
+
+Le cout est faible : le classement travaille par lots de trente annonces, et
+une collecte courante demande **un a deux appels**. Le reglage
+`LLM_MAX_APPELS_JOUR`, a 100 par defaut, est votre garde-fou : au-dela, le
+classement s'arrete pour la journee et **la collecte continue normalement**.
+
+Menu **TenderPilot > Tester le classement intelligent** verifie que votre
+cle repond, avant la premiere collecte.
+
+**Si le fournisseur tombe en panne, vous ne perdez rien.** Les annonces
+arrivent alors sans classement, exactement comme si l'option etait
+desactivee.
+
+## 8. Rester a jour
 
 Menu **TenderPilot > Synchroniser les sources**.
 

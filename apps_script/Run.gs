@@ -57,11 +57,20 @@ function collectSource(source, config) {
     return [];
   }
 
-  var reponse = UrlFetchApp.fetch(String(source.url).trim(), {
+  // Une source peut exiger un POST : voir REQUETES_JSON dans Json.gs.
+  var options = {
     muteHttpExceptions: true,
     followRedirects: true,
     validateHttpsCertificates: true
-  });
+  };
+  var requete = requeteJson_(source.method);
+  if (requete) {
+    options.method = requete.methode;
+    options.contentType = requete.contentType;
+    options.payload = requete.corps;
+  }
+
+  var reponse = UrlFetchApp.fetch(String(source.url).trim(), options);
   var code = reponse.getResponseCode();
   if (code !== 200) throw new Error('HTTP ' + code);
 

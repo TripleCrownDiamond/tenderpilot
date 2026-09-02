@@ -19,7 +19,7 @@ import {
 } from "./domain/regles";
 import { analyserFlux } from "./domain/rss";
 import { analyseurHtml } from "./domain/html";
-import { analyseurJson } from "./domain/json";
+import { analyseurJson, requeteJson } from "./domain/json";
 import { appliquerPreferences, type Preferences } from "./domain/llm";
 import type { Classeur } from "./llm";
 
@@ -80,15 +80,39 @@ export interface Messager {
 }
 
 /** Recuperation reseau, isolee pour pouvoir etre remplacee dans les tests. */
-export type Recuperateur =
-  (url: string) => Promise<{ code: number; texte: string }>;
+/**
+ * Forme de requete d une source, quand un GET ne suffit pas.
+ *
+ * Ajoute pour le portail europeen Funding & Tenders, dont l API n accepte
+ * ses filtres qu en POST multipart avec un type de contenu declare PAR
+ * PARTIE. Mesure du 2026-09-02 : la meme requete en parametre d URL ou en
+ * corps JSON rend 200 mais IGNORE le filtre - 4,17 millions de resultats au
+ * lieu de 1 421. En GET, elle rend 405.
+ *
+ * Les 104 sources existantes n en declarent aucune et restent en GET.
+ */
+export interface RequeteSource {
+  methode?: "GET" | "POST";
+  entetes?: Record<string, string>;
+  corps?: string;
+  contentType?: string;
+}
 
-export const recuperateurReel: Recuperateur = async (url) => {
+export type Recuperateur =
+  (url: string, requete?: RequeteSource) => Promise<{ code: number; texte: string }>;
+
+export const recuperateurReel: Recuperateur = async (url, requete) => {
+  const entetes: Record<string, string> = {
+    "User-Agent": "TenderPilot/1.0",
+    Accept: "application/rss+xml, application/xml, text/xml, */*",
+    ...(requete?.entetes ?? {}),
+  };
+  if (requete?.contentType) entetes["Content-Type"] = requete.contentType;
+
   const reponse = await fetch(url, {
-    headers: {
-      "User-Agent": "TenderPilot/1.0",
-      Accept: "application/rss+xml, application/xml, text/xml, */*",
-    },
+    method: requete?.methode ?? "GET",
+    headers: entetes,
+    body: requete?.corps,
     // Une source lente ne doit pas bloquer toute la collecte.
     signal: AbortSignal.timeout(20000),
     cache: "no-store",
@@ -160,7 +184,9 @@ export async function collecterSource(
   if (source.methode.trim().toUpperCase() !== "RSS" && !analyseur) return [];
   if (!source.url.trim()) throw new Error("Aucune URL");
 
-  const { code, texte } = await recuperer(source.url.trim());
+  // Une source peut exiger un POST : voir REQUETES_JSON.
+  const { code, texte } = await recuperer(source.url.trim(),
+                                          requeteJson(source.methode));
   if (code !== 200) throw new Error(`HTTP ${code}`);
 
   // API, RSS ou extraction HTML : les trois produisent des EntreeFlux.

@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 104 sources : 71 flux RSS, 19 API JSON,
+ * 106 sources : 71 flux RSS, 21 API JSON,
  * 14 collectes HTML, 0 manuelle(s).
- * 49 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 51 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -1180,5 +1180,27 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": "Subvention",
     "active": true,
     "statut": "Verifie le 2026-09-02 : API publique SANS authentification (200, count=283, 20 par page). 15 ouvertes sur 20 en page 1, aucune expiree. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. La reponse anonyme ne porte NI application_url NI source_url : le lien est bati depuis l id (/opportunities/<id>)."
+  },
+  {
+    "code": "EU-PORTAL",
+    "nom": "Commission europeenne - appels a propositions et marches",
+    "methode": "JSON:ec.europa.eu",
+    "url": "https://api.tech.ec.europa.eu/search-api/prod/rest/search?apiKey=SEDIA&text=***&pageSize=100&pageNumber=1",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel a projets",
+    "active": true,
+    "statut": "Verifie le 2026-09-02 : 2314 appels ouverts ou a venir, 92 retenus par page, TOUS a echeance future. Inclut EuropeAid (type 2), la cooperation au developpement ou le Benin est pleinement eligible. POST multipart avec type de contenu declare PAR PARTIE : toute autre forme rend 200 en IGNORANT le filtre. Tri decroissant car un appel en deux etapes porte plusieurs echeances et le tri croissant retient la plus ancienne."
+  },
+  {
+    "code": "GRANTS-GOV",
+    "nom": "Grants.gov - subventions federales americaines",
+    "methode": "JSON:grants.gov",
+    "url": "https://api.grants.gov/v1/api/search2",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Subvention",
+    "active": true,
+    "statut": "Verifie le 2026-09-02 : 1034 subventions ouvertes, 100 par page, 82 datees a echeance future. 31 mentionnent l Afrique, dont U.S.-Africa Strategic Investment Program. RESERVE A DIRE AU CLIENT : la plupart des subventions federales exigent un enregistrement SAM.gov d entite americaine. Certaines - Departement d Etat, USAID - acceptent les organisations etrangeres, mais l eligibilite se verifie avis par avis."
   }
 ];
