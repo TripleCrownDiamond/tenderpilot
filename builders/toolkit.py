@@ -157,13 +157,13 @@ def feuille_demarrage(wb):
     # Style constants for this page only
     F_SECTION = Font(name="Calibri", size=12, bold=True, color=HEAD_BG)
     F_HIGHLIGHT = Font(name="Calibri", size=10, bold=True, color=INK)
-    ROW_HEIGHT_TITLE = 36
-    ROW_HEIGHT_VERSION = 20
-    ROW_HEIGHT_SECTION = 28
-    ROW_HEIGHT_BODY = 60
-    ROW_HEIGHT_BULLET = 28
-    ROW_HEIGHT_COLOR = 22
-    BLANK_HEIGHT = 8
+    ROW_HEIGHT_TITLE = 40
+    ROW_HEIGHT_VERSION = 24
+    ROW_HEIGHT_SECTION = 32
+    ROW_HEIGHT_BODY = 80
+    ROW_HEIGHT_BULLET = 32
+    ROW_HEIGHT_COLOR = 24
+    BLANK_HEIGHT = 10
 
     # (row_type, text) where row_type is:
     #   "title"    = big title (TENDERPILOT)
@@ -251,15 +251,13 @@ def feuille_demarrage(wb):
             c.font = F_BODY
             c.alignment = Alignment(wrap_text=True, vertical="top",
                                      indent=1)
-            nb_lines = max(1, -(-len(texte) // 76))
-            ws.row_dimensions[row].height = ROW_HEIGHT_BULLET * nb_lines
+            ws.row_dimensions[row].height = ROW_HEIGHT_BULLET
         elif row_type == "color":
             c.font = Font(name="Consolas", size=10, color=INK)
             ws.row_dimensions[row].height = ROW_HEIGHT_COLOR
         else:  # body
             c.font = F_BODY
-            nb_lines = max(1, -(-len(texte) // 70))
-            ws.row_dimensions[row].height = ROW_HEIGHT_BODY * nb_lines
+            ws.row_dimensions[row].height = ROW_HEIGHT_BODY
 
         row += 1
 
