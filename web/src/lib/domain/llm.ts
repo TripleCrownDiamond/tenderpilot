@@ -54,6 +54,23 @@ export interface ConfigLlm {
   maxAppelsJour: number;
   /** Annonces envoyees en un seul appel. */
   tailleLot: number;
+
+  /**
+   * Pays que le client suit. Le Benin est la cible d abord, jamais la
+   * limite : un cabinet beninois candidate aux marches du Togo, du Niger,
+   * du Burkina, et aux appels mondiaux.
+   */
+  paysCibles?: readonly string[];
+
+  /**
+   * Un appel ouvert a tous les pays est-il retenu ?
+   *
+   * Vrai par defaut, et ce n est pas un detail : mesure du 2026-09-02, la
+   * question posee en termes de geographie faisait rejeter un appel mondial
+   * d Open Technology Fund auquel une structure beninoise peut parfaitement
+   * candidater.
+   */
+  accepterMondial?: boolean;
 }
 
 export const LLM_DEFAUTS = {
@@ -64,6 +81,40 @@ export const LLM_DEFAUTS = {
   /** Au-dela, on tronque la page : inutile de payer pour un pied de page. */
   maxCaracteresPage: 40000,
 };
+
+/**
+ * Zone suivie par defaut : le Benin et ses trois voisins immediats.
+ *
+ * Ce n est qu un point de depart. Le client elargit ou reduit depuis le
+ * CONFIG, et reactive dans l onglet SOURCES les pays qu il veut suivre - le
+ * registre porte deja deux sources multilaterales pour chaque pays de la
+ * CEDEAO, plus une cinquantaine d autres en veille.
+ */
+export const PAYS_DEFAUT: readonly string[] = [
+  "Benin", "Togo", "Niger", "Burkina Faso",
+];
+
+/**
+ * Met la zone en phrase pour l invite.
+ *
+ * Ecrit pour etre lu par un modele, pas par une machine : une enumeration
+ * naturelle donne de meilleurs jugements qu une liste de codes pays.
+ */
+export function phraseZone(
+  pays: readonly string[] = PAYS_DEFAUT,
+  accepterMondial = true,
+): string {
+  const liste = pays.map((p) => String(p).trim()).filter(Boolean);
+  if (!liste.length) return accepterMondial ? "n importe quel pays" : "aucun pays";
+
+  const enumeration = liste.length === 1
+    ? liste[0]
+    : liste.slice(0, -1).join(", ") + " ou " + liste[liste.length - 1];
+
+  return accepterMondial
+    ? enumeration + " (les appels mondiaux ou ouverts a tous les pays comptent aussi)"
+    : enumeration + " uniquement";
+}
 
 /**
  * Le LLM est-il utilisable ?

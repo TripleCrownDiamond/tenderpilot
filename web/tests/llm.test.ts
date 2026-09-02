@@ -34,6 +34,8 @@ import {
   appliquerClassement,
   filtrerPertinentes,
   filtrerOpportunites,
+  phraseZone,
+  PAYS_DEFAUT,
   invitePourClassement,
   SECTEURS,
   TYPES,
@@ -281,6 +283,32 @@ test("le doute profite a l'annonce : sans verdict, elle est conservee", () => {
   ] as Array<{ titre: string; pertinent?: boolean }>);
   assert.deepEqual(gardees.map((e) => e.titre),
     ["vue et jugee pertinente", "jamais vue par le modele"]);
+});
+
+// ---------------------------------------------------------------- LA ZONE
+
+test("la zone du MVP : le Benin et ses trois voisins", () => {
+  assert.deepEqual([...PAYS_DEFAUT], ["Benin", "Togo", "Niger", "Burkina Faso"]);
+});
+
+test("la zone se met en phrase lisible par un modele", () => {
+  assert.match(phraseZone(["Benin", "Togo"]), /Benin ou Togo/);
+  assert.match(phraseZone(["Benin"]), /^Benin/);
+  assert.match(phraseZone(["Benin", "Togo", "Niger"]), /Benin, Togo ou Niger/);
+});
+
+test("les appels mondiaux comptent, sauf si le client les refuse", () => {
+  // Le Benin est la cible d abord, jamais la limite : un cabinet beninois
+  // candidate hors du Benin, dans la sous-region et dans le monde.
+  assert.match(phraseZone(PAYS_DEFAUT, true), /appels mondiaux/);
+  assert.ok(!/appels mondiaux/.test(phraseZone(PAYS_DEFAUT, false)));
+  assert.match(phraseZone(PAYS_DEFAUT, false), /uniquement/);
+});
+
+test("une zone vide ne produit pas une invite absurde", () => {
+  assert.equal(phraseZone([], true), "n importe quel pays");
+  assert.equal(phraseZone([], false), "aucun pays");
+  assert.equal(phraseZone(["  ", ""], true), "n importe quel pays");
 });
 
 // ------------------------------------------------------ CE QUI EST UN APPEL
