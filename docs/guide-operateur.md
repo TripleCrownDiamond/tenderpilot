@@ -43,9 +43,17 @@ C'est l'etape qu'on oublie, et elle est importante.
 | `TELEGRAM_TOKEN` | vide |
 | `TELEGRAM_CHAT_ID` | vide |
 | `SEND_TELEGRAM` | `false` |
+| `LLM_CLE` | **vide** |
+| `USE_LLM` | `false` |
 
 **Votre adresse et votre jeton de bot partiraient chez chaque client.**
 Un jeton de bot laisse quelqu'un ecrire a votre place.
+
+**Et votre cle de modele ferait payer VOS appels par VOUS, pour EUX.**
+C'est la ligne la plus facile a oublier et la plus chere : chaque client
+livre avec votre cle appellerait le fournisseur sur votre compte, trois fois
+par jour, sans que vous le sachiez. Le classement intelligent est une option
+que le client active avec SA cle.
 
 Videz aussi l'onglet OPPORTUNITIES des lignes de test, et l'onglet LOGS.
 Un classeur livre avec vos essais fait amateur.
@@ -196,7 +204,40 @@ C'est du travail recurrent. **C'est ce qui justifie de vendre un abonnement
 de maintenance plutot qu'une licence unique.** Dites-le a l'achat : le
 client comprend qu'il paie une surveillance vivante, pas un fichier mort.
 
-## 9. Ce qu'il vous reste a preparer
+## 9. Le classement intelligent : ce que vous vendez, et ce que vous ne vendez pas
+
+C'est une **option**, et il faut la presenter comme telle. Le produit est
+complet sans elle.
+
+| Sans aucune cle | Avec une cle |
+|-----------------|--------------|
+| collecte de toutes les sources | idem |
+| **lecture des dates limites** | idem |
+| **les annonces echues n'entrent pas** | idem |
+| couleurs, jours restants, alertes J-7 J-3 J-1 | idem |
+| **filtre par type** (huit valeurs propres) | idem |
+| filtre par pays | idem |
+| secteur : vide pour 87 % des annonces | **secteur par annonce** |
+| les articles et FAQ entrent | **ecartes** |
+| resume : extrait brut de la source | **une phrase lisible** |
+| — | zone de candidature signalee |
+
+**Le point a marteler en demonstration :** le tri des echeances ne depend pas
+du modele. Les dates sont lues par le programme, jamais par un modele - une
+echeance inventee ferait manquer un depot.
+
+**Ce que ca coute au client.** Sa propre cle, chez le fournisseur de son
+choix - Mistral, Groq, DeepSeek, Anthropic, Google. Le classement travaille
+par lots de trente annonces ; une collecte courante demande un a deux appels.
+Le plafond `LLM_MAX_APPELS_JOUR`, a 100 par defaut, empeche toute derive de
+facture : au-dela, le classement s'arrete et la collecte continue.
+
+**Ce qu'il ne faut pas promettre.** Le modele se trompe parfois. Le produit
+est construit pour que ses erreurs ne coutent rien : une annonce qu'il n'a
+pas jugee est conservee, et il n'a pas le droit de toucher a une date. Dites
+qu'il **trie et resume**, pas qu'il decide.
+
+## 10. Ce qu'il vous reste a preparer
 
 Ces points ne sont pas techniques, mais rien ne se vend sans eux.
 

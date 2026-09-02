@@ -1,5 +1,23 @@
 # TenderPilot - application web
 
+> **ETAT AU 2026-09-02 : cette application n'est pas encore livrable.**
+>
+> Le moteur est complet et teste - collecte, deduplication, deadlines,
+> notifications, classement intelligent : 107 tests passent. Mais trois
+> pieces de l'application manquent, et sans elles rien ne tourne
+> automatiquement :
+>
+> | Piece | Etat |
+> |-------|------|
+> | `prisma/schema.prisma` | present |
+> | `prisma/seed.ts` | **absent** - `npm run db:seed` echouerait |
+> | `src/app/api/run/route.ts` | **absent** - le cron appelle une page qui n'existe pas |
+> | `scripts/collecte.ts` | **absent** |
+>
+> **Vendez la version Google Sheets.** Elle, elle fonctionne de bout en bout.
+> Ce guide decrit la cible, pas l'etat actuel. Les sections marquees
+> **[A VENIR]** ne peuvent pas encore etre suivies.
+
 La meme collecte que le classeur Google Sheets, mais dans une application
 que vous mettez en ligne. Meme catalogue de sources, memes regles de
 deadline, memes emails.
@@ -75,10 +93,14 @@ Gardez-la de cote : c'est la valeur de `DATABASE_URL`.
 
 ```
 npm run db:push
-npm run db:seed
 ```
 
-`db:push` cree les tables. `db:seed` y verse le catalogue de sources.
+`db:push` cree les tables.
+
+> **[A VENIR]** `npm run db:seed`, qui doit verser le catalogue de sources,
+> **echoue aujourd'hui** : `prisma/seed.ts` n'existe pas encore. Le catalogue
+> est bien present dans `src/data/sources-defaut.ts`, mais rien ne l'ecrit
+> encore en base.
 
 ## 4. Verifier que tout est branche
 
@@ -90,8 +112,14 @@ Vercel, redeployez, rechargez la page.
 
 ## 5. La collecte automatique
 
-Elle est deja programmee : **trois passages par jour**, a 8h, 13h et 18h.
-Le fichier `vercel.json` la declare, vous n'avez rien a regler.
+> **[A VENIR]** `vercel.json` declare bien trois passages par jour - 8h, 13h
+> et 18h **heure UTC**, soit 9h, 14h et 19h a Cotonou. Mais la page appelee,
+> `/api/run`, **n'existe pas encore** : le cron rend 404 trois fois par jour.
+>
+> A titre de comparaison, le classeur Google Sheets se declenche a 8h, 13h et
+> 18h **heure locale**, et sa collecte fonctionne.
+
+Une fois la route ecrite, chaque passage :
 
 Chaque passage :
 

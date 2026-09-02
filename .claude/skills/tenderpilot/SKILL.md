@@ -38,6 +38,60 @@ mois.
 
 ---
 
+## Le classement intelligent : ce qu'il peut et ce qui lui est interdit
+
+Optionnel, et **inerte sans clé**. Le client fournit la sienne — c'est son
+compte qui paie. Fichiers : `web/src/lib/domain/llm.ts` (logique pure),
+`web/src/lib/llm.ts` (réseau), `apps_script/Llm.gs` (les deux, Apps Script
+n'ayant pas de modules).
+
+### L'interdiction, et pourquoi elle tient
+
+**Le modèle ne lit jamais une date.** Un modèle produit toujours une échéance
+plausible plutôt que rien, et une échéance inventée fait rater un dépôt.
+
+L'étanchéité ne tient pas à une liste de champs protégés, elle tient à la
+forme : **le jugement du modèle n'est jamais étalé dans la fiche.** Seuls les
+champs nommés un par un — secteur, type, résumé, pertinent, opportunité —
+sont repris. Une échéance renvoyée malgré l'interdiction, sous n'importe quel
+nom, n'a aucun chemin pour arriver.
+
+Un test des deux côtés lui fait renvoyer `2030-01-01` et vérifie que la fiche
+garde sa date.
+
+### Les quatre règles à ne pas défaire
+
+1. **Le modèle ne casse jamais la collecte.** Clé absente, plafond atteint,
+   API en panne, réponse illisible : les annonces traversent sans classement
+   et le produit se comporte comme avant que la fonctionnalité existe.
+2. **Une annonce non jugée est conservée.** Le doute profite à l'annonce.
+   `appliquerPreferences` ne retire que ce qui a été **explicitement** jugé.
+3. **On ne soumet que le nouveau.** Ce qui est déjà suivi a son jugement ;
+   le renvoyer triplerait la facture sans rien apprendre.
+4. **La zone étiquette, elle ne supprime pas.** Sauf demande explicite du
+   client. Une ligne de trop coûte un défilement ; une opportunité supprimée
+   coûte un marché.
+
+### Le vocabulaire est fermé, et partagé
+
+`TYPES_ANNONCE` vit dans `regles.ts` et `Core.gs`. Le modèle **et** la
+normalisation déterministe y puisent.
+
+Ils ne le faisaient pas : le modèle proposait `Appel d offres` quand le
+registre écrivait `Appel d'offres`. Deux chaînes différentes, donc un choix
+du modèle qui ne correspondait **jamais** au défaut de la source. Toute
+valeur hors liste est rejetée, jamais rangée dans « Autre » en douce.
+
+### Ce qui doit marcher sans clé
+
+Un client sans clé doit avoir un produit complet, pas un produit diminué :
+collecte, **lecture des dates**, **filtre des échues**, couleurs, alertes,
+déduplication, **et filtre par type**. Le classement n'ajoute que le secteur
+par annonce, le tri des articles, les résumés et l'étiquette de zone.
+
+C'est pourquoi `normaliserType()` est déterministe : mesuré le 2026-09-02, il
+ramène quatorze libellés à huit, sans aucun appel réseau.
+
 ## Ajouter une source
 
 ### Étape 1 — Vérifier avant d'écrire une ligne de code
@@ -163,6 +217,103 @@ local, relu en UTC depuis un fuseau positif, donne le 1er mars. `lireDateFlux`
 gère le cas — ne le contournez pas.
 
 ---
+
+## Un lien ne suffit pas à identifier un avis
+
+Mesure du 2026-09-02, la découverte la plus coûteuse du projet à ce jour.
+
+`clesDedup` posait `url:<lien>` comme identité, et `trouverDoublon` s'arrête
+à la première clé qui correspond. Or beaucoup de portails pointent **chaque
+avis vers la même page de liste**. Dégâts constatés en production, sur des
+sources actives :
+
+| Source | Publiés | Enregistrés |
+|--------|---------|-------------|
+| DNCMP Bénin | **43** | **1** |
+| SBEE | 7 | 1 |
+| DEDRAS | 2 | 1 |
+
+Le Bénin passait de **22 à 70 opportunités** une fois corrigé.
+
+**La clé porte désormais le lien ET le titre.** Le compromis est assumé : si
+une source réécrit un titre, elle peut créer une seconde ligne. Une ligne en
+double se voit et se supprime ; quarante-deux marchés jamais enregistrés ne
+se voient pas.
+
+### Les trois défauts se cumulaient
+
+**Un lien codé en dur.** L'analyseur SBEE écrivait
+`lien: 'https://marches-publics.sbee.bj/'` pour les sept avis, et le
+commentaire au-dessus affirmait « les avis n'ont pas d'adresse propre ».
+C'était faux : `/demande-dossier/appel-doffre/113`, `/118`, `/122`. Le
+commentaire a été corrigé aussi — **une hypothèse fausse laissée dans le code
+se reproduit**.
+
+**Un titre de catégorie.** Le flux de la DNCMP intitule ses 43 éléments
+`Appel d'Offre` — un libellé de rubrique, pas un intitulé. L'objet réel est
+dans `<description>`. Même les rares lignes écrites étaient inutilisables.
+`reparerTitresIdentiques` corrige, mais **volontairement étroit** : il faut
+que TOUS les éléments partagent le même titre ET que les descriptions
+diffèrent.
+
+**Une référence dans la colonne type.** L'analyseur ABE y déversait
+`AVIS N° 001/2026/PRMP-ABE/APM du 19 Janvier 2026`. La limite de longueur
+existante — 60 caractères — ne suffisait pas : ces références en font 45.
+
+### Le contrôle à refaire après tout changement d'analyseur
+
+Compter les liens distincts par source. Si une source rend N avis et moins de
+N liens, la déduplication va en manger.
+
+```
+liens distincts < avis collectés  ->  examiner l'analyseur
+```
+
+## Quand un GET ne suffit pas : la forme de requête
+
+Le portail européen Funding & Tenders a coûté une heure, pour un détail.
+
+Son API n'applique ses filtres qu'à **une** condition : un POST multipart
+dont **chaque partie déclare son type de contenu**. Mesure du 2026-09-02 :
+
+| Forme | Résultat |
+|-------|----------|
+| `query` en paramètre d'URL | 200, filtre **ignoré** — 4 175 120 résultats |
+| Corps JSON simple | 200, filtre **ignoré** |
+| GET | 405 |
+| Multipart sans type par partie | **500** |
+| **Multipart typé par partie** | **200, filtre appliqué — 1 421** |
+
+Le piège est le 200 trompeur : la requête paraît réussir.
+
+Le corps est donc **écrit à la main** dans `corpsMultipart`, pas confié à une
+bibliothèque. Ce n'est pas une coquetterie : `UrlFetchApp` ne sait pas typer
+les parties d'un multipart, et une chaîne construite nous-mêmes tourne à
+l'identique dans les deux moteurs.
+
+Le registre `REQUETES_JSON` décrit ces formes par hôte. Les sources qui n'en
+déclarent aucune restent en GET, sans changement.
+
+### Le tri décroissant, qui n'est pas un caprice
+
+Un appel européen en deux étapes porte **plusieurs échéances**, et le tri
+croissant retient la plus ancienne — souvent passée. Croissant rend 0
+échéance à venir sur 100 ; décroissant en rend 92.
+
+### L'agent utilisateur
+
+`TenderPilot/1.0` seul fait refuser certains sites. L'agent s'identifie
+désormais comme robot avec un préfixe `Mozilla/5.0` — forme que beaucoup de
+réseaux de diffusion exigent même sur des pages publiques.
+
+**Ce que cela ne résout pas.** Wellcome Trust rend 200 à un agent de
+**navigateur** et 202 à tout agent annonçant un robot, de façon reproductible.
+Se présenter en navigateur est une décision du propriétaire du produit, pas
+un choix technique — elle n'a pas été prise.
+
+Et la BAD n'a jamais eu de problème d'agent : ses 403 pendant l'audit
+venaient de requêtes lancées en parallèle. La collecte réelle est
+séquentielle.
 
 ## Auditer le registre
 
