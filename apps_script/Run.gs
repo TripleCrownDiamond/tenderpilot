@@ -29,6 +29,24 @@ function onOpen() {
 // ---------------------------------------------------------------- COLLECTE
 
 /**
+ * Agent utilisateur.
+ *
+ * MESURE DU 2026-09-02. "TenderPilot/1.0" seul faisait refuser Wellcome
+ * Trust - HTTP 202, une reponse vide servie aux clients non reconnus. La
+ * meme URL rend 200 avec la forme ci-dessous.
+ *
+ * Le prefixe Mozilla/5.0 n est pas un deguisement : la chaine annonce
+ * clairement un robot et ce qu il fait. Beaucoup de reseaux de diffusion
+ * refusent par defaut tout client dont l agent ne commence pas ainsi, meme
+ * sur des pages publiques. On s identifie donc, sans se faire passer pour un
+ * navigateur - un agent de navigateur complet fonctionnait aussi, il a ete
+ * ecarte.
+ */
+var AGENT_UTILISATEUR =
+  "Mozilla/5.0 (compatible; TenderPilot/1.0; veille d'appels d'offres et de financements)";
+
+
+/**
  * Lit une source et renvoie ses annonces normalisees.
  *
  * Trois methodes sont supportees, de la plus solide a la plus fragile :
@@ -61,7 +79,8 @@ function collectSource(source, config) {
   var options = {
     muteHttpExceptions: true,
     followRedirects: true,
-    validateHttpsCertificates: true
+    validateHttpsCertificates: true,
+    headers: { 'User-Agent': AGENT_UTILISATEUR }
   };
   var requete = requeteJson_(source.method);
   if (requete) {

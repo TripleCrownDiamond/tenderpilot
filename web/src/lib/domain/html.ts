@@ -361,7 +361,15 @@ export function analyserAbe(html: string): EntreeFlux[] {
     if (!titre) return null;
     // Quelques cartes ont leur bandeau en commentaire : la lecture retombe
     // alors sur l'objet. Un libelle long n'est pas un type de marche.
-    const typeCourt = type && type.length <= 60 ? type : "";
+    //
+    // MESURE DU 2026-09-02 : la limite de longueur ne suffisait pas. Deux
+    // cartes portaient une REFERENCE dans leur bandeau - "AVIS N°
+    // 001/2026/PRMP-ABE/APM du 19 Janvier 2026", 45 caracteres - qui
+    // atterrissait dans la colonne Type et rendait le filtre inutilisable.
+    // Un type de marche ne porte ni numero ni suite de chiffres.
+    const ressembleAUneReference = /N\s*[°o]|\d{3}/i.test(type);
+    const typeCourt = type && type.length <= 60 && !ressembleAUneReference
+      ? type : "";
 
     const limite = nettoyerHtml(
       /DE SOUMISSION<\/p>\s*<p[^>]*>([^<]*)<\/p>/i.exec(carte)?.[1] ?? "");

@@ -15,7 +15,8 @@
 import {
   Config, Opportunite, TypeNotification, aujourdhui, champNotification,
   champsModifies, clesDedup, construireIndex, joursRestants,
-  notificationsAEnvoyer, prochainId, statutDelai, tronquer, trouverDoublon,
+  normaliserType, notificationsAEnvoyer, prochainId, statutDelai, tronquer,
+  trouverDoublon,
 } from "./domain/regles";
 import { analyserFlux } from "./domain/rss";
 import { analyseurHtml } from "./domain/html";
@@ -81,6 +82,23 @@ export interface Messager {
 
 /** Recuperation reseau, isolee pour pouvoir etre remplacee dans les tests. */
 /**
+ * Agent utilisateur.
+ *
+ * MESURE DU 2026-09-02. "TenderPilot/1.0" seul faisait refuser Wellcome
+ * Trust - HTTP 202, une reponse vide servie aux clients non reconnus. La
+ * meme URL rend 200 avec la forme ci-dessous.
+ *
+ * Le prefixe Mozilla/5.0 n est pas un deguisement : la chaine annonce
+ * clairement un robot et ce qu il fait. Beaucoup de reseaux de diffusion
+ * refusent par defaut tout client dont l agent ne commence pas ainsi, meme
+ * sur des pages publiques. On s identifie donc, sans se faire passer pour un
+ * navigateur - un agent de navigateur complet fonctionnait aussi, il a ete
+ * ecarte.
+ */
+const AGENT_UTILISATEUR =
+  "Mozilla/5.0 (compatible; TenderPilot/1.0; veille d'appels d'offres et de financements)";
+
+/**
  * Forme de requete d une source, quand un GET ne suffit pas.
  *
  * Ajoute pour le portail europeen Funding & Tenders, dont l API n accepte
@@ -103,7 +121,7 @@ export type Recuperateur =
 
 export const recuperateurReel: Recuperateur = async (url, requete) => {
   const entetes: Record<string, string> = {
-    "User-Agent": "TenderPilot/1.0",
+    "User-Agent": AGENT_UTILISATEUR,
     Accept: "application/rss+xml, application/xml, text/xml, */*",
     ...(requete?.entetes ?? {}),
   };
@@ -212,7 +230,8 @@ export async function collecterSource(
       organisation: entree.organisation || source.nom,
       pays: source.paysDefaut ?? null,
       secteur: source.secteurDefaut ?? null,
-      type: entree.type || source.typeDefaut || null,
+      // Normalise sans LLM : un client sans cle doit pouvoir filtrer.
+      type: normaliserType(entree.type || source.typeDefaut) || null,
       source: source.id,
       lien: entree.lien || null,
       pdf: null,

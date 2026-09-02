@@ -66,6 +66,117 @@ function couleurStatut(statut) {
   return SCHEMA.COULEURS[statut] || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
 }
 
+// -------------------------------------------------------- TYPES D ANNONCE
+
+/**
+ * Vocabulaire des types, partage par tout le produit.
+ *
+ * Jumeau de TYPES_ANNONCE dans web/src/lib/domain/regles.ts.
+ *
+ * MESURE DU 2026-09-02, sur 449 opportunites reellement collectees : la
+ * colonne Type portait QUATORZE libelles pour huit notions. "Appel d offres"
+ * 90 fois et "Appel d Offre" 43 fois - deux ecritures de la meme chose, donc
+ * deux entrees de filtre, donc un filtre inutilisable.
+ *
+ * La normalisation est DETERMINISTE et n a besoin d aucune cle : un client
+ * sans classement intelligent doit pouvoir filtrer par type.
+ */
+var TYPES_ANNONCE = ["Appel d'offres", 'AMI', 'Demande de cotation',
+  'Appel a projets', 'Subvention', 'Bourse', 'Investissement',
+  'Recrutement', 'Evenement', 'Autre'];
+
+/** Libelles rencontres en production, et ce qu ils veulent dire. */
+var TYPES_CONNUS = {
+  'appel d offre': "Appel d'offres",
+  'appel d offres': "Appel d'offres",
+  'appel doffre': "Appel d'offres",
+  'appel doffres': "Appel d'offres",
+  'avis d appel d offres': "Appel d'offres",
+  'marche de fournitures': "Appel d'offres",
+  'marche de travaux': "Appel d'offres",
+  'marche de services': "Appel d'offres",
+  'invitation for bids': "Appel d'offres",
+  'invitation to bid': "Appel d'offres",
+  'request for bids': "Appel d'offres",
+  'invitation for prequalification': "Appel d'offres",
+  'ami': 'AMI',
+  'avis a manifestation d interet': 'AMI',
+  'manifestation d interet': 'AMI',
+  'request for expression of interest': 'AMI',
+  'expression of interest': 'AMI',
+  'general procurement notice': 'AMI',
+  'consultant qualification selection': 'AMI',
+  'demande de cotation': 'Demande de cotation',
+  'demande de prix': 'Demande de cotation',
+  'request for quotation': 'Demande de cotation',
+  'request for proposal': 'Demande de cotation',
+  'request for proposals': 'Demande de cotation',
+  'appel a projet': 'Appel a projets',
+  'appel a projets': 'Appel a projets',
+  'appel a propositions': 'Appel a projets',
+  'call for proposals': 'Appel a projets',
+  'subvention': 'Subvention',
+  'subventions': 'Subvention',
+  'grant': 'Subvention',
+  'grants': 'Subvention',
+  'bourse': 'Bourse',
+  'bourses': 'Bourse',
+  'fellowship': 'Bourse',
+  'scholarship': 'Bourse',
+  'investissement': 'Investissement',
+  'investment': 'Investissement',
+  'recrutement': 'Recrutement',
+  'individual consultant': 'Recrutement',
+  'evenement': 'Evenement',
+  'formation': 'Evenement',
+  'conference': 'Evenement',
+  'actualites': 'Autre'
+};
+
+/** Minuscules, sans accents, sans ponctuation : la cle de comparaison. */
+function cleType_(brut) {
+  var sansAccents = String(brut).normalize('NFD').split('')
+    .filter(function (ch) {
+      var n = ch.charCodeAt(0);
+      return n < 0x300 || n > 0x36f;
+    }).join('').toLowerCase();
+  var sortie = '';
+  for (var i = 0; i < sansAccents.length; i++) {
+    var ch = sansAccents.charAt(i);
+    sortie += ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) ? ch : ' ';
+  }
+  return sortie.split(' ').filter(function (x) { return x; }).join(' ');
+}
+
+/**
+ * Ramene un type au vocabulaire commun.
+ *
+ * TROIS PRECAUTIONS, apprises en production.
+ *
+ * Un libelle inconnu est CONSERVE tel quel plutot que range dans "Autre" :
+ * une source peut employer un terme juste que nous n avons pas encore
+ * rencontre, et l ecraser ferait perdre de l information.
+ *
+ * En revanche, ce qui ne ressemble pas a un type est ecarte. L analyseur de
+ * l ABE deversait des references entieres dans la colonne - une reference
+ * complete y figurait comme TYPE. Au-dela de 40 caracteres ou en presence
+ * de chiffres longs, ce n est pas un type.
+ *
+ * Une valeur vide reste vide : on n invente pas un type par defaut.
+ */
+function normaliserType(brut) {
+  var texte = String(brut === null || brut === undefined ? '' : brut).trim();
+  if (!texte) return '';
+
+  var connu = TYPES_CONNUS[cleType_(texte)];
+  if (connu) return connu;
+
+  if (texte.length > 40) return '';
+  if (/\d{3}/.test(texte)) return '';
+
+  return texte;
+}
+
 /**
  * Cles de deduplication, dans l'ordre de fiabilite - section 7 :
  * 1. lien officiel + titre, 2. reference officielle, 3. titre + organisation
@@ -264,7 +375,8 @@ function normalizeOpportunity(brut, source) {
     title: String(brut.title || '').trim(),
     org: String(brut.org || source.name || '').trim(),
     country: String(brut.country || source.country || '').trim(),
-    type: String(brut.type || source.type || '').trim(),
+    // Normalise sans LLM : un client sans cle doit pouvoir filtrer.
+    type: normaliserType(brut.type || source.type),
     sector: String(brut.sector || source.sector || '').trim(),
     source: String(source.id || '').trim(),
     url: String(brut.url || '').trim(),
@@ -287,6 +399,8 @@ if (typeof module !== 'undefined') {
     notificationsAEnvoyer: notificationsAEnvoyer, prochainId: prochainId,
     tronquer: tronquer,
     fraicheurSource_: fraicheurSource_,
-    JOURS_SOURCE_SILENCIEUSE: JOURS_SOURCE_SILENCIEUSE, normalizeOpportunity: normalizeOpportunity
+    JOURS_SOURCE_SILENCIEUSE: JOURS_SOURCE_SILENCIEUSE,
+    normalizeOpportunity: normalizeOpportunity,
+    normaliserType: normaliserType, TYPES_ANNONCE: TYPES_ANNONCE
   };
 }

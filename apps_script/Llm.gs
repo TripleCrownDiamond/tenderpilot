@@ -69,11 +69,20 @@ var LLM_SECTEURS = [
   'Transport et logistique', 'Culture et arts', 'Autre'
 ];
 
-var LLM_TYPES = [
-  'Appel d offres', 'AMI', 'Demande de cotation', 'Appel a projets',
-  'Subvention', 'Bourse', 'Investissement', 'Recrutement', 'Evenement',
-  'Autre'
-];
+/**
+ * Le vocabulaire des types vient de Core.gs : le modele et la normalisation
+ * deterministe DOIVENT choisir dans la meme liste.
+ *
+ * Ils ne le faisaient pas. Le modele proposait "Appel d offres" quand le
+ * registre ecrivait "Appel d'offres" - deux chaines differentes, donc un
+ * choix du modele qui ne correspondait jamais au defaut de la source.
+ */
+var LLM_TYPES = (typeof TYPES_ANNONCE !== 'undefined')
+  // Apps Script partage une portee globale entre tous les fichiers.
+  ? TYPES_ANNONCE
+  // Charge isolement par le banc de tests : on va chercher la liste plutot
+  // que d en ecrire une seconde, qui divergerait tot ou tard.
+  : require('./Core.gs').TYPES_ANNONCE;
 
 // ------------------------------------------------------------- REGLAGES
 

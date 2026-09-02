@@ -1,3 +1,5 @@
+import { TYPES_ANNONCE } from "./regles";
+
 /**
  * TenderPilot - intelligence optionnelle.
  *
@@ -395,18 +397,16 @@ export const SECTEURS = [
   "Autre",
 ] as const;
 
-export const TYPES = [
-  "Appel d offres",
-  "AMI",
-  "Demande de cotation",
-  "Appel a projets",
-  "Subvention",
-  "Bourse",
-  "Investissement",
-  "Recrutement",
-  "Evenement",
-  "Autre",
-] as const;
+/**
+ * Le vocabulaire des types vient de regles.ts : le modele et la
+ * normalisation deterministe DOIVENT choisir dans la meme liste.
+ *
+ * Ils ne le faisaient pas. Le modele proposait "Appel d offres" quand le
+ * registre ecrivait "Appel d'offres" - deux chaines differentes, donc un
+ * choix du modele qui ne correspondait jamais au defaut de la source, et
+ * deux entrees de filtre pour une seule notion.
+ */
+export const TYPES = TYPES_ANNONCE;
 
 /** Ne retient une valeur que si elle figure au vocabulaire. */
 export function choisirDansListe(
