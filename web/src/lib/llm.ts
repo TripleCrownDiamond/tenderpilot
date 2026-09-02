@@ -95,7 +95,7 @@ export function classeurLlm(config: ConfigLlm, poster: typeof fetch = fetch): Cl
             await unLot(invitePourClassement(lot, zone))));
         } catch {
           // Un lot perdu ne fait perdre aucune annonce : elles sortent
-          // telles quelles, sans verdict. Le doute profite a l annonce.
+          // telles quelles, sans jugement. Le doute profite a l annonce.
           sortie.push(...lot);
         }
       }

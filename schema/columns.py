@@ -255,6 +255,47 @@ CONFIG = [
     ("TELEGRAM_CHAT_ID", "",
      "Identifiant du salon ou du canal qui recoit les alertes. "
      "Ecrivez a @userinfobot pour connaitre le votre."),
+
+    # ------------------------------------------------------------------
+    # Classement intelligent. Entierement optionnel : sans cle, la collecte
+    # se comporte exactement comme avant. La cle est celle du CLIENT - c'est
+    # lui qui paie ses appels, et lui seul y a acces.
+    # ------------------------------------------------------------------
+    ("USE_LLM", "false",
+     "Faire trier les annonces par un modele de langage. Il ecarte les "
+     "articles et les FAQ, attribue un secteur et un type, et resume. "
+     "Sans cle, ce reglage n'a aucun effet."),
+    ("LLM_CLE", "",
+     "Votre cle chez le fournisseur. Ne la partagez pas : c'est votre "
+     "compte qui paie les appels."),
+    ("LLM_MODELE", "mistral-small-latest",
+     "Nom du modele. Un petit modele suffit largement pour trier."),
+    ("LLM_DIALECTE", "openai",
+     "openai (Mistral, Groq, DeepSeek, OpenRouter), anthropic ou gemini."),
+    ("LLM_ENDPOINT", "",
+     "Adresse de l'API. Vide = celle du dialecte choisi. A renseigner "
+     "seulement pour un fournisseur inhabituel ou un modele auto-heberge."),
+    ("LLM_MAX_APPELS_JOUR", "100",
+     "Plafond d'appels par jour. Au-dela, le tri s'arrete pour la journee "
+     "et la collecte continue normalement. C'est votre garde-fou de "
+     "facture : en usage courant, une collecte demande 1 a 2 appels."),
+    ("LLM_TAILLE_LOT", "30",
+     "Nombre d'annonces envoyees en un seul appel. 30 est un bon compromis "
+     "entre le cout et le risque de reponse tronquee."),
+    ("PAYS_SUIVIS", "Benin",
+     "Pays qui vous interessent, separes par des virgules. Exemple : "
+     "Benin, Togo, Niger. Sert au tri, pas a la collecte - c'est l'onglet "
+     "SOURCES qui decide ce qui est lu."),
+    ("LLM_APPELS_MONDIAUX", "true",
+     "Garder les appels ouverts a tous les pays. Laissez a true : une "
+     "structure beninoise peut candidater a un appel mondial."),
+    ("LLM_FILTRER_ZONE", "false",
+     "Supprimer les annonces jugees hors de vos pays. Laisse a false, "
+     "elles restent visibles et simplement signalees - un salon a Nairobi "
+     "peut valoir le deplacement."),
+    ("LLM_INCLURE_EVENEMENTS", "false",
+     "Garder les salons, ateliers, formations et conferences. Ecartes par "
+     "defaut : ce ne sont pas des marches."),
 ]
 
 CONFIG_KEYS = [key for key, _value, _desc in CONFIG]

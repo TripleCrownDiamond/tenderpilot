@@ -21,6 +21,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Synchroniser les sources', 'synchroniserSources')
     .addItem('Tester la notification Telegram', 'testerTelegram')
+    .addItem('Tester le classement intelligent', 'testerLlm')
     .addItem('Afficher / masquer l onglet SOURCES', 'basculerOngletSources')
     .addToUi();
 }
@@ -417,6 +418,44 @@ function sendNotifications(lignes, config, nouvelles) {
 
 // --------------------------------------------------------------- EXECUTION
 
+/**
+ * Fait juger les annonces nouvelles par le modele, quand il est configure.
+ *
+ * DEUX PRECAUTIONS PORTENT TOUT LE RESTE.
+ *
+ * On ne soumet que le NOUVEAU. Ce qui est deja suivi a deja son jugement ;
+ * le renvoyer a chaque passage triplerait la facture du client sans rien
+ * apprendre. En regime courant cela fait un ou deux appels par collecte.
+ *
+ * On n en perd aucune. Sans cle, en cas de panne du fournisseur, de reponse
+ * illisible ou de plafond atteint, les annonces traversent intactes.
+ * appliquerPreferences_ ne retire que ce que le modele a EXPLICITEMENT juge
+ * non pertinent : une annonce sans jugement reste.
+ *
+ * Jumeau de classerNouvelles() dans web/src/lib/run.ts.
+ */
+function classerNouvelles_(annonces, existantes, config) {
+  var index = construireIndex(existantes);
+  var nouvelles = annonces.filter(function (a) {
+    return !trouverDoublon(a, index);
+  });
+  if (!nouvelles.length) return annonces;
+
+  var r = classerAnnonces_(nouvelles, config);
+  if (!r.actif) return annonces;
+
+  logEvent('', 'Classement', 'SUCCESS',
+    nouvelles.length + ' annonce(s) jugee(s) en ' + r.appels + ' appel(s), '
+    + r.ecartees + ' ecartee(s)');
+
+  // Les annonces deja connues repassent telles quelles : elles ne sont ni
+  // jugees ni filtrees, leur ligne existe et ne doit pas disparaitre.
+  var dejaVues = annonces.filter(function (a) {
+    return nouvelles.indexOf(a) === -1;
+  });
+  return dejaVues.concat(r.annonces);
+}
+
 /** Point d'entree unique : le declencheur et le menu appellent celui-ci. */
 function executerTenderPilot() {
   CONFIG_COURANTE = lireConfig();
@@ -425,7 +464,8 @@ function executerTenderPilot() {
 
   try {
     var existantes = lireOpportunites();
-    var annonces = collectAllSources(config);
+    var annonces = classerNouvelles_(collectAllSources(config), existantes,
+                                     config);
     var bilan = saveOrUpdateOpportunity(annonces, existantes);
     resume.nouvelles = bilan.nouvelles.length;
     resume.misesAJour = bilan.misesAJour;

@@ -141,7 +141,7 @@ function monde(options) {
 
   vm.createContext(ctx);
   ['Schema.gs', 'Core.gs', 'Rss.gs', 'Html.gs', 'Json.gs', 'Telegram.gs',
-   'Run.gs'].forEach(f => {
+   'Llm.gs', 'Run.gs'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(SCRIPT, f), 'utf8'), ctx, f);
   });
   return { ctx, feuille, boite };
@@ -672,6 +672,166 @@ console.log('\n[Sync 5] L onglet SOURCES se masque et se reaffiche');
   check('un premier appel le masque', m.feuille.isSheetHidden());
   m.ctx.basculerOngletSources();
   check('un second appel le reaffiche', !m.feuille.isSheetHidden());
+}
+
+// ==========================================================================
+console.log("\n[Test LLM] Le modele propose, le code dispose");
+{
+  const L = require(path.join(SCRIPT, 'Llm.gs'));
+
+  // --- L INTERDICTION ---------------------------------------------------
+  // Meme jeu d essai que web/tests/llm.test.ts. Si les deux moteurs
+  // n aboutissent pas au meme resultat, l un des deux est faux.
+  const lot = [{
+    title: 'Fourniture de materiel informatique', summary: 'Avis initial',
+    deadline: '2026-09-25', published: '2026-08-20'
+  }];
+  const fautive = [{
+    i: 0, secteur: 'Numerique et technologie', type: 'Appel d offres',
+    resume: 'Achat de postes de travail', pertinent: true,
+    deadline: '2030-01-01', published: '2030-01-01', echeance: '2030-01-01'
+  }];
+  const sortie = L.appliquerClassement_(lot, fautive)[0];
+
+  check('le modele ne peut pas ecrire une deadline',
+        sortie.deadline === '2026-09-25', String(sortie.deadline));
+  check('le modele ne peut pas ecrire une date de publication',
+        sortie.published === '2026-08-20', String(sortie.published));
+  check('le classement du modele est repris',
+        sortie.sector === 'Numerique et technologie', String(sortie.sector));
+  check('le resume du modele est repris',
+        sortie.summary === 'Achat de postes de travail');
+
+  // --- LE VOCABULAIRE FERME ---------------------------------------------
+  check('un libelle hors vocabulaire est rejete',
+        L.choisirDansListe_('Tech', L.LLM_SECTEURS) === null);
+  check('la casse ne fait pas perdre une valeur juste',
+        L.choisirDansListe_('sante', L.LLM_SECTEURS) === 'Sante');
+  check('Evenement fait partie du vocabulaire',
+        L.choisirDansListe_('evenement', L.LLM_TYPES) === 'Evenement');
+}
+
+// ==========================================================================
+console.log("\n[Test LLM] Empreinte de page et dialectes");
+{
+  const L = require(path.join(SCRIPT, 'Llm.gs'));
+
+  // Rejoue la mesure du 2026-09-01 sur enabel.be : entre deux lectures a
+  // trois secondes d intervalle, seul un compteur anti-spam loge dans un
+  // attribut change. Si l empreinte bougeait pour si peu, le modele serait
+  // rappele a chaque collecte et l economie serait nulle.
+  const page = j => '<html><head><style>.a{color:red}</style></head><body>'
+    + '<p>2204BEN-10373 - Marche de fournitures</p>'
+    + '<input type="hidden" name="ak_js" value="' + j + '" />'
+    + '<script>var t=' + j + ';</script></body></html>';
+  check('un compteur dans un attribut ne change pas l empreinte',
+        L.empreinteContenu_(page('159')) === L.empreinteContenu_(page('1')));
+  check('une annonce ajoutee change l empreinte',
+        L.empreinteContenu_('<p>A</p>') !== L.empreinteContenu_('<p>A</p><p>B</p>'));
+  check('une page jamais lue est toujours a lire', L.pageAChange_('', 'abc'));
+  check('une page inchangee ne reveille pas le modele',
+        L.pageAChange_('abc', 'abc') === false);
+
+  const cfg = (x) => Object.assign({
+    dialecte: 'openai', endpoint: L.LLM_ENDPOINTS.openai,
+    cle: 'cle-de-test', modele: 'mistral-small-latest' }, x || {});
+  check('openai : cle en Bearer',
+        L.entetesRequeteLlm_(cfg()).Authorization === 'Bearer cle-de-test');
+  check('anthropic : cle en x-api-key, jamais en Bearer',
+        L.entetesRequeteLlm_(cfg({ dialecte: 'anthropic' }))['x-api-key'] === 'cle-de-test'
+        && !L.entetesRequeteLlm_(cfg({ dialecte: 'anthropic' })).Authorization);
+  check('gemini : modele dans le chemin, cle en parametre',
+        L.urlRequeteLlm_(cfg({ dialecte: 'gemini', modele: 'gemini-2.0-flash',
+          endpoint: L.LLM_ENDPOINTS.gemini }))
+          .indexOf('/gemini-2.0-flash:generateContent?key=cle-de-test') > 0);
+  check('chaque dialecte relit sa propre reponse',
+        L.lireReponseLlm_('openai', JSON.stringify({ choices: [{ message: { content: 'A' } }] })) === 'A'
+        && L.lireReponseLlm_('anthropic', JSON.stringify({ content: [{ text: 'B' }] })) === 'B'
+        && L.lireReponseLlm_('gemini', JSON.stringify({ candidates: [{ content: { parts: [{ text: 'C' }] } }] })) === 'C');
+  check('une reponse illisible ne fait pas tomber la collecte',
+        L.lireReponseLlm_('openai', 'pas du json') === '');
+}
+
+// ==========================================================================
+console.log("\n[Test LLM] Robustesse, zone et preferences du client");
+{
+  const L = require(path.join(SCRIPT, 'Llm.gs'));
+  const F = String.fromCharCode(96).repeat(3);
+  const NL = String.fromCharCode(10);
+
+  check('le JSON entoure de balises Markdown est recupere',
+        JSON.stringify(L.extraireJsonLlm_(F + 'json' + NL + '[{"i":0}]' + NL + F))
+          === '[{"i":0}]');
+  check('le JSON precede d un bavardage est recupere',
+        JSON.stringify(L.extraireJsonLlm_('Voici :' + NL + '[{"i":0}]')) === '[{"i":0}]');
+  check('une reponse sans JSON rend null',
+        L.extraireJsonLlm_('je ne sais pas') === null);
+
+  const trois = [
+    { title: 'A', deadline: '2026-09-01' },
+    { title: 'B', deadline: '2026-09-02' },
+    { title: 'C', deadline: '2026-09-03' }
+  ];
+  const decale = L.appliquerClassement_(trois, [{ i: 0, secteur: 'Sante' },
+                                                { i: 2, secteur: 'Energie' }]);
+  check('un jugement manquant ne decale pas le lot',
+        decale[0].sector === 'Sante' && decale[1].title === 'B'
+        && decale[2].sector === 'Energie' && decale[2].deadline === '2026-09-03');
+  check('un index hors bornes est ignore',
+        L.appliquerClassement_([trois[0]], [{ i: 99, secteur: 'Sante' }]).length === 1);
+  check('une reponse qui n est pas un tableau laisse le lot intact',
+        L.appliquerClassement_(trois, null)[0].title === 'A');
+
+  check('un seul pays coche au depart',
+        L.LLM_PAYS_DEFAUT.length === 1 && L.LLM_PAYS_DEFAUT[0] === 'Benin');
+  check('les appels mondiaux comptent par defaut',
+        L.phraseZone_(['Benin'], true).indexOf('appels mondiaux') > 0);
+  check('le client peut les refuser',
+        L.phraseZone_(['Benin'], false).indexOf('uniquement') > 0);
+  check('une zone vide ne produit pas une invite absurde',
+        L.phraseZone_([], true) === 'n importe quel pays');
+
+  const prefs = (x) => Object.assign({ filtrerParZone: false,
+                                       inclureEvenements: false }, x || {});
+  const melange = [
+    { title: 'marche au Benin', opportunite: true, pertinent: true },
+    { title: 'marche au Kenya', opportunite: true, pertinent: false },
+    { title: 'article', opportunite: false, pertinent: true },
+    { title: 'salon', opportunite: true, type: 'Evenement' },
+    { title: 'jamais vue' }
+  ];
+  const parDefaut = L.appliquerPreferences_(melange, prefs()).map(o => o.title);
+  check('la zone etiquette, elle ne supprime pas',
+        parDefaut.indexOf('marche au Kenya') !== -1, parDefaut.join(','));
+  check('ce qui n est pas une opportunite ne rentre jamais',
+        parDefaut.indexOf('article') === -1, parDefaut.join(','));
+  check('les evenements sont ecartes par defaut',
+        parDefaut.indexOf('salon') === -1, parDefaut.join(','));
+  check('une annonce non jugee traverse toutes les preferences',
+        parDefaut.indexOf('jamais vue') !== -1, parDefaut.join(','));
+  check('le client peut couper par zone s il le demande',
+        L.appliquerPreferences_(melange, prefs({ filtrerParZone: true }))
+          .map(o => o.title).indexOf('marche au Kenya') === -1);
+  check('le client peut garder les salons',
+        L.appliquerPreferences_(melange, prefs({ inclureEvenements: true }))
+          .map(o => o.title).indexOf('salon') !== -1);
+
+  const invite = L.invitePourClassement_([{ title: 'Un avis' }], 'le Benin');
+  check('l invite interdit explicitement les dates',
+        invite.indexOf('AUCUNE date') > 0);
+  check('l invite ne nomme aucun champ de date',
+        invite.indexOf('"deadline"') === -1);
+  check('l invite demande si l on PEUT CANDIDATER',
+        invite.indexOf('PEUT CANDIDATER') > 0);
+  check('l invite distingue une FAQ d un appel', invite.indexOf('FAQ') > 0);
+
+  const actif = (x) => L.llmActif_(Object.assign({
+    actif: true, cle: 'k', modele: 'm', endpoint: 'e' }, x || {}));
+  check('sans cle, le modele reste eteint', !actif({ cle: '' }));
+  check('sans modele, le modele reste eteint', !actif({ modele: '' }));
+  check('sans adresse, le modele reste eteint', !actif({ endpoint: '' }));
+  check('desactive, le modele reste eteint', !actif({ actif: false }));
+  check('tout renseigne, le modele est actif', actif());
 }
 
 // ==========================================================================

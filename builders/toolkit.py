@@ -32,7 +32,7 @@ MAX_ROWS = 2000
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
-                "Telegram.gs",
+                "Telegram.gs", "Llm.gs",
                 "Run.gs"]
 
 # Couleurs en ARGB opaque. Un code a 6 chiffres est complete par openpyxl

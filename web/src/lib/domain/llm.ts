@@ -479,10 +479,10 @@ export function invitePourClassement(
 }
 
 /**
- * Fusionne le verdict du modele dans les entrees.
+ * Fusionne le jugement du modele dans les entrees.
  *
  * L etancheite ne tient pas a une liste de champs proteges, elle tient a la
- * forme : le verdict du modele n est JAMAIS etale dans la fiche. Seuls les
+ * forme : le jugement du modele n est JAMAIS etale dans la fiche. Seuls les
  * champs nommes un par un - secteur, type, resume, pertinent, opportunite -
  * sont repris. Une echeance renvoyee malgre l interdiction, sous n importe
  * quel nom, n a aucun chemin pour arriver. La recopie explicite de deadline
@@ -504,23 +504,23 @@ export function appliquerClassement<T extends {
   }
 
   return lot.map((entree, i) => {
-    const verdict = parIndex.get(i);
-    if (!verdict) return entree;
+    const jugement = parIndex.get(i);
+    if (!jugement) return entree;
 
-    const resume = String(verdict.resume ?? "").trim();
+    const resume = String(jugement.resume ?? "").trim();
 
     return {
       ...entree,
-      secteur: choisirDansListe(verdict.secteur, SECTEURS) ?? entree.secteur ?? null,
-      type: choisirDansListe(verdict.type, TYPES) ?? entree.type ?? null,
+      secteur: choisirDansListe(jugement.secteur, SECTEURS) ?? entree.secteur ?? null,
+      type: choisirDansListe(jugement.type, TYPES) ?? entree.type ?? null,
       resume: resume || entree.resume || "",
-      pertinent: typeof verdict.pertinent === "boolean"
-        ? verdict.pertinent : entree.pertinent,
-      opportunite: typeof verdict.opportunite === "boolean"
-        ? verdict.opportunite : entree.opportunite,
+      pertinent: typeof jugement.pertinent === "boolean"
+        ? jugement.pertinent : entree.pertinent,
+      opportunite: typeof jugement.opportunite === "boolean"
+        ? jugement.opportunite : entree.opportunite,
 
       // AUCUNE date ne peut venir du modele, et pas seulement celles-ci.
-      // Le verdict n est jamais etale dans la fiche : seuls les champs
+      // Le jugement n est jamais etale dans la fiche : seuls les champs
       // nommes juste au-dessus sont recopies. Une cle inconnue de la
       // reponse - echeance, date_limite, datePublication - n a aucun
       // chemin pour arriver ici. La ligne qui suit est une seconde
@@ -534,7 +534,7 @@ export function appliquerClassement<T extends {
  * Ecarte les annonces jugees hors zone.
  *
  * Une entree que le modele n a pas vue - lot perdu, reponse illisible -
- * n a pas de verdict et reste. Le doute profite a l annonce : mieux vaut
+ * n a pas de jugement et reste. Le doute profite a l annonce : mieux vaut
  * une ligne de trop qu un marche manque.
  */
 /**
@@ -550,7 +550,7 @@ export interface Preferences {
   /**
    * Retirer les annonces jugees hors zone ?
    *
-   * FAUX par defaut, et c est delibere. Le verdict du modele ETIQUETTE, il
+   * FAUX par defaut, et c est delibere. Le jugement du modele ETIQUETTE, il
    * n efface pas. Le vrai levier geographique est ailleurs : le registre est
    * par pays, le client active le Kenya s il veut le Kenya. Supprimer une
    * ligne sur un jugement probabiliste coute un marche ; l afficher coute un
@@ -572,7 +572,7 @@ export interface Preferences {
  * Applique les preferences du client.
  *
  * Une entree que le modele n a pas jugee - lot perdu, reponse illisible -
- * n a pas de verdict et reste. Le doute profite toujours a l annonce.
+ * n a pas de jugement et reste. Le doute profite toujours a l annonce.
  */
 export function appliquerPreferences<T extends {
   pertinent?: boolean; opportunite?: boolean; type?: string | null;

@@ -251,7 +251,7 @@ export async function collecterToutesSources(
  *
  * DEUX PRECAUTIONS PORTENT TOUT LE RESTE.
  *
- * On ne soumet que le NOUVEAU. Ce qui est deja suivi a deja son verdict ;
+ * On ne soumet que le NOUVEAU. Ce qui est deja suivi a deja son jugement ;
  * le renvoyer a chaque passage triplerait la facture du client sans rien
  * apprendre. En regime courant cela fait un ou deux appels par collecte, la
  * ou tout soumettre en ferait neuf.
@@ -259,7 +259,7 @@ export async function collecterToutesSources(
  * On n en perd aucune. Sans classeur, sans cle, en cas de panne du
  * fournisseur, les annonces traversent intactes. appliquerPreferences ne
  * retire que ce que le modele a EXPLICITEMENT juge non pertinent : une
- * annonce sans verdict reste. Le doute profite toujours a l annonce.
+ * annonce sans jugement reste. Le doute profite toujours a l annonce.
  */
 export async function classerNouvelles(
   depot: Depot, annonces: Opportunite[], existantes: OpportuniteStockee[],

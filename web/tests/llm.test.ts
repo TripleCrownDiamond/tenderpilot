@@ -244,7 +244,7 @@ test("une reponse sans JSON exploitable renvoie null", () => {
 
 // ------------------------------------------------------------- LA ROBUSTESSE
 
-test("un verdict manquant ne decale pas le lot", () => {
+test("un jugement manquant ne decale pas le lot", () => {
   const lot = [
     entree({ titre: "A", deadline: "2026-09-01" }),
     entree({ titre: "B", deadline: "2026-09-02" }),
@@ -277,7 +277,7 @@ test("une reponse qui n'est pas un tableau laisse le lot intact", () => {
   assert.equal(appliquerClassement(lot, { i: 0 })[0].secteur, "Energie");
 });
 
-test("le doute profite a l'annonce : sans verdict, elle est conservee", () => {
+test("le doute profite a l'annonce : sans jugement, elle est conservee", () => {
   const gardees = filtrerPertinentes([
     { titre: "vue et jugee hors zone", pertinent: false },
     { titre: "vue et jugee pertinente", pertinent: true },
@@ -399,7 +399,7 @@ test("une annonce que le modele n a pas jugee est conservee", () => {
   assert.deepEqual(gardees.map((e) => e.titre), ["jugee appel", "jamais vue"]);
 });
 
-test("le tri final exige les deux verdicts", () => {
+test("le tri final exige les deux jugements", () => {
   const gardees = filtrerPertinentes([
     { titre: "appel ouvert au Benin", opportunite: true, pertinent: true },
     { titre: "appel reserve a un autre pays", opportunite: true, pertinent: false },
