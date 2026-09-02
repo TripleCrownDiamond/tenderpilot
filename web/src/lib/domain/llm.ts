@@ -435,7 +435,7 @@ export function choisirDansListe(
  * fragile - il en oublie un, et tout le lot est decale d un cran.
  */
 export function invitePourClassement(
-  lot: readonly { titre: string; resume?: string }[],
+  lot: readonly { titre: string; resume?: string | null }[],
   zone: string,
 ): string {
   const annonces = lot.map((e, i) => {
@@ -481,15 +481,17 @@ export function invitePourClassement(
 /**
  * Fusionne le verdict du modele dans les entrees.
  *
- * La ligne qui compte est la derniere : deadline et publie sont recopiees
- * depuis l entree d origine, apres l etalement. Meme si la reponse du
- * modele contient une echeance - et il en glisse une de temps en temps
- * malgre l interdiction - elle n atteint jamais la fiche. Un test le
- * verifie avec une reponse qui en contient une.
+ * L etancheite ne tient pas a une liste de champs proteges, elle tient a la
+ * forme : le verdict du modele n est JAMAIS etale dans la fiche. Seuls les
+ * champs nommes un par un - secteur, type, resume, pertinent, opportunite -
+ * sont repris. Une echeance renvoyee malgre l interdiction, sous n importe
+ * quel nom, n a aucun chemin pour arriver. La recopie explicite de deadline
+ * est une seconde barriere. Un test le verifie avec une reponse fautive.
  */
 export function appliquerClassement<T extends {
-  titre: string; deadline: string | null; publie: string | null;
-  resume: string; type?: string | null; secteur?: string | null;
+  titre: string;
+  deadline?: string | null; resume?: string | null; publie?: string | null;
+  type?: string | null; secteur?: string | null;
   pertinent?: boolean; opportunite?: boolean;
 }>(lot: readonly T[], brut: unknown): T[] {
   const parIndex = new Map<number, Record<string, unknown>>();
@@ -511,15 +513,19 @@ export function appliquerClassement<T extends {
       ...entree,
       secteur: choisirDansListe(verdict.secteur, SECTEURS) ?? entree.secteur ?? null,
       type: choisirDansListe(verdict.type, TYPES) ?? entree.type ?? null,
-      resume: resume || entree.resume,
+      resume: resume || entree.resume || "",
       pertinent: typeof verdict.pertinent === "boolean"
         ? verdict.pertinent : entree.pertinent,
       opportunite: typeof verdict.opportunite === "boolean"
         ? verdict.opportunite : entree.opportunite,
 
-      // Rien de ce qui suit ne vient du modele. Jamais.
+      // AUCUNE date ne peut venir du modele, et pas seulement celles-ci.
+      // Le verdict n est jamais etale dans la fiche : seuls les champs
+      // nommes juste au-dessus sont recopies. Une cle inconnue de la
+      // reponse - echeance, date_limite, datePublication - n a aucun
+      // chemin pour arriver ici. La ligne qui suit est une seconde
+      // barriere, pas la premiere.
       deadline: entree.deadline,
-      publie: entree.publie,
     };
   });
 }

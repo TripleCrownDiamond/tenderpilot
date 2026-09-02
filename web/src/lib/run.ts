@@ -20,6 +20,8 @@ import {
 import { analyserFlux } from "./domain/rss";
 import { analyseurHtml } from "./domain/html";
 import { analyseurJson } from "./domain/json";
+import { appliquerPreferences, type Preferences } from "./domain/llm";
+import type { Classeur } from "./llm";
 
 export interface SourceCollecte {
   id: string;
@@ -240,6 +242,47 @@ export async function collecterToutesSources(
     }
   }
   return trouvees;
+}
+
+// ------------------------------------------------------------- classement --
+
+/**
+ * Fait juger les annonces nouvelles par le modele, quand il est configure.
+ *
+ * DEUX PRECAUTIONS PORTENT TOUT LE RESTE.
+ *
+ * On ne soumet que le NOUVEAU. Ce qui est deja suivi a deja son verdict ;
+ * le renvoyer a chaque passage triplerait la facture du client sans rien
+ * apprendre. En regime courant cela fait un ou deux appels par collecte, la
+ * ou tout soumettre en ferait neuf.
+ *
+ * On n en perd aucune. Sans classeur, sans cle, en cas de panne du
+ * fournisseur, les annonces traversent intactes. appliquerPreferences ne
+ * retire que ce que le modele a EXPLICITEMENT juge non pertinent : une
+ * annonce sans verdict reste. Le doute profite toujours a l annonce.
+ */
+export async function classerNouvelles(
+  depot: Depot, annonces: Opportunite[], existantes: OpportuniteStockee[],
+  classeur?: Classeur, prefs: Preferences = {},
+): Promise<Opportunite[]> {
+  if (!classeur) return annonces;
+
+  const index = construireIndex(existantes);
+  const nouvelles = annonces.filter((a) => !trouverDoublon(a, index));
+  if (!nouvelles.length) return annonces;
+
+  const dejaVues = new Set(nouvelles);
+  const jugees = await classeur.classer(nouvelles);
+  const gardees = appliquerPreferences(jugees, prefs);
+  const ecartees = jugees.length - gardees.length;
+
+  await depot.journaliser(null, "Classement", "SUCCESS",
+    `${nouvelles.length} annonce(s) jugee(s) en ${classeur.appels()} appel(s), `
+    + `${ecartees} ecartee(s)`);
+
+  // Les annonces deja connues repassent telles quelles : elles ne sont ni
+  // jugees ni filtrees, leur ligne existe et ne doit pas disparaitre.
+  return [...annonces.filter((a) => !dejaVues.has(a)), ...gardees];
 }
 
 // ------------------------------------------------ deduplication + ecriture --
@@ -554,11 +597,16 @@ export async function executer(
   depot: Depot, envoyeur: Envoyeur,
   recuperer: Recuperateur = recuperateurReel,
   messager?: Messager,
+  classeur?: Classeur,
 ): Promise<Resume> {
   const config = await depot.lireConfig();
   try {
     const existantes = await depot.lireOpportunites();
-    const annonces = await collecterToutesSources(depot, config, recuperer);
+    const brutes = await collecterToutesSources(depot, config, recuperer);
+    // Le classement s intercale ici : apres la collecte, avant l ecriture.
+    // Une annonce ecartee ne doit jamais atteindre le classeur du client.
+    const annonces = await classerNouvelles(
+      depot, brutes, existantes, classeur, config.preferences);
     const bilan = await enregistrerOuMettreAJour(depot, annonces, existantes);
 
     const toutes = [...existantes, ...bilan.nouvelles];
