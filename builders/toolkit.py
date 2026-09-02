@@ -157,9 +157,13 @@ def feuille_demarrage(wb):
     # Style constants for this page only
     F_SECTION = Font(name="Calibri", size=12, bold=True, color=HEAD_BG)
     F_HIGHLIGHT = Font(name="Calibri", size=10, bold=True, color=INK)
-    ROW_HEIGHT = 20
-    ROW_HEIGHT_TALL = 30
-    BLANK_HEIGHT = 10
+    ROW_HEIGHT_TITLE = 30
+    ROW_HEIGHT_VERSION = 18
+    ROW_HEIGHT_SECTION = 24
+    ROW_HEIGHT_BODY = 48
+    ROW_HEIGHT_BULLET = 24
+    ROW_HEIGHT_COLOR = 18
+    BLANK_HEIGHT = 8
 
     # (row_type, text) where row_type is:
     #   "title"    = big title (TENDERPILOT)
@@ -235,26 +239,29 @@ def feuille_demarrage(wb):
 
         if row_type == "title":
             c.font = F_TITLE
-            ws.row_dimensions[row].height = 28
+            ws.row_dimensions[row].height = ROW_HEIGHT_TITLE
         elif row_type == "version":
             c.font = F_MUTED
-            ws.row_dimensions[row].height = ROW_HEIGHT
+            ws.row_dimensions[row].height = ROW_HEIGHT_VERSION
         elif row_type == "section":
             c.font = F_SECTION
-            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
-            # thin rule above section
+            ws.row_dimensions[row].height = ROW_HEIGHT_SECTION
             c.border = Border(top=THIN)
         elif row_type == "bullet":
             c.font = F_BODY
             c.alignment = Alignment(wrap_text=True, vertical="top",
                                      indent=1)
-            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
+            # Height depends on text length
+            nb_lines = max(1, -(-len(texte) // 80))  # ceil division
+            ws.row_dimensions[row].height = ROW_HEIGHT_BULLET * nb_lines
         elif row_type == "color":
             c.font = Font(name="Consolas", size=10, color=INK)
-            ws.row_dimensions[row].height = ROW_HEIGHT
+            ws.row_dimensions[row].height = ROW_HEIGHT_COLOR
         else:  # body
             c.font = F_BODY
-            ws.row_dimensions[row].height = ROW_HEIGHT_TALL
+            # Calculate height based on text length and column width
+            nb_lines = max(1, -(-len(texte) // 76))  # ceil division
+            ws.row_dimensions[row].height = ROW_HEIGHT_BODY * nb_lines
 
         row += 1
 
