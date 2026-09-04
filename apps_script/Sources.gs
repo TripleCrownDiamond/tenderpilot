@@ -69,7 +69,9 @@ function appliquerCatalogue_() {
   var rangs = {};
   existantes.forEach(function (ligne, i) {
     var id = String(ligne[colId - 1] || '').trim();
-    if (id) rangs[id] = i + 2;
+    // Meme filtre que lireSources : la note d'aide de bas de tableau n'est
+    // pas une source, et ne doit pas etre comptee comme une source a vous.
+    if (estIdSource(id)) rangs[id] = i + 2;
   });
 
   var bilan = { catalogue: catalogue.length, ajoutees: 0, majs: 0,
@@ -125,16 +127,20 @@ function appliquerCatalogue_() {
   logEvent(null, 'Synchronisation', 'SUCCESS',
     bilan.ajoutees + ' ajoutee(s), ' + bilan.majs + ' mise(s) a jour, '
     + bilan.propres + ' source(s) propre(s) preservee(s)');
+  // Hors execution, personne d'autre ne videra le tampon du journal.
+  ecrireJournal_();
   return bilan;
 }
 
 /**
  * Montre ou masque l'onglet SOURCES.
  *
- * L'onglet est livre masque : c'est de la plomberie, pas un tableau de bord,
- * et la synchronisation le tient a jour sans qu'on ait a l'ouvrir. Mais il
- * reste accessible en un clic - le masquer sans donner le moyen de le
- * rouvrir enfermerait l'utilisateur.
+ * L'onglet est desormais livre VISIBLE. Il a longtemps ete masque - c'etait
+ * de la plomberie - mais sa colonne Active est le seul endroit ou le client
+ * choisit ce qu'il surveille : mettre une commande de menu devant le
+ * reglage le plus utile du produit etait une marche de trop.
+ *
+ * Cette bascule reste, pour qui veut le ranger une fois sa selection faite.
  */
 function basculerOngletSources() {
   var feuille = getSheet_(SCHEMA.SHEETS.sources);

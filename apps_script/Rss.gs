@@ -32,6 +32,35 @@ function reparerCaracteres(texte) {
     .replace(/�/g, '');
 }
 
+/**
+ * Entites nommees des pages francaises.
+ *
+ * MESURE DU 2026-09-04, sur Expertise France : ses titres arrivaient en
+ * "Consultant charg&eacute; d&rsquo;une &eacute;tude". Seules les entites
+ * du HTML de base etaient decodees - &amp; &lt; &quot; - et pas une seule
+ * lettre accentuee. Un titre illisible se voit tout de suite dans la
+ * feuille du client, et personne ne peut le corriger a la main sur trois
+ * cents lignes.
+ *
+ * La liste est volontairement close : les accents francais, les
+ * apostrophes et guillemets typographiques, les tirets et quelques signes.
+ * Un decodeur generique demanderait une table de deux mille entrees pour
+ * des caracteres qu'aucune de nos sources n'emet.
+ */
+var ENTITES_NOMMEES = {
+  eacute: 'é', egrave: 'è', ecirc: 'ê', euml: 'ë',
+  agrave: 'à', acirc: 'â', auml: 'ä', aelig: 'æ',
+  ccedil: 'ç', icirc: 'î', iuml: 'ï', ocirc: 'ô',
+  ouml: 'ö', oelig: 'œ', ugrave: 'ù', ucirc: 'û',
+  uuml: 'ü', Eacute: 'É', Egrave: 'È', Ecirc: 'Ê',
+  Agrave: 'À', Acirc: 'Â', Ccedil: 'Ç', Icirc: 'Î',
+  Ocirc: 'Ô', Ugrave: 'Ù', Ucirc: 'Û', rsquo: '’',
+  lsquo: '‘', ldquo: '“', rdquo: '”', laquo: '«',
+  raquo: '»', hellip: '…', ndash: '–', mdash: '—',
+  deg: '°', euro: '€', times: '×', middot: '·',
+  bull: '•',
+};
+
 /** Remplace les entites HTML courantes par leur caractere. */
 function decodeEntities(text) {
   if (!text) return '';
@@ -48,6 +77,12 @@ function decodeEntities(text) {
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, ' ')
+    // Les entites nommees AVANT &amp; : "&amp;eacute;" existe dans des
+    // pages mal echappees, et le faire dans l'autre sens produirait un
+    // "&eacute;" litteral que plus rien ne decoderait.
+    .replace(/&([a-zA-Z]+);/g, function (entier, nom) {
+      return ENTITES_NOMMEES.hasOwnProperty(nom) ? ENTITES_NOMMEES[nom] : entier;
+    })
     .replace(/&amp;/g, '&');
 }
 
@@ -73,9 +108,32 @@ function tagContent_(xml, tag) {
  * surtout, faussent la deduplication : la meme annonce vue avec et sans
  * "?utm_source=..." passerait pour deux opportunites differentes.
  */
+/**
+ * Domaines qu'une source ecrit faux dans ses propres liens.
+ *
+ * MESURE DU 2026-09-02, sur la DNCMP : son flux publie
+ * "www.marches-public.bj" - SANS le s. Ce domaine ne resout pas du tout, et
+ * les 40 annonces beninoises portaient donc chacune un lien mort. Le
+ * portail est "www.marches-publics.bj", il sert la meme page en 200, et
+ * c'est aussi le domaine de son API. La faute de frappe est chez eux.
+ *
+ * REGLE POUR EN AJOUTER UNE. Il faut avoir verifie les DEUX cotes : que le
+ * domaine ecrit ne repond pas, et que le domaine corrige sert bien la meme
+ * ressource. Reecrire le lien d'une source est une correction, pas une
+ * preference - sans ces deux mesures, on renverrait l'utilisateur ailleurs
+ * que la ou la source voulait l'envoyer.
+ */
+var DOMAINES_CORRIGES = [
+  [/^https?:\/\/(www\.)?marches-public\.bj(?=[/?#]|$)/i,
+   'https://www.marches-publics.bj']
+];
+
 function nettoyerLien(url) {
   if (!url) return '';
   var brut = String(url).trim();
+  DOMAINES_CORRIGES.forEach(function (paire) {
+    brut = brut.replace(paire[0], paire[1]);
+  });
   var sep = brut.indexOf('?');
   if (sep === -1) return brut;
 
@@ -180,7 +238,13 @@ function extractDeadline(text) {
   var normalized = normalizeText(text);
   var keywords = ['date limite', 'date de cloture', 'cloture', 'deadline',
                   'limite de depot', 'closing date', 'submission deadline',
-                  'a soumettre avant', 'avant le'];
+                  'a soumettre avant', 'avant le',
+                  // Mesure du 2026-09-04, sur Plan International : ses huit
+                  // appels annoncent leur echeance par "Responses should be
+                  // submitted no later than ...". Sans ces tournures, huit
+                  // avis sur huit arrivaient sans date.
+                  'no later than', 'submitted by', 'due by', 'closes on',
+                  'closing on', 'bids must be received', 'date de remise'];
 
   var start = -1;
   for (var i = 0; i < keywords.length; i++) {
@@ -190,7 +254,11 @@ function extractDeadline(text) {
   if (start === -1) return null;
 
   // normalizeText a deja remplace tous les separateurs par des espaces.
-  var window = normalized.slice(start, start + 90);
+  // Les rangs anglais collent au quantieme - "28th August", "2nd
+  // September" - et empechent le motif de reconnaitre le nombre. On les
+  // retire : ils n'apportent rien qu'une lettre.
+  var window = normalized.slice(start, start + 90)
+    .replace(/(\d+)(st|nd|rd|th)\b/g, '$1');
 
   // Chaque motif est ESSAYE, pas impose : un motif qui accroche une date
   // impossible ne doit pas interrompre la recherche. Sans cela, une heure
@@ -231,6 +299,39 @@ function extractDeadline(text) {
 }
 
 /**
+ * L'auteur d'une entree, quand c'est l'acheteur.
+ *
+ * MESURE DU 2026-09-02, sur la DNCMP : le flux des marches publics du Benin
+ * met le pouvoir adjudicateur dans <author> - "Agence Territoriale de
+ * Developpement Agricole Pole 5", "Societe Beninoise d'Energie Electrique",
+ * "Agence des Systemes d'Information et du Numerique". On l'ignorait, et
+ * les 46 annonces portaient toutes le nom de la SOURCE a la place de leur
+ * acheteur reel.
+ *
+ * DEUX GARDE-FOUS, parce que la specification RSS dit que <author> est une
+ * ADRESSE EMAIL, pas un nom :
+ *
+ *   "redaction@site.org (Agence X)"  ->  Agence X, le nom derriere l adresse
+ *   "redaction@site.org"             ->  rien : une adresse ne nomme personne
+ *   "Agence ... du Numerique (ASIN)"  ->  inchange, sigle compris
+ *
+ * Sans nom exploitable on rend une chaine vide, et le defaut de la source
+ * reprend la main - c'est normalizeOpportunity qui arbitre.
+ */
+function auteurFlux_(bloc) {
+  var t = stripTags(tagContent_(bloc, 'author')
+                    || tagContent_(bloc, 'dc:creator'));
+  if (!t) return '';
+  // La parenthese ne prime QUE derriere une adresse : "Agence des Systemes
+  // d Information et du Numerique (ASIN)" doit rester entier, sinon on
+  // reduirait un acheteur a son sigle.
+  var apresAdresse = /^[^\s@]+@[^\s@]+\s*\(([^)]+)\)$/.exec(t);
+  if (apresAdresse) return apresAdresse[1].trim();
+  if (/^[^\s@]+@[^\s@]+$/.test(t)) return '';
+  return t;
+}
+
+/**
  * Repare les flux dont chaque element porte le meme titre.
  *
  * MESURE DU 2026-09-02 sur le flux de la DNCMP, la direction beninoise des
@@ -265,6 +366,7 @@ function reparerTitresIdentiques_(entrees) {
   return entrees.map(function (e) {
     return {
       title: tronquer(e.summary) || e.title,
+      org: e.org,
       link: e.link,
       published: e.published,
       // Le libelle de categorie reste utile : il dit la nature de l avis.
@@ -273,6 +375,27 @@ function reparerTitresIdentiques_(entrees) {
       deadline: e.deadline
     };
   });
+}
+
+/**
+ * La reponse est-elle bien un flux, meme s'il est vide ?
+ *
+ * MESURE DU 2026-09-02 : les bureaux PNUD du Cap-Vert et du Togo servent un
+ * flux parfaitement valide dont la liste d'annonces est vide. La collecte
+ * les signalait comme "la page a peut-etre change de structure" a chaque
+ * execution - une fausse alerte, repetee, sur des sources qui vont tres
+ * bien. Un flux annonce sa nature des sa balise racine : rss, feed (Atom)
+ * ou rdf:RDF (RSS 1.0, la forme du PNUD).
+ *
+ * Une page HTML, une page d'erreur ou un ecran anti-robot n'en portent
+ * aucune : le doute sur la mise en page reste alors entier, et le message
+ * d'origine avec lui.
+ */
+function estFluxXml(corps) {
+  if (!corps) return false;
+  // La racine est cherchee dans le debut du document seulement : plus loin,
+  // un lien vers un flux dans une page HTML donnerait un faux positif.
+  return /<(rss|feed|rdf:RDF)\b/i.test(String(corps).slice(0, 4000));
 }
 
 /**
@@ -292,6 +415,7 @@ function parseFeedXml(xml) {
                             || tagContent_(block, 'content'));
     return {
       title: title,
+      org: auteurFlux_(block),
       link: nettoyerLien(itemLink_(block)),
       published: parseFeedDate(tagContent_(block, 'pubDate')
                                || tagContent_(block, 'published')
@@ -315,6 +439,8 @@ if (typeof module !== 'undefined') {
     parseFeedDate: parseFeedDate,
     extractDeadline: extractDeadline,
     parseFeedXml: parseFeedXml,
+    estFluxXml: estFluxXml,
+    auteurFlux_: auteurFlux_,
     reparerTitresIdentiques_: reparerTitresIdentiques_
   };
 }

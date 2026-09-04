@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 106 sources : 71 flux RSS, 21 API JSON,
- * 14 collectes HTML, 0 manuelle(s).
- * 51 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 113 sources : 71 flux RSS, 22 API JSON,
+ * 19 collectes HTML, 1 manuelle(s).
+ * 54 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -56,8 +56,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": null,
     "typeDefaut": "AMI",
-    "active": true,
-    "statut": "Verifie le 2026-08-30 : 16 avis (EOI cabinets et consultants)"
+    "active": false,
+    "statut": "Verifie le 2026-09-02 : HTTP 403 sur TOUT le site, robots.txt compris. www.afdb.org est passe derriere un controle anti-robot Cloudflare (page Just a moment..., challenge JavaScript) : aucun client sans navigateur ne passe, quel que soit l'agent utilisateur, et la collecte sequentielle n'y change rien. Desactivee plutot que supprimee, et la methode RSS est conservee : le jour ou la BAD rouvre son site aux clients simples, il suffit de remettre OUI. A consulter a la main en attendant."
   },
   {
     "code": "UNDP-ALL",
@@ -90,7 +90,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
     "active": true,
-    "statut": "Verifie le 2026-08-30 : 44 annonces. Flux succinct (titre generique, deadline rarement presente) : ouvrir le lien pour le detail."
+    "statut": "Verifie le 2026-09-02 : 46 annonces. Le portail www.marches-publics.bj est une application Angular, vide cote serveur, et le reste de son API repond 401 : le flux RSS est la SEULE porte publique. Il ne porte AUCUNE echeance - ouvrir le lien pour la date limite - et tous ses titres valent 'Appel d'Offre' : l'objet reel est dans la description, l'acheteur dans <author> (SBEE, ASIN, agences territoriales)."
   },
   {
     "code": "UNDP-BKF",
@@ -694,8 +694,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Afrique (multi-pays)",
     "secteurDefaut": null,
     "typeDefaut": "AMI",
-    "active": true,
-    "statut": "Verifie le 2026-08-31 : 11 avis (EOI, AMI, SPN). Collecte HTML : peut casser si le site change. Le site limite le debit et repond parfois 403 : la collecte suivante repasse."
+    "active": false,
+    "statut": "Verifie le 2026-09-02 : HTTP 403, meme cause que AFDB-EOI - controle anti-robot Cloudflare sur tout www.afdb.org. L'extraction HTML est conservee telle quelle, elle lisait 11 avis le 2026-08-31 : seule l'entree du site est fermee. A consulter a la main en attendant."
   },
   {
     "code": "WB-BEN",
@@ -712,12 +712,12 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "code": "ENABEL-BEN",
     "nom": "Enabel - marches publics au Benin",
     "methode": "HTML:enabel.be",
-    "url": "https://www.enabel.be/public-procurement/?in_country=850&is_status=0",
+    "url": "https://www.enabel.be/public-procurement/?in_country=850&is_status=all",
     "paysDefaut": "Benin",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
     "active": true,
-    "statut": "Verifie le 2026-08-31 : 1 marche ouvert sur 10 publies. Seule source donnant un statut Open/Close explicite : les marches clos sont ecartes. Collecte HTML : peut casser."
+    "statut": "Verifie le 2026-09-02 : 10 marches publies, 1 seul ouvert (2204BEN-10373, cloture le 02/09/2026). La page n'a pas change : c'est le filtre is_status=0 du site qui ne rend plus rien depuis le 2026-09-02, il rendait les 10 avis le 2026-08-31. On demande donc is_status=all et c'est l'analyseur qui ecarte les marches Close - il le faisait deja. NE PAS basculer sur la page francaise /fr/marches-publics/ : ses etiquettes sont traduites (Pays, Date de cloture) et l'analyseur lit Country et Closing date."
   },
   {
     "code": "ARMP-BJ",
@@ -758,7 +758,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "HTML:abe.bj",
     "url": "https://www.abe.bj/appels-doffres/",
     "paysDefaut": "Benin",
-    "secteurDefaut": "Environnement",
+    "secteurDefaut": "Environnement et climat",
     "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 9 avis en premiere page (22 au total), 7 avec echeance. Les avis echus ne sont pas ecartes : l'ABE n'offre aucun filtre d'URL."
@@ -769,7 +769,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "HTML:araa.org",
     "url": "https://www.araa.org/fr/marches",
     "paysDefaut": "Afrique de l'Ouest",
-    "secteurDefaut": "Agriculture",
+    "secteurDefaut": "Agriculture et agroalimentaire",
     "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 12 avis, tous avec echeance ISO. Attention : l'adresse /fr/opportunites renvoie 404, la liste est sur /fr/marches."
@@ -824,7 +824,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.terravivagrants.org/feed/",
     "paysDefaut": "International",
-    "secteurDefaut": "Environnement",
+    "secteurDefaut": "Environnement et climat",
     "typeDefaut": "Subvention",
     "active": true,
     "statut": "Verifie le 2026-08-31 : 10 items a jour (aout 2026), vrais appels a financement. Agriculture, climat, energie, biodiversite."
@@ -1033,7 +1033,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.opentech.fund/feed",
     "paysDefaut": "International",
-    "secteurDefaut": "Technologie",
+    "secteurDefaut": "Numerique et technologie",
     "typeDefaut": "Subvention",
     "active": true,
     "statut": "Verifie le 2026-09-01 : feed RSS actif avec RFP (Request for Proposals) et subventions tech. Thematiques : Internet freedom, censure numerique, securite. Flux fiable, mises a jour regulieres."
@@ -1044,7 +1044,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.tonyelumelufoundation.org/feed",
     "paysDefaut": "Afrique (multi-pays)",
-    "secteurDefaut": "Entrepreneuriat",
+    "secteurDefaut": "Entrepreneuriat et PME",
     "typeDefaut": "Subvention",
     "active": false,
     "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Portraits d entrepreneurs, pas d appels. Le programme TEF s ouvre une fois par an et s annonce ailleurs. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
@@ -1055,7 +1055,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.adaptation-fund.org/feed",
     "paysDefaut": "International",
-    "secteurDefaut": "Environnement",
+    "secteurDefaut": "Environnement et climat",
     "typeDefaut": "Subvention",
     "active": false,
     "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Recits de projets et lecons apprises. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
@@ -1066,7 +1066,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.afrilabs.com/feed",
     "paysDefaut": "Afrique (multi-pays)",
-    "secteurDefaut": "Numerique",
+    "secteurDefaut": "Numerique et technologie",
     "typeDefaut": null,
     "active": false,
     "statut": "Verifie le 2026-09-02 par collecte reelle : 0 sur 10 items sont de vraies opportunites. Annonces de partenariats. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
@@ -1143,7 +1143,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "HTML:grandchallenges.org",
     "url": "https://www.grandchallenges.org/grant-opportunities",
     "paysDefaut": "International",
-    "secteurDefaut": "Health et developpement",
+    "secteurDefaut": "Sante",
     "typeDefaut": "Subvention",
     "active": true,
     "statut": "Verifie le 2026-09-01 : JSON embarque dans __NEXT_DATA__ avec 3 defis actifs (Pathogen Sequencing, Micronutrient Status, Keystone Symposia). Dates UNIX, domaine, lien de candidature. Filtrage par date_end > maintenant."
@@ -1154,7 +1154,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "RSS",
     "url": "https://www.j360.info/en/news/rss/",
     "paysDefaut": "International",
-    "secteurDefaut": "Administration publique",
+    "secteurDefaut": "Gouvernance et institutions",
     "typeDefaut": "Actualites",
     "active": false,
     "statut": "Verifie le 2026-09-02 par collecte reelle : 37 sur 55 items sont de vraies opportunites. Blog editorial sur les marches publics, archives depuis 2016. Les 37 retenues parlent DE marches publics, elles n en sont pas. Flux d ACTUALITES : inactive pour ne pas diluer la veille. Le client peut la reactiver."
@@ -1165,7 +1165,7 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "methode": "HTML:unicef.org/supply",
     "url": "https://www.unicef.org/supply/tender-calendars",
     "paysDefaut": "International",
-    "secteurDefaut": "Sante et equipements médicaux",
+    "secteurDefaut": "Sante",
     "typeDefaut": "Appel d'offres",
     "active": true,
     "statut": "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
@@ -1202,5 +1202,82 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": "Subvention",
     "active": true,
     "statut": "Verifie le 2026-09-02 : 1034 subventions ouvertes, 100 par page, 82 datees a echeance future. 31 mentionnent l Afrique, dont U.S.-Africa Strategic Investment Program. RESERVE A DIRE AU CLIENT : la plupart des subventions federales exigent un enregistrement SAM.gov d entite americaine. Certaines - Departement d Etat, USAID - acceptent les organisations etrangeres, mais l eligibilite se verifie avis par avis."
+  },
+  {
+    "code": "GIZ-VERGABE",
+    "nom": "GIZ - marches de la cooperation allemande",
+    "methode": "HTML:giz.de",
+    "url": "https://ausschreibungen.giz.de/Satellite/company/welcome.do?method=showTable&fromSearch=1&selectedTablePagePROJECT_RESULT={page}",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-02 : 224 avis sur 12 pages, sans authentification. 91 sont ouverts et dates ; les 133 autres sont des marches deja attribues (Vergebener Auftrag) ou des avenants, ecartes par l'analyseur - meme decision que pour les Contract Award de la Banque mondiale. 16 avis nomment un pays africain, dont 6 en Afrique de l'Ouest (Burkina, Senegal, Ghana, Nigeria), certains rediges en francais. Source PAGINEE : le {page} de l'URL est remplace page apres page jusqu'a MAX_ITEMS_PER_SOURCE. Page servie en ISO-8859-1, decodee d'apres l'en-tete. Les dates sont en JJ.MM.AAAA et converties a la main : 02.09.2026 lu par new Date() vaut le 9 fevrier."
+  },
+  {
+    "code": "NE-MARCHES",
+    "nom": "Niger Marches - appels d offres",
+    "methode": "JSON:nigermarches.com",
+    "url": "https://www.nigermarches.com/wp-json/wp/v2/appel_d_offre?per_page=100&page={page}&_fields=id,link,title,date,acf",
+    "paysDefaut": "Niger",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-02 : 668 avis, API WordPress publique sans authentification, 20 sur 20 avec une date d'expiration. Les champs ACF donnent l'echeance (date_expiration) et l'acheteur reel (nom_de_la_societe) : NDE, AMF-UMOA, Medecins Sans Frontieres, GIZ Niger. On lit l'API et non la page : la page est construite par Elementor et ses classes changent a chaque theme. Le _fields de l'URL divise le volume par vingt - ne pas le retirer. Source PAGINEE."
+  },
+  {
+    "code": "EF-OFFRES",
+    "nom": "Expertise France - consultations et expertises",
+    "methode": "HTML:expertise-france.gestmax.fr",
+    "url": "https://expertise-france.gestmax.fr/search/index/page/{page}",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-04 : 144 offres, dix par page, quinze pages, rendues cote serveur. Rare par sa richesse : chaque carte porte le PAYS de l'annonce, le secteur declare et une vraie date limite de candidature. L'agence francaise publie ici ses consultations autant que ses postes - le \"Recrutement d'une agence de communication, Benin\" est un marche. Les contrats CDD/CDDU/CDI/stage sont ranges en Recrutement ; \"Contrat de prestation de services\" n'est PAS traduit, il recouvre l'expert individuel comme l'agence. Source PAGINEE."
+  },
+  {
+    "code": "AFD-DGMARKET",
+    "nom": "AFD - avis de marches sur dgMarket",
+    "methode": "MANUAL",
+    "url": "https://afd.dgmarket.com/tenders/brandedNoticeList.do",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": false,
+    "statut": "Verifie le 2026-09-04 : la liste EXISTE et est riche - pays, titre, date de publication et date limite par avis, rendus cote serveur. Mais le portail impose une poignee de main de session : il pose digi_session_id=UNASSIGNED puis renvoie vers web3-login.dgmarket.com pour l'echanger, sur un second domaine. Une requete simple, meme avec les cookies de la premiere, repond 302. Simuler cette ouverture de session reviendrait a rejouer un login : le produit ne se bat pas contre les sites qui en exigent un. Et les dossiers d'appel d'offres eux-memes demandent une adhesion dgMarket. Consultable a la main, gratuitement : voir le guide AFD joint au catalogue. Livree MANUAL et inactive."
+  },
+  {
+    "code": "PLAN-TENDERS",
+    "nom": "Plan International - appels d offres",
+    "methode": "HTML:plan-international.org",
+    "url": "https://plan-international.org/calls-tender/",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-04 : 8 appels actifs, tous dates ET tous avec leur dossier telechargeable - la premiere source qui remplit la colonne PDF. Un appel beninois en cours (006/Plan Int'l BEN/CO/CD/Aout 2026). Pas de page par appel : les huit vivent sur la meme, le lien mene donc a la liste et c'est le dossier qui est propre a chacun. Echeances en prose anglaise (no later than Friday, 28th August 2026) : la tournure et le rang ordinal ont ete ajoutes a extractDeadline le meme jour."
+  },
+  {
+    "code": "JOBRELAIS",
+    "nom": "JobRelais - appels d offres (Benin)",
+    "methode": "HTML:jobrelais.com",
+    "url": "https://www.jobrelais.com/opportunities/call-for-tenders",
+    "paysDefaut": "Benin",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-04 : 12 avis par page, 27 pages, de vrais avis ouest-africains (BCEAO, GIZ, Plan International Benin, LuxDev, Amnesty). PREMIERE SOURCE LUE EN DEUX TEMPS : sa liste ne porte aucune echeance - pour toute date, 'il y a 3 mois' - mais chaque fiche porte un JSON-LD propre avec validThrough. Le moteur lit donc la liste, puis les fiches manquantes, dans la limite de MAX_FICHES_PAR_PASSAGE. Une annonce qu'on n'a pas pu dater n'entre pas : pour cette source, sans date veut dire fiche non lue, pas avis sans echeance. AGREGATEUR : GIZ, Plan International et la BCEAO sont aussi collectes a la source."
+  },
+  {
+    "code": "UNGM-CEDEAO",
+    "nom": "UNGM - marches des agences de l'ONU (CEDEAO)",
+    "methode": "HTML:ungm.org",
+    "url": "https://www.ungm.org/Public/Notice/Search",
+    "paysDefaut": "Afrique de l'Ouest",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": false,
+    "statut": "Verifie le 2026-09-04 : 15 avis par page, au moins 15 pages, TOUS dates, filtres sur les quinze pays de la CEDEAO. Les acheteurs sont les agences elles-memes - FAO, UNICEF, IOM, ILO, UNDP, UNFPA, UNHCR, UNOPS, WFP, WHO, UNIDO, Secretariat de l'ONU : neuf ne sont couverts par aucune autre source du registre. PREMIERE SOURCE HTML SERVIE PAR UN POST : la page /Public/Notice ne rend aucun avis, la liste arrive d'un POST sur /Public/Notice/Search qui repond par des rangees HTML, et la pagination se fait par PageIndex dans le corps (PageSize plafonne a 15 par le serveur). LIVREE INACTIVE POUR UNE SEULE RAISON, MESUREE : UNGM repond 403 des que l'agent utilisateur porte le suffixe TenderPilot/1.0, et 200 a la meme chaine sans ce suffixe. Ce n'est ni Cloudflare ni un defi - un filtre IIS sur la chaine d'agent. Retirer le suffixe reviendrait a ne plus s'identifier : c'est une decision du proprietaire du produit, pas un choix technique, et elle n'a pas ete prise. L'analyseur et la forme de requete sont ecrits, testes sur fixture des deux cotes, et n'attendent qu'un OUI."
   }
 ];

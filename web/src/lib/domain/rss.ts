@@ -28,6 +28,28 @@ export interface EntreeFlux {
    */
   organisation?: string | null;
   type?: string | null;
+  /**
+   * Le pays de l'annonce, quand la source le donne annonce par annonce.
+   *
+   * Expertise France couvre cinquante pays depuis une seule page : sans ce
+   * champ, ses 144 offres porteraient toutes le defaut de la source, et la
+   * colonne Pertinence les jugerait toutes sur le meme pays. Apps Script
+   * lit deja brut.country dans normalizeOpportunity - c'est le moteur web
+   * qui ecrasait l'information.
+   */
+  pays?: string | null;
+  /**
+   * Le dossier de l'appel, quand la source y mene directement.
+   *
+   * La colonne PDF existe depuis le premier jour et restait vide : aucune
+   * source ne donnait de fichier par annonce. Plan International, si.
+   */
+  pdf?: string | null;
+  /**
+   * Montant annonce par la source, en texte. Deux sources seulement en
+   * publient un : voir formaterMontant dans domain/json.ts.
+   */
+  budget?: string | null;
 
   /**
    * Champs poses par le LLM quand il est actif, absents sinon.
@@ -58,6 +80,35 @@ export function reparerCaracteres(texte: string): string {
     .replace(/�/g, "");
 }
 
+/**
+ * Entites nommees des pages francaises.
+ *
+ * MESURE DU 2026-09-04, sur Expertise France : ses titres arrivaient en
+ * "Consultant charg&eacute; d&rsquo;une &eacute;tude". Seules les entites
+ * du HTML de base etaient decodees - &amp; &lt; &quot; - et pas une seule
+ * lettre accentuee. Un titre illisible se voit tout de suite dans la
+ * feuille du client, et personne ne peut le corriger a la main sur trois
+ * cents lignes.
+ *
+ * La liste est volontairement close : les accents francais, les
+ * apostrophes et guillemets typographiques, les tirets et quelques signes.
+ * Un decodeur generique demanderait une table de deux mille entrees pour
+ * des caracteres qu'aucune de nos sources n'emet.
+ */
+const ENTITES_NOMMEES: Record<string, string> = {
+  eacute: "é", egrave: "è", ecirc: "ê", euml: "ë",
+  agrave: "à", acirc: "â", auml: "ä", aelig: "æ",
+  ccedil: "ç", icirc: "î", iuml: "ï", ocirc: "ô",
+  ouml: "ö", oelig: "œ", ugrave: "ù", ucirc: "û",
+  uuml: "ü", Eacute: "É", Egrave: "È", Ecirc: "Ê",
+  Agrave: "À", Acirc: "Â", Ccedil: "Ç", Icirc: "Î",
+  Ocirc: "Ô", Ugrave: "Ù", Ucirc: "Û", rsquo: "’",
+  lsquo: "‘", ldquo: "“", rdquo: "”", laquo: "«",
+  raquo: "»", hellip: "…", ndash: "–", mdash: "—",
+  deg: "°", euro: "€", times: "×", middot: "·",
+  bull: "•",
+};
+
 /** Remplace les entites HTML courantes par leur caractere. */
 export function decoderEntites(texte: unknown): string {
   if (!texte) return "";
@@ -70,6 +121,11 @@ export function decoderEntites(texte: unknown): string {
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, " ")
+    // Les entites nommees AVANT &amp; : "&amp;eacute;" existe dans des
+    // pages mal echappees, et le faire dans l'autre sens produirait un
+    // "&eacute;" litteral que plus rien ne decoderait.
+    .replace(/&([a-zA-Z]+);/g,
+             (entier, nom) => ENTITES_NOMMEES[nom] ?? entier)
     .replace(/&amp;/g, "&");
 }
 
@@ -95,9 +151,30 @@ function contenuBalise(xml: string, balise: string): string {
  * deduplication, la meme annonce avec et sans "?utm_source=..." passant pour
  * deux opportunites differentes.
  */
+/**
+ * Domaines qu'une source ecrit faux dans ses propres liens.
+ *
+ * MESURE DU 2026-09-02, sur la DNCMP : son flux publie
+ * "www.marches-public.bj" - SANS le s. Ce domaine ne resout pas du tout, et
+ * les 40 annonces beninoises portaient donc chacune un lien mort. Le
+ * portail est "www.marches-publics.bj", il sert la meme page en 200, et
+ * c'est aussi le domaine de son API. La faute de frappe est chez eux.
+ *
+ * REGLE POUR EN AJOUTER UNE. Il faut avoir verifie les DEUX cotes : que le
+ * domaine ecrit ne repond pas, et que le domaine corrige sert bien la meme
+ * ressource. Reecrire le lien d'une source est une correction, pas une
+ * preference - sans ces deux mesures, on renverrait l'utilisateur ailleurs
+ * que la ou la source voulait l'envoyer.
+ */
+const DOMAINES_CORRIGES: [RegExp, string][] = [
+  [/^https?:\/\/(www\.)?marches-public\.bj(?=[/?#]|$)/i,
+   "https://www.marches-publics.bj"],
+];
+
 export function nettoyerLien(url: string): string {
   if (!url) return "";
-  const brut = url.trim();
+  let brut = url.trim();
+  for (const [motif, bon] of DOMAINES_CORRIGES) brut = brut.replace(motif, bon);
   const sep = brut.indexOf("?");
   if (sep === -1) return brut;
 
@@ -194,6 +271,11 @@ function construireDate(annee: number, mois: number, jour: number): string | nul
 const ANNONCEURS = [
   "date limite", "date de cloture", "cloture", "deadline", "limite de depot",
   "closing date", "submission deadline", "a soumettre avant", "avant le",
+  // Mesure du 2026-09-04, sur Plan International : ses huit appels
+  // annoncent leur echeance par "Responses should be submitted no later
+  // than ...". Sans ces tournures, huit avis sur huit arrivaient sans date.
+  "no later than", "submitted by", "due by", "closes on", "closing on",
+  "bids must be received", "date de remise",
 ];
 
 /**
@@ -216,7 +298,11 @@ export function extraireDeadline(texte: unknown): string | null {
   if (debut === -1) return null;
 
   // normaliser() a deja remplace les separateurs par des espaces.
-  const fenetre = normalise.slice(debut, debut + 90);
+  // Les rangs anglais collent au quantieme - "28th August", "2nd September" -
+  // et empechent le motif de reconnaitre le nombre. On les retire : ils
+  // n'apportent rien qu'une lettre.
+  const fenetre = normalise.slice(debut, debut + 90)
+    .replace(/(\d+)(st|nd|rd|th)\b/g, "$1");
 
   // Chaque motif est ESSAYE, pas impose : un motif qui accroche une date
   // impossible ne doit pas interrompre la recherche. Sans cela, une heure
@@ -244,6 +330,39 @@ export function extraireDeadline(texte: unknown): string | null {
       anneeComplete(moisDabord[3]), MOIS[moisDabord[1]], +moisDabord[2]));
   }
   return essais.find((d) => d !== null) ?? null;
+}
+
+/**
+ * L'auteur d'une entree, quand c'est l'acheteur.
+ *
+ * MESURE DU 2026-09-02, sur la DNCMP : le flux des marches publics du Benin
+ * met le pouvoir adjudicateur dans <author> - "Agence Territoriale de
+ * Developpement Agricole Pole 5", "Societe Beninoise d'Energie Electrique",
+ * "Agence des Systemes d'Information et du Numerique". On l'ignorait, et
+ * les 46 annonces portaient toutes le nom de la SOURCE a la place de leur
+ * acheteur reel.
+ *
+ * DEUX GARDE-FOUS, parce que la specification RSS dit que <author> est une
+ * ADRESSE EMAIL, pas un nom :
+ *
+ *   "redaction@site.org (Agence X)"  ->  Agence X, le nom derriere l adresse
+ *   "redaction@site.org"             ->  rien : une adresse ne nomme personne
+ *   "Agence ... du Numerique (ASIN)"  ->  inchange, sigle compris
+ *
+ * Sans nom exploitable on rend une chaine vide, et le defaut de la source
+ * reprend la main - c'est normalizeOpportunity qui arbitre.
+ */
+export function auteurFlux(bloc: string): string {
+  let t = retirerBalises(contenuBalise(bloc, "author")
+                         || contenuBalise(bloc, "dc:creator"));
+  if (!t) return "";
+  // La parenthese ne prime QUE derriere une adresse : "Agence des Systemes
+  // d Information et du Numerique (ASIN)" doit rester entier, sinon on
+  // reduirait un acheteur a son sigle.
+  const apresAdresse = /^[^\s@]+@[^\s@]+\s*\(([^)]+)\)$/.exec(t);
+  if (apresAdresse) return apresAdresse[1].trim();
+  if (/^[^\s@]+@[^\s@]+$/.test(t)) return "";
+  return t;
 }
 
 /**
@@ -282,6 +401,28 @@ function reparerTitresIdentiques(entrees: EntreeFlux[]): EntreeFlux[] {
 }
 
 /**
+ * La reponse est-elle bien un flux, meme s'il est vide ?
+ *
+ * MESURE DU 2026-09-02 : les bureaux PNUD du Cap-Vert et du Togo servent un
+ * flux parfaitement valide dont la liste d'annonces est vide. La collecte
+ * les signalait comme "la page a peut-etre change de structure" a chaque
+ * execution - une fausse alerte, repetee, sur des sources qui vont tres
+ * bien. Un flux annonce sa nature des sa balise racine : rss, feed (Atom)
+ * ou rdf:RDF (RSS 1.0, la forme du PNUD).
+ *
+ * Une page HTML, une page d'erreur ou un ecran anti-robot n'en portent
+ * aucune : le doute sur la mise en page reste alors entier.
+ *
+ * Jumeau de estFluxXml() dans apps_script/Rss.gs.
+ */
+export function estFluxXml(corps: unknown): boolean {
+  if (!corps) return false;
+  // La racine est cherchee dans le debut du document seulement : plus loin,
+  // un lien vers un flux dans une page HTML donnerait un faux positif.
+  return /<(rss|feed|rdf:RDF)\b/i.test(String(corps).slice(0, 4000));
+}
+
+/**
  * Transforme le XML d'un flux RSS ou Atom en liste d'entrees.
  *
  * Retourne [] plutot que de lever une erreur sur un flux illisible : une
@@ -299,6 +440,8 @@ export function analyserFlux(xml: unknown): EntreeFlux[] {
       || contenuBalise(bloc, "content"));
     return {
       titre,
+      // L'acheteur reel quand le flux le donne : voir auteurFlux.
+      organisation: auteurFlux(bloc) || null,
       lien: nettoyerLien(lienEntree(bloc)),
       publie: lireDateFlux(
         contenuBalise(bloc, "pubDate")

@@ -61,6 +61,12 @@ export default function Page() {
                    quoi="Sans elle, aucun email ne part." />
             <Ligne nom="Seuil de digest" valeur={String(c.seuilDigest)}
                    quoi="Au-dela de ce nombre de nouveautes, un seul email recapitulatif." />
+            <Ligne nom="Niveaux notifies"
+                   valeur={c.notifierPertinence || "tous"}
+                   quoi="Coupe le bruit dans la boite, jamais dans la liste : les annonces ecartees restent visibles." />
+            <Ligne nom="Emails par execution"
+                   valeur={c.maxEmailsParExecution ? String(c.maxEmailsParExecution) : "sans plafond"}
+                   quoi="Au-dela, les alertes repartent au passage suivant - les plus pertinentes d'abord. Rien n'est perdu." />
             <Ligne nom="Annonces par source" valeur={String(c.maxParSource)}
                    quoi="Plafond par passage, pour qu'une source bavarde n'ecrase pas les autres." />
             <Ligne nom="Fuseau horaire" valeur={c.fuseau}

@@ -14,7 +14,8 @@ var SCHEMA = {
   "opportunities": "OPPORTUNITIES",
   "sources": "SOURCES",
   "config": "CONFIG",
-  "logs": "LOGS"
+  "logs": "LOGS",
+  "profil": "PAYS_ET_SECTEURS"
 },
 
   /** Cle technique -> nom de colonne de l'onglet OPPORTUNITIES. */
@@ -26,6 +27,7 @@ var SCHEMA = {
   "country": "Pays",
   "type": "Type",
   "sector": "Secteur",
+  "budget": "Budget",
   "source": "Source",
   "url": "Lien",
   "pdf": "PDF",
@@ -33,6 +35,7 @@ var SCHEMA = {
   "deadline": "Deadline",
   "days": "Jours_Restants",
   "status": "Statut_Delai",
+  "pertinence": "Pertinence",
   "summary": "Resume",
   "notifNew": "Notif_Nouvelle",
   "notifJ7": "Notif_J7",
@@ -67,6 +70,7 @@ var SCHEMA = {
   "pdf",
   "published",
   "deadline",
+  "budget",
   "summary"
 ],
 
@@ -91,6 +95,32 @@ var SCHEMA = {
   "EXPIRE": "#ECECEC",
   "DATE A VERIFIER": "#FFFBEA"
 },
+
+  /**
+   * Pertinence : ce que l'annonce vaut POUR CE CLIENT-LA, d'apres
+   * PAYS_SUIVIS et SECTEURS_SUIVIS. Elle etiquette, elle ne supprime pas.
+   */
+  PERTINENCE_PRIORITAIRE: "3 - PRIORITAIRE",
+  PERTINENCE_A_VOIR: "2 - A VOIR",
+  PERTINENCE_POSSIBLE: "1 - POSSIBLE",
+  PERTINENCE_HORS_PROFIL: "0 - HORS PROFIL",
+
+  /** (libelle, score minimum), du plus pertinent au moins pertinent. */
+  PERTINENCE_SEUILS: [["3 - PRIORITAIRE", 4], ["2 - A VOIR", 3], ["1 - POSSIBLE", 2]],
+
+  /** Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. */
+  PAYS_OUVERTS: [
+  "international",
+  "afrique",
+  "multi-pays",
+  "monde",
+  "mondial",
+  "global",
+  "worldwide",
+  "afrique de l'ouest",
+  "cedeao",
+  "umoa"
+],
 
   /** Une opportunite recoit au maximum un email de chaque type. */
   NOTIFICATIONS: [
@@ -126,6 +156,16 @@ var SCHEMA = {
   }
 ],
 
+  /** Colonnes de l'onglet PAYS_ET_SECTEURS, reecrit a chaque passage. */
+  PROFIL: [
+  "Type",
+  "Valeur",
+  "Annonces",
+  "Suivi"
+],
+  PROFIL_TYPE_PAYS: "Pays",
+  PROFIL_TYPE_SECTEUR: "Secteur",
+
   /**
    * Le catalogue de sources livre avec cette version.
    *
@@ -159,9 +199,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "",
     "AMI",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-30 : 16 avis (EOI cabinets et consultants)"
+    "Verifie le 2026-09-02 : HTTP 403 sur TOUT le site, robots.txt compris. www.afdb.org est passe derriere un controle anti-robot Cloudflare (page Just a moment..., challenge JavaScript) : aucun client sans navigateur ne passe, quel que soit l'agent utilisateur, et la collecte sequentielle n'y change rien. Desactivee plutot que supprimee, et la methode RSS est conservee : le jour ou la BAD rouvre son site aux clients simples, il suffit de remettre OUI. A consulter a la main en attendant."
   ],
   [
     "UNDP-ALL",
@@ -197,7 +237,7 @@ var SCHEMA = {
     "Appel d'offres",
     "OUI",
     "",
-    "Verifie le 2026-08-30 : 44 annonces. Flux succinct (titre generique, deadline rarement presente) : ouvrir le lien pour le detail."
+    "Verifie le 2026-09-02 : 46 annonces. Le portail www.marches-publics.bj est une application Angular, vide cote serveur, et le reste de son API repond 401 : le flux RSS est la SEULE porte publique. Il ne porte AUCUNE echeance - ouvrir le lien pour la date limite - et tous ses titres valent 'Appel d'Offre' : l'objet reel est dans la description, l'acheteur dans <author> (SBEE, ASIN, agences territoriales)."
   ],
   [
     "UNDP-BKF",
@@ -855,9 +895,9 @@ var SCHEMA = {
     "Afrique (multi-pays)",
     "",
     "AMI",
-    "OUI",
+    "NON",
     "",
-    "Verifie le 2026-08-31 : 11 avis (EOI, AMI, SPN). Collecte HTML : peut casser si le site change. Le site limite le debit et repond parfois 403 : la collecte suivante repasse."
+    "Verifie le 2026-09-02 : HTTP 403, meme cause que AFDB-EOI - controle anti-robot Cloudflare sur tout www.afdb.org. L'extraction HTML est conservee telle quelle, elle lisait 11 avis le 2026-08-31 : seule l'entree du site est fermee. A consulter a la main en attendant."
   ],
   [
     "WB-BEN",
@@ -875,13 +915,13 @@ var SCHEMA = {
     "ENABEL-BEN",
     "Enabel - marches publics au Benin",
     "HTML:enabel.be",
-    "https://www.enabel.be/public-procurement/?in_country=850&is_status=0",
+    "https://www.enabel.be/public-procurement/?in_country=850&is_status=all",
     "Benin",
     "",
     "Appel d'offres",
     "OUI",
     "",
-    "Verifie le 2026-08-31 : 1 marche ouvert sur 10 publies. Seule source donnant un statut Open/Close explicite : les marches clos sont ecartes. Collecte HTML : peut casser."
+    "Verifie le 2026-09-02 : 10 marches publies, 1 seul ouvert (2204BEN-10373, cloture le 02/09/2026). La page n'a pas change : c'est le filtre is_status=0 du site qui ne rend plus rien depuis le 2026-09-02, il rendait les 10 avis le 2026-08-31. On demande donc is_status=all et c'est l'analyseur qui ecarte les marches Close - il le faisait deja. NE PAS basculer sur la page francaise /fr/marches-publics/ : ses etiquettes sont traduites (Pays, Date de cloture) et l'analyseur lit Country et Closing date."
   ],
   [
     "ARMP-BJ",
@@ -925,7 +965,7 @@ var SCHEMA = {
     "HTML:abe.bj",
     "https://www.abe.bj/appels-doffres/",
     "Benin",
-    "Environnement",
+    "Environnement et climat",
     "Appel d'offres",
     "OUI",
     "",
@@ -937,7 +977,7 @@ var SCHEMA = {
     "HTML:araa.org",
     "https://www.araa.org/fr/marches",
     "Afrique de l'Ouest",
-    "Agriculture",
+    "Agriculture et agroalimentaire",
     "Appel d'offres",
     "OUI",
     "",
@@ -997,7 +1037,7 @@ var SCHEMA = {
     "RSS",
     "https://www.terravivagrants.org/feed/",
     "International",
-    "Environnement",
+    "Environnement et climat",
     "Subvention",
     "OUI",
     "",
@@ -1225,7 +1265,7 @@ var SCHEMA = {
     "RSS",
     "https://www.opentech.fund/feed",
     "International",
-    "Technologie",
+    "Numerique et technologie",
     "Subvention",
     "OUI",
     "",
@@ -1237,7 +1277,7 @@ var SCHEMA = {
     "RSS",
     "https://www.tonyelumelufoundation.org/feed",
     "Afrique (multi-pays)",
-    "Entrepreneuriat",
+    "Entrepreneuriat et PME",
     "Subvention",
     "NON",
     "",
@@ -1249,7 +1289,7 @@ var SCHEMA = {
     "RSS",
     "https://www.adaptation-fund.org/feed",
     "International",
-    "Environnement",
+    "Environnement et climat",
     "Subvention",
     "NON",
     "",
@@ -1261,7 +1301,7 @@ var SCHEMA = {
     "RSS",
     "https://www.afrilabs.com/feed",
     "Afrique (multi-pays)",
-    "Numerique",
+    "Numerique et technologie",
     "",
     "NON",
     "",
@@ -1345,7 +1385,7 @@ var SCHEMA = {
     "HTML:grandchallenges.org",
     "https://www.grandchallenges.org/grant-opportunities",
     "International",
-    "Health et developpement",
+    "Sante",
     "Subvention",
     "OUI",
     "",
@@ -1357,7 +1397,7 @@ var SCHEMA = {
     "RSS",
     "https://www.j360.info/en/news/rss/",
     "International",
-    "Administration publique",
+    "Gouvernance et institutions",
     "Actualites",
     "NON",
     "",
@@ -1369,7 +1409,7 @@ var SCHEMA = {
     "HTML:unicef.org/supply",
     "https://www.unicef.org/supply/tender-calendars",
     "International",
-    "Sante et equipements médicaux",
+    "Sante",
     "Appel d'offres",
     "OUI",
     "",
@@ -1410,6 +1450,90 @@ var SCHEMA = {
     "OUI",
     "",
     "Verifie le 2026-09-02 : 1034 subventions ouvertes, 100 par page, 82 datees a echeance future. 31 mentionnent l Afrique, dont U.S.-Africa Strategic Investment Program. RESERVE A DIRE AU CLIENT : la plupart des subventions federales exigent un enregistrement SAM.gov d entite americaine. Certaines - Departement d Etat, USAID - acceptent les organisations etrangeres, mais l eligibilite se verifie avis par avis."
+  ],
+  [
+    "GIZ-VERGABE",
+    "GIZ - marches de la cooperation allemande",
+    "HTML:giz.de",
+    "https://ausschreibungen.giz.de/Satellite/company/welcome.do?method=showTable&fromSearch=1&selectedTablePagePROJECT_RESULT={page}",
+    "International",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-02 : 224 avis sur 12 pages, sans authentification. 91 sont ouverts et dates ; les 133 autres sont des marches deja attribues (Vergebener Auftrag) ou des avenants, ecartes par l'analyseur - meme decision que pour les Contract Award de la Banque mondiale. 16 avis nomment un pays africain, dont 6 en Afrique de l'Ouest (Burkina, Senegal, Ghana, Nigeria), certains rediges en francais. Source PAGINEE : le {page} de l'URL est remplace page apres page jusqu'a MAX_ITEMS_PER_SOURCE. Page servie en ISO-8859-1, decodee d'apres l'en-tete. Les dates sont en JJ.MM.AAAA et converties a la main : 02.09.2026 lu par new Date() vaut le 9 fevrier."
+  ],
+  [
+    "NE-MARCHES",
+    "Niger Marches - appels d offres",
+    "JSON:nigermarches.com",
+    "https://www.nigermarches.com/wp-json/wp/v2/appel_d_offre?per_page=100&page={page}&_fields=id,link,title,date,acf",
+    "Niger",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-02 : 668 avis, API WordPress publique sans authentification, 20 sur 20 avec une date d'expiration. Les champs ACF donnent l'echeance (date_expiration) et l'acheteur reel (nom_de_la_societe) : NDE, AMF-UMOA, Medecins Sans Frontieres, GIZ Niger. On lit l'API et non la page : la page est construite par Elementor et ses classes changent a chaque theme. Le _fields de l'URL divise le volume par vingt - ne pas le retirer. Source PAGINEE."
+  ],
+  [
+    "EF-OFFRES",
+    "Expertise France - consultations et expertises",
+    "HTML:expertise-france.gestmax.fr",
+    "https://expertise-france.gestmax.fr/search/index/page/{page}",
+    "International",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-04 : 144 offres, dix par page, quinze pages, rendues cote serveur. Rare par sa richesse : chaque carte porte le PAYS de l'annonce, le secteur declare et une vraie date limite de candidature. L'agence francaise publie ici ses consultations autant que ses postes - le \"Recrutement d'une agence de communication, Benin\" est un marche. Les contrats CDD/CDDU/CDI/stage sont ranges en Recrutement ; \"Contrat de prestation de services\" n'est PAS traduit, il recouvre l'expert individuel comme l'agence. Source PAGINEE."
+  ],
+  [
+    "AFD-DGMARKET",
+    "AFD - avis de marches sur dgMarket",
+    "MANUAL",
+    "https://afd.dgmarket.com/tenders/brandedNoticeList.do",
+    "International",
+    "",
+    "Appel d'offres",
+    "NON",
+    "",
+    "Verifie le 2026-09-04 : la liste EXISTE et est riche - pays, titre, date de publication et date limite par avis, rendus cote serveur. Mais le portail impose une poignee de main de session : il pose digi_session_id=UNASSIGNED puis renvoie vers web3-login.dgmarket.com pour l'echanger, sur un second domaine. Une requete simple, meme avec les cookies de la premiere, repond 302. Simuler cette ouverture de session reviendrait a rejouer un login : le produit ne se bat pas contre les sites qui en exigent un. Et les dossiers d'appel d'offres eux-memes demandent une adhesion dgMarket. Consultable a la main, gratuitement : voir le guide AFD joint au catalogue. Livree MANUAL et inactive."
+  ],
+  [
+    "PLAN-TENDERS",
+    "Plan International - appels d offres",
+    "HTML:plan-international.org",
+    "https://plan-international.org/calls-tender/",
+    "International",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-04 : 8 appels actifs, tous dates ET tous avec leur dossier telechargeable - la premiere source qui remplit la colonne PDF. Un appel beninois en cours (006/Plan Int'l BEN/CO/CD/Aout 2026). Pas de page par appel : les huit vivent sur la meme, le lien mene donc a la liste et c'est le dossier qui est propre a chacun. Echeances en prose anglaise (no later than Friday, 28th August 2026) : la tournure et le rang ordinal ont ete ajoutes a extractDeadline le meme jour."
+  ],
+  [
+    "JOBRELAIS",
+    "JobRelais - appels d offres (Benin)",
+    "HTML:jobrelais.com",
+    "https://www.jobrelais.com/opportunities/call-for-tenders",
+    "Benin",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-04 : 12 avis par page, 27 pages, de vrais avis ouest-africains (BCEAO, GIZ, Plan International Benin, LuxDev, Amnesty). PREMIERE SOURCE LUE EN DEUX TEMPS : sa liste ne porte aucune echeance - pour toute date, 'il y a 3 mois' - mais chaque fiche porte un JSON-LD propre avec validThrough. Le moteur lit donc la liste, puis les fiches manquantes, dans la limite de MAX_FICHES_PAR_PASSAGE. Une annonce qu'on n'a pas pu dater n'entre pas : pour cette source, sans date veut dire fiche non lue, pas avis sans echeance. AGREGATEUR : GIZ, Plan International et la BCEAO sont aussi collectes a la source."
+  ],
+  [
+    "UNGM-CEDEAO",
+    "UNGM - marches des agences de l'ONU (CEDEAO)",
+    "HTML:ungm.org",
+    "https://www.ungm.org/Public/Notice/Search",
+    "Afrique de l'Ouest",
+    "",
+    "Appel d'offres",
+    "NON",
+    "",
+    "Verifie le 2026-09-04 : 15 avis par page, au moins 15 pages, TOUS dates, filtres sur les quinze pays de la CEDEAO. Les acheteurs sont les agences elles-memes - FAO, UNICEF, IOM, ILO, UNDP, UNFPA, UNHCR, UNOPS, WFP, WHO, UNIDO, Secretariat de l'ONU : neuf ne sont couverts par aucune autre source du registre. PREMIERE SOURCE HTML SERVIE PAR UN POST : la page /Public/Notice ne rend aucun avis, la liste arrive d'un POST sur /Public/Notice/Search qui repond par des rangees HTML, et la pagination se fait par PageIndex dans le corps (PageSize plafonne a 15 par le serveur). LIVREE INACTIVE POUR UNE SEULE RAISON, MESUREE : UNGM repond 403 des que l'agent utilisateur porte le suffixe TenderPilot/1.0, et 200 a la meme chaine sans ce suffixe. Ce n'est ni Cloudflare ni un defi - un filtre IIS sur la chaine d'agent. Retirer le suffixe reviendrait a ne plus s'identifier : c'est une decision du proprietaire du produit, pas un choix technique, et elle n'a pas ete prise. L'analyseur et la forme de requete sont ecrits, testes sur fixture des deux cotes, et n'attendent qu'un OUI."
   ]
 ]
 };

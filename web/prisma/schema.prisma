@@ -62,6 +62,9 @@ model Opportunite {
   pays            String?
   type            String?
   secteur         String?
+  /// Montant annonce par la source, en texte : les devises different d'une
+  /// source a l'autre et un nombre les melangerait.
+  budget          String?
   lien            String?
   pdf             String?
   refOfficielle   String?

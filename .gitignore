@@ -11,6 +11,12 @@ web/.env.*.local
 # produit. Le modele reste versionne (livraison.example.json).
 data/livraison.json
 
+# Les originaux du logo et de l'icone sont versionnes - c'est la marque du
+# produit. Leurs declinaisons ne le sont pas : `python builders/marque.py`
+# les refabrique a l'identique, et versionner dix PNG generes ferait un
+# diff binaire a chaque retouche.
+data/marque/rendu/
+
 # --------------------------------------------------------------------
 # Dependances et caches
 # --------------------------------------------------------------------

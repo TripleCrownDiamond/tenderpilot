@@ -49,6 +49,8 @@ export interface Opportunite {
   pays?: string | null;
   type?: string | null;
   secteur?: string | null;
+  /** Montant annonce PAR LA SOURCE, en texte. Jamais devine. */
+  budget?: string | null;
   source?: string | null;
   lien?: string | null;
   pdf?: string | null;
@@ -57,6 +59,8 @@ export interface Opportunite {
   deadline?: string | null;
   joursRestants?: number | null;
   statutDelai?: StatutDelai | null;
+  /** Ce que l'annonce vaut pour CE client-la. Voir pertinence(). */
+  pertinence?: string | null;
   resume?: string | null;
   notifNouvelle?: boolean;
   notifJ7?: boolean;
@@ -73,6 +77,17 @@ export interface Config {
   envoiJ1: boolean;
   envoiExpire: boolean;
   seuilDigest: number;
+  /**
+   * Emails envoyes au maximum en une execution. Au-dela, les alertes ne
+   * sont pas perdues : elles repartent au passage suivant, les plus
+   * pertinentes et les plus urgentes d'abord. 0 = aucun plafond.
+   */
+  maxEmailsParExecution?: number;
+  /**
+   * Fiches lues au maximum en un passage, pour les sources qui datent leurs
+   * avis sur la fiche et non dans la liste. Voir ANALYSEURS_FICHE.
+   */
+  maxFichesParPassage?: number;
   fuseau: string;
   maxParSource: number;
   /**
@@ -87,6 +102,20 @@ export interface Config {
   envoiTelegram: boolean;
   telegramToken: string;
   telegramChatId: string;
+
+  /**
+   * Le profil du client : ses pays et ses domaines, en clair, separes par
+   * des virgules. Ils ne decident pas de ce qui est COLLECTE - c'est le
+   * registre de sources qui le decide - mais de ce qui est MIS EN AVANT.
+   * Vides, ils ne restreignent rien.
+   */
+  paysSuivis?: string;
+  secteursSuivis?: string;
+  /**
+   * Niveaux de pertinence qui declenchent une notification, separes par des
+   * virgules. Vide = tous. Coupe le bruit dans la boite, jamais le tableau.
+   */
+  notifierPertinence?: string;
 
   /**
    * Preferences de tri du client, appliquees apres le jugement du modele.
@@ -119,11 +148,16 @@ export const CONFIG_DEFAUT: Config = {
   envoiJ1: true,
   envoiExpire: false,
   seuilDigest: 5,
+  maxEmailsParExecution: 20,
+  maxFichesParPassage: 12,
   fuseau: "Africa/Porto-Novo",
   maxParSource: 40,
   envoiTelegram: false,
   telegramToken: "",
   telegramChatId: "",
+  paysSuivis: "Benin",
+  secteursSuivis: "",
+  notifierPertinence: "",
   collecterExpirees: false,
 };
 
@@ -290,9 +324,15 @@ const MOTS_SECTEUR: readonly (readonly [string, readonly string[]])[] = [
     "logiciel", "software", "internet", "cybersecur", "donnees", "data",
     "intelligence artificielle", "artificial intelligence", "serveur",
     "ordinateur", "computer", "telecom", "connectivite"]],
+  // "building" seul a ete RETIRE le 2026-09-02 : en anglais du
+  // developpement, "capacity building" est partout, et il rangeait
+  // "TRAINING MODULE & CAPACITY BUILDING ON HUMAN RIGHTS" dans le BTP.
+  // Les vrais travaux restent couverts par construction, civil works,
+  // batiment et genie civil.
   ["Infrastructures et BTP", ["construction", "travaux de rehabilitation",
-    "batiment", "building", "genie civil", "civil works", "voirie",
-    "amenagement", "refection", "pistes rurales", "pont", "bridge"]],
+    "batiment", "building works", "building construction", "genie civil",
+    "civil works", "voirie", "amenagement", "refection", "pistes rurales",
+    "pont", "bridge"]],
   ["Transport et logistique", ["transport", "logistique", "logistics",
     "vehicule", "vehicle", "fret", "freight", "portuaire", "aeroport",
     "airport", "route nationale", "ferroviaire", "railway"]],
@@ -425,6 +465,8 @@ const TYPES_CONNUS: Record<string, string> = {
   "manifestation d interet": "AMI",
   "request for expression of interest": "AMI",
   "expression of interest": "AMI",
+  // UNGM abrege : "Request for EOI".
+  "request for eoi": "AMI",
   "general procurement notice": "AMI",
   "demande de cotation": "Demande de cotation",
   "demande de prix": "Demande de cotation",
@@ -497,6 +539,221 @@ export function normaliserType(brut: unknown): string {
   return texte;
 }
 
+// ------------------------------------------------------------ pertinence --
+
+/**
+ * Pertinence : ce que l'annonce vaut POUR CE CLIENT-LA.
+ *
+ * Jumeau de pertinence() dans apps_script/Core.gs, meme vocabulaire et
+ * memes seuils - le libelle commence par son rang pour qu'un tri
+ * alphabetique range le plus pertinent en premier.
+ *
+ * ELLE ETIQUETTE, ELLE NE SUPPRIME PAS. Une annonce hors profil reste dans
+ * la liste : une ligne de trop coute un defilement, une opportunite
+ * supprimee coute un marche.
+ */
+export const PERTINENCE_PRIORITAIRE = "3 - PRIORITAIRE";
+export const PERTINENCE_A_VOIR = "2 - A VOIR";
+export const PERTINENCE_POSSIBLE = "1 - POSSIBLE";
+export const PERTINENCE_HORS_PROFIL = "0 - HORS PROFIL";
+
+export const PERTINENCES = [PERTINENCE_PRIORITAIRE, PERTINENCE_A_VOIR,
+                            PERTINENCE_POSSIBLE, PERTINENCE_HORS_PROFIL];
+
+/** (libelle, score minimum), du plus pertinent au moins pertinent. */
+const PERTINENCE_SEUILS: [string, number][] = [
+  [PERTINENCE_PRIORITAIRE, 4],
+  [PERTINENCE_A_VOIR, 3],
+  [PERTINENCE_POSSIBLE, 2],
+];
+
+/**
+ * Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. Une
+ * structure beninoise peut candidater a un appel mondial - meme decision
+ * que LLM_APPELS_MONDIAUX, et elle vaut sans aucune cle.
+ */
+const PAYS_OUVERTS = ["international", "afrique", "multi-pays", "monde",
+                      "mondial", "global", "worldwide", "afrique de l'ouest",
+                      "cedeao", "umoa"];
+
+/** Une liste "Benin, Togo, Niger" en mots comparables. */
+export function listeConfig(valeur: unknown): string[] {
+  return String(valeur ?? "")
+    .split(/[;,]/)
+    .map((m) => normaliser(m))
+    .filter((m) => m.length > 0);
+}
+
+function correspond(texte: unknown, liste: string[]): boolean {
+  const t = normaliser(texte);
+  if (!t) return false;
+  return liste.some((m) => t.includes(m) || m.includes(t));
+}
+
+/**
+ * Deux axes, deux points chacun.
+ *
+ * PAYS. Deux points dans un pays suivi. UN point quand l'annonce n'exclut
+ * personne - "International", "Afrique (multi-pays)", pays vide. Zero pour
+ * un pays qui n'est pas le sien.
+ *
+ * SECTEUR. Deux points si le secteur est suivi, mais AUSSI deux points si
+ * le client n'a declare aucun secteur : ne rien dire n'est pas se
+ * restreindre. Un point quand le secteur est inconnu. Zero sinon.
+ */
+export function pertinence(
+  annonce: { pays?: string | null; secteur?: string | null },
+  config: { paysSuivis?: string; secteursSuivis?: string } = {},
+): string {
+  const paysSuivis = listeConfig(config.paysSuivis);
+  const secteursSuivis = listeConfig(config.secteursSuivis);
+
+  let points = 0;
+  const pays = annonce.pays ?? "";
+  if (paysSuivis.length && correspond(pays, paysSuivis)) points += 2;
+  else if (!paysSuivis.length || estVide(pays) || correspond(pays, PAYS_OUVERTS)) {
+    points += 1;
+  }
+
+  const secteur = annonce.secteur ?? "";
+  if (!secteursSuivis.length || correspond(secteur, secteursSuivis)) points += 2;
+  else if (estVide(secteur) || secteur === SECTEUR_INCONNU) points += 1;
+
+  for (const [libelle, minimum] of PERTINENCE_SEUILS) {
+    if (points >= minimum) return libelle;
+  }
+  return PERTINENCE_HORS_PROFIL;
+}
+
+/**
+ * Ce qui a REELLEMENT ete collecte : pays et secteurs, avec leur compte.
+ *
+ * PAYS_SUIVIS et SECTEURS_SUIVIS se remplissent a la main. Une valeur
+ * inventee - un pays qu'aucune source ne publie, un secteur ecrit
+ * autrement - ne correspond a rien, ne remonte rien, et NE SE VOIT PAS.
+ * L'inventaire montre ce qui existe vraiment, avec le nombre d'annonces et
+ * ce que la configuration retient aujourd'hui.
+ *
+ * Jumeau de inventaireProfil() dans apps_script/Core.gs.
+ */
+export const PROFIL_TYPE_PAYS = "Pays";
+export const PROFIL_TYPE_SECTEUR = "Secteur";
+
+export type RangeeProfil = [string, string, number, string];
+
+export function inventaireProfil(
+  lignes: readonly { pays?: string | null; secteur?: string | null }[],
+  config: { paysSuivis?: string; secteursSuivis?: string } = {},
+): RangeeProfil[] {
+  const compter = (champ: "pays" | "secteur") => {
+    const comptes = new Map<string, number>();
+    for (const l of lignes) {
+      const valeur = (l[champ] ?? "").trim();
+      if (!valeur) continue;
+      comptes.set(valeur, (comptes.get(valeur) ?? 0) + 1);
+    }
+    return comptes;
+  };
+
+  // Le plus present d'abord ; a egalite, l'ordre alphabetique fige le
+  // classement pour que deux passages ne l'intervertissent pas.
+  const rangs = (comptes: Map<string, number>, type: string,
+                 suivis: string[]): RangeeProfil[] =>
+    [...comptes.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([valeur, n]) => [
+        type, valeur, n,
+        !suivis.length || correspond(valeur, suivis) ? "OUI" : "NON",
+      ]);
+
+  return [
+    ...rangs(compter("pays"), PROFIL_TYPE_PAYS, listeConfig(config.paysSuivis)),
+    ...rangs(compter("secteur"), PROFIL_TYPE_SECTEUR,
+             listeConfig(config.secteursSuivis)),
+  ];
+}
+
+/**
+ * Ce niveau de pertinence doit-il declencher une notification ?
+ *
+ * Liste vide = tout est notifie : un client qui n'a rien regle ne doit rien
+ * rater. La comparaison est tolerante - "3 - PRIORITAIRE", "PRIORITAIRE" et
+ * "3" designent le meme niveau - parce que le libelle se recopie a la main.
+ *
+ * Jumeau de pertinenceNotifiable() dans apps_script/Core.gs.
+ */
+export function pertinenceNotifiable(
+  pertinence: string | null | undefined,
+  config: { notifierPertinence?: string } = {},
+): boolean {
+  const voulus = listeConfig(config.notifierPertinence);
+  if (!voulus.length) return true;
+
+  const brut = (pertinence ?? "").trim();
+  // Une annonce sans pertinence calculee passe : le doute lui profite.
+  if (!brut) return true;
+
+  const normalise = normaliser(brut);
+  const rang = /^(\d)/.exec(brut)?.[1];
+  return voulus.some((voulu) =>
+    normalise.includes(voulu) || voulu.includes(normalise)
+    || (!!rang && voulu === rang));
+}
+
+/**
+ * L'ordre du tableau : le plus de temps devant en haut.
+ *
+ * Trois rangs, dans cet ordre :
+ *
+ *   1. les opportunites ENCORE OUVERTES, de la plus lointaine a la plus
+ *      proche - on voit d'abord celles qu'on a le temps de preparer ;
+ *   2. les EXPIREES, jours restants negatifs ;
+ *   3. les SANS ECHEANCE, tout en bas. Elles ne sont pas moins bonnes - la
+ *      DNCMP n'en publie aucune - mais elles ne se rangent nulle part sur
+ *      un axe de temps.
+ *
+ * A egalite de delai, le plus pertinent passe devant.
+ *
+ * Ne modifie pas le tableau recu. Jumeau de parDelai_() dans Core.gs.
+ */
+export function parDelai<T extends {
+  id?: string; joursRestants?: number | null; pertinence?: string | null;
+}>(lignes: readonly T[]): T[] {
+  const jours = (l: T) => {
+    const j = l.joursRestants;
+    return j === null || j === undefined || !isFinite(Number(j))
+      ? null : Number(j);
+  };
+  return lignes.slice().sort((a, b) => {
+    const ja = jours(a);
+    const jb = jours(b);
+    // Sans echeance : toujours en bas, quel que soit le reste.
+    if (ja === null && jb === null) return 0;
+    if (ja === null) return 1;
+    if (jb === null) return -1;
+    if (ja !== jb) return jb - ja;
+    const pa = a.pertinence ?? "";
+    const pb = b.pertinence ?? "";
+    if (pa !== pb) return pa < pb ? 1 : -1;
+    return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+  });
+}
+
+/**
+ * Du plus pertinent au moins pertinent, puis du plus urgent au moins
+ * urgent. Ce qui vous concerne se lit en premier.
+ */
+export function parPertinence<T extends {
+  pertinence?: string | null; joursRestants?: number | null;
+}>(lignes: readonly T[]): T[] {
+  return lignes.slice().sort((a, b) => {
+    const pa = a.pertinence ?? "";
+    const pb = b.pertinence ?? "";
+    if (pa !== pb) return pa < pb ? 1 : -1;
+    return (a.joursRestants ?? 9999) - (b.joursRestants ?? 9999);
+  });
+}
+
 /**
  * MESURE DU 2026-09-02. Le lien seul faisait office d identite, et c etait
  * faux. Beaucoup de portails pointent chaque avis vers la meme page de
@@ -555,7 +812,7 @@ export function trouverDoublon<T extends Opportunite>(
 /** Champs modifiables quand la source republie une annonce connue. */
 export const CHAMPS_MAJ = [
   "titre", "organisation", "pays", "type", "secteur", "lien", "pdf",
-  "datePublication", "deadline", "resume",
+  "datePublication", "deadline", "budget", "resume",
 ] as const;
 
 /**

@@ -55,10 +55,19 @@ def main():
 
     # ---------------------------------------------------------- structure --
     print("\n[1] Structure du classeur")
+    # PAYS_ET_SECTEURS se lit juste apres CONFIG : on y regle son profil,
+    # on vient la verifier ce qui existe reellement.
     attendus = ["LISEZ_MOI", S.SHEETS["opportunities"], S.SHEETS["sources"],
-                S.SHEETS["config"], S.SHEETS["logs"]]
-    check("cinq onglets, dans l'ordre", wb.sheetnames == attendus,
+                S.SHEETS["config"], S.SHEETS["profil"], S.SHEETS["logs"]]
+    check("six onglets, dans l'ordre", wb.sheetnames == attendus,
           str(wb.sheetnames))
+
+    profil = wb[S.SHEETS["profil"]]
+    check("l onglet des pays et secteurs a ses colonnes",
+          [c.value for c in profil[1][:len(S.PROFIL)]] == S.PROFIL,
+          str([c.value for c in profil[1][:len(S.PROFIL)]]))
+    check("il est livre vide : il se remplit a la collecte",
+          profil.cell(row=3, column=1).value is None)
 
     opp = wb[S.SHEETS["opportunities"]]
     entetes = [c.value for c in opp[1][:len(S.OPPORTUNITIES)]]
@@ -290,9 +299,41 @@ def main():
     else:
         check("le registre web existe", False, str(ts))
 
-    # -- l'onglet technique est livre masque --
-    check("l onglet SOURCES est livre masque",
-          onglet.sheet_state == "hidden", str(onglet.sheet_state))
+    # ---------------------------------- parite des analyseurs entre moteurs --
+    #
+    # "Une source presente d'un seul cote ne leve aucune erreur : elle
+    # renvoie zero annonce, en silence." C'est ce qui est arrive a la BAD
+    # pendant six mois. L'audit etait manuel dans AGENTS.md ; il est ici.
+    def analyseurs(chemins, motif):
+        trouves = set()
+        for c in chemins:
+            trouves |= set(re.findall(motif, (ROOT / c).read_text(encoding="utf-8")))
+        return trouves
+
+    web_html = analyseurs(["web/src/lib/domain/html.ts"],
+                          r'"([^"]+)":\s*analyser')
+    web_json = analyseurs(["web/src/lib/domain/json.ts"],
+                          r'"([^"]+)":\s*analyser')
+    gs_html = analyseurs(["apps_script/Html.gs"], r"'([^']+)':\s*analyser")
+    gs_json = analyseurs(["apps_script/Json.gs"], r"'([^']+)':\s*analyser")
+
+    check("les analyseurs HTML sont les memes des deux cotes",
+          web_html == gs_html, str(sorted(web_html ^ gs_html)))
+    check("les analyseurs JSON sont les memes des deux cotes",
+          web_json == gs_json, str(sorted(web_json ^ gs_json)))
+
+    attendus = {l["Methode"].split(":", 1)[1].strip()
+                for l in lignes_src
+                if str(l["Methode"]).startswith(("HTML:", "JSON:"))}
+    check("chaque source non-RSS a son analyseur dans les deux moteurs",
+          attendus <= (web_html | web_json) and attendus <= (gs_html | gs_json),
+          str(sorted(attendus - (web_html | web_json) - (gs_html | gs_json))))
+
+    # -- l'onglet SOURCES est livre VISIBLE : c'est la que le client choisit
+    #    ce qu'il surveille, colonne Active. Le masquer mettait une commande
+    #    de menu devant le reglage le plus utile du produit.
+    check("l onglet SOURCES est livre visible",
+          onglet.sheet_state == "visible", str(onglet.sheet_state))
     for cle in ("opportunities", "config", "logs"):
         feuille = wb[S.SHEETS[cle]]
         check("l onglet " + feuille.title + " reste visible",

@@ -19,12 +19,21 @@ import {
   analyserAbe, analyserAfd, analyserAfdb, analyserAraa, analyserArmp,
   analyserBceao,
   analyserDedras,
-  analyserEnabel, analyserSbee, analyserSoneb, analyseurHtml,
+  analyserEnabel, analyserExpertiseFrance, analyserGiz,
+  analyserGrandChallenges, analyserJobrelais, analyserPlanInternational,
+  analyseurFiche, fusionnerFiche, analyserSbee,
+  analyserSoneb, analyseurHtml, analyserUngm,
+  dateAllemande, dateUngm,
 } from "../src/lib/domain/html";
-import { analyserWorldBank, analyseurJson } from "../src/lib/domain/json";
-import { extraireDeadline, lireDateFlux } from "../src/lib/domain/rss";
 import {
-  alertes, compterAlertes, CONFIG_DEFAUT, type Opportunite,
+  analyserEuropa, analyserFundpilote, analyserNigerMarches, analyserWorldBank,
+  analyseurJson, budgetFourchette, budgetSimple, formeRequete,
+} from "../src/lib/domain/json";
+import {
+  decoderEntites, extraireDeadline, lireDateFlux, nettoyerLien,
+} from "../src/lib/domain/rss";
+import {
+  alertes, compterAlertes, CONFIG_DEFAUT, TYPES_ANNONCE, type Opportunite,
 } from "../src/lib/domain/regles";
 import { collecterSource } from "../src/lib/run";
 import { messageTelegram, messageTelegramDigest } from "../src/lib/run";
@@ -107,6 +116,375 @@ test("Enabel : lit la date de cloture 'Closing date : 02 September 2026'", () =>
   const avecDeadline = entrees.filter((e) => e.deadline);
   assert.ok(avecDeadline.length > 0, "aucune echeance lue");
   for (const e of avecDeadline) assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+// --------------------------------------------------------------------- GIZ --
+
+test("GIZ : lit le tableau des avis", () => {
+  const entrees = analyserGiz(lire("giz-ausschreibungen.html"));
+  assert.ok(entrees.length > 0, "aucun avis lu");
+  for (const e of entrees) {
+    assert.ok(e.titre.length > 0);
+    assert.match(e.lien, /^https:\/\/ausschreibungen\.giz\.de\/.*pid=\d+$/);
+  }
+});
+
+test("GIZ : ecarte les marches deja attribues", () => {
+  const html = lire("giz-ausschreibungen.html");
+  const attribues = (html.match(/Vergebener Auftrag/g) ?? []).length;
+  assert.ok(attribues > 0, "la fixture ne contient aucun marche attribue");
+
+  const lignes = (html.match(/projectForwarding\.do\?pid=/g) ?? []).length;
+  assert.equal(analyserGiz(html).length, lignes - attribues);
+});
+
+test("GIZ : toutes les annonces retenues portent une echeance", () => {
+  // Mesure du 2026-09-02 : sur les 224 avis des douze pages, les 133 sans
+  // echeance sont EXACTEMENT les marches attribues et les avenants.
+  for (const e of analyserGiz(lire("giz-ausschreibungen.html"))) {
+    assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/, e.titre);
+  }
+});
+
+test("GIZ : une date allemande n'est jamais lue a l'americaine", () => {
+  // 02.09.2026 est le 2 SEPTEMBRE. new Date("02.09.2026") rend le 9
+  // fevrier, et lireDateFlux avec lui : d'ou la conversion a la main.
+  assert.equal(dateAllemande("02.09.2026"), "2026-09-02");
+  assert.equal(dateAllemande("24.09.2026"), "2026-09-24");
+  assert.equal(dateAllemande("1.3.2027"), "2027-03-01");
+  assert.equal(lireDateFlux("02.09.2026"), "2026-02-09",
+    "si ceci change, la conversion maison n'est plus necessaire");
+
+  // Tout le reste est refuse plutot que devine : regle 2 du depot.
+  assert.equal(dateAllemande("nv"), null);
+  assert.equal(dateAllemande(""), null);
+  assert.equal(dateAllemande("24.13.2026"), null);
+  assert.equal(dateAllemande("2026-09-24"), null);
+});
+
+test("GIZ : traduit le type allemand dans le vocabulaire ferme", () => {
+  const entrees = analyserGiz(lire("giz-ausschreibungen.html"));
+  const types = new Set(entrees.map((e) => e.type));
+  const vocabulaire: readonly string[] = TYPES_ANNONCE;
+  for (const t of types) assert.ok(vocabulaire.includes(String(t)), String(t));
+  assert.ok(types.has("AMI"), "TNW doit devenir AMI");
+  assert.ok(types.has("Appel d'offres"), "Ausschreibung doit devenir Appel d'offres");
+});
+
+test("GIZ : les accents survivent au decodage ISO-8859-1", () => {
+  const entrees = analyserGiz(lire("giz-ausschreibungen.html"));
+  const texte = entrees.map((e) => e.titre + " " + e.resume).join(" ");
+  assert.ok(/Überarbeitung|für/.test(texte), "les umlauts sont perdus");
+  assert.ok(!texte.includes("�"), "des caracteres de substitution subsistent");
+});
+
+// ------------------------------------------------------- Niger Marches --
+
+test("Niger Marches : lit les avis de l'API WordPress", () => {
+  const entrees = analyserNigerMarches(lire("nigermarches-appels.json"));
+  assert.ok(entrees.length > 0, "aucun avis lu");
+  for (const e of entrees) {
+    assert.ok(e.titre.length > 0);
+    assert.match(e.lien, /^https:\/\/www\.nigermarches\.com\//);
+  }
+});
+
+test("Niger Marches : l'echeance vient du champ ACF date_expiration", () => {
+  // Mesure du 2026-09-02 : 20 avis sur 20 en portent une. Une source qui
+  // date toutes ses annonces est rare et vaut d'etre verifiee.
+  const entrees = analyserNigerMarches(lire("nigermarches-appels.json"));
+  for (const e of entrees) {
+    assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/, e.titre);
+  }
+  // "2026-10-05 09:00:00" ne doit pas reculer d'un jour en passant par un
+  // fuseau : on garde la partie date telle quelle.
+  assert.equal(entrees[0].deadline, "2026-10-05");
+});
+
+test("Niger Marches : l'acheteur reel remplace le nom de la source", () => {
+  const entrees = analyserNigerMarches(lire("nigermarches-appels.json"));
+  const acheteurs = entrees.map((e) => e.organisation).filter(Boolean);
+  assert.ok(acheteurs.length > 0, "aucun acheteur lu");
+  assert.ok(acheteurs.some((a) => /Médecins Sans Frontières/.test(String(a))),
+            String(acheteurs.slice(0, 3)));
+});
+
+test("Niger Marches : le type se lit dans l'intitule quand il s'y trouve", () => {
+  const entrees = analyserNigerMarches(lire("nigermarches-appels.json"));
+  const ami = entrees.find((e) => /MANIFESTATION/i.test(e.titre));
+  assert.equal(ami?.type, "AMI");
+  // Sans mention explicite, on ne devine pas : le defaut de la source
+  // s'applique plus loin, dans collecterSource.
+  const ordinaire = entrees.find((e) => /pompage/i.test(e.titre));
+  assert.equal(ordinaire?.type, null);
+});
+
+test("Niger Marches : une reponse illisible ne casse pas la collecte", () => {
+  assert.deepEqual(analyserNigerMarches(""), []);
+  assert.deepEqual(analyserNigerMarches("<html>"), []);
+  assert.deepEqual(analyserNigerMarches('{"code":"rest_no_route"}'), []);
+});
+
+// ---------------------------------------------------------------- budget --
+
+test("un budget est mis en forme, jamais devine", () => {
+  assert.equal(budgetSimple("120000", "EUR"), "120 000 EUR");
+  assert.equal(budgetSimple("1234567", "EUR"), "1 234 567 EUR");
+  assert.equal(budgetSimple("42000.00", "usd"), "42 000 USD");
+  // Rien a annoncer : la colonne reste vide, elle ne dit pas "0".
+  assert.equal(budgetSimple("0", "EUR"), "");
+  assert.equal(budgetSimple("", "EUR"), "");
+  assert.equal(budgetSimple(null, "EUR"), "");
+  assert.equal(budgetSimple("a negocier", "EUR"), "");
+});
+
+test("une fourchette se lit dans les deux sens", () => {
+  assert.equal(budgetFourchette("10000", "250000", "USD"), "10 000 - 250 000 USD");
+  assert.equal(budgetFourchette("730000", "730000", "USD"), "730 000 USD");
+  // Fundpilote pose un minimum a zero sur la moitie de ses annonces : ce
+  // n'est pas une information, c'est un defaut d'API.
+  assert.equal(budgetFourchette("0.00", "42000.00", "EUR"), "jusqu'a 42 000 EUR");
+  assert.equal(budgetFourchette("15000", "", "EUR"), "a partir de 15 000 EUR");
+  assert.equal(budgetFourchette(null, null, "EUR"), "");
+});
+
+test("le portail europeen expose son budget", () => {
+  // Mesure du 2026-09-02 : 20 avis sur 100 en portent un, en euros, sous
+  // forme de nombre nu dans metadata.budget.
+  const corps = JSON.stringify({ results: [{
+    reference: "topic/TEST-01",
+    metadata: { title: ["Appel de test"], identifier: ["TEST-01"],
+                deadlineDate: ["2026-12-01T17:00:00+01:00"], budget: ["120000"],
+                type: ["1"] },
+  }, {
+    reference: "topic/TEST-02",
+    metadata: { title: ["Appel sans budget"], identifier: ["TEST-02"],
+                deadlineDate: ["2026-12-01T17:00:00+01:00"], type: ["1"] },
+  }] });
+  const entrees = analyserEuropa(corps);
+  assert.equal(entrees[0].budget, "120 000 EUR");
+  // Une source muette laisse la colonne vide : c'est exact, pas une panne.
+  assert.equal(entrees[1].budget, null);
+});
+
+test("Fundpilote : le montant quitte le resume pour sa colonne", () => {
+  const entrees = analyserFundpilote(lire("fundpilote-opportunities.json"));
+  const avec = entrees.filter((e) => e.budget);
+  assert.ok(avec.length > 0, "aucun montant lu");
+  for (const e of avec) {
+    assert.match(String(e.budget), /\d/);
+    // Le montant ne doit plus etre duplique dans le resume.
+    assert.ok(!String(e.resume).includes("Budget :"), String(e.resume));
+  }
+});
+
+// ------------------------------------------------------------- les liens --
+
+test("DEDRAS : chaque avis pointe sur sa fiche, pas sur la liste", () => {
+  // Mesure du 2026-09-02 : les 98 avis renvoyaient tous a /toutvoir, et il
+  // fallait y rechercher l'annonce a la main.
+  const entrees = analyserDedras(lire("dedras-toutvoir.html"));
+  assert.ok(entrees.length > 1);
+  const liens = new Set(entrees.map((e) => e.lien));
+  assert.equal(liens.size, entrees.length, "chaque avis a son propre lien");
+  for (const e of entrees) {
+    assert.match(e.lien,
+      /^https:\/\/eprocurement\.dedras\.org\/tenderforapplication/);
+  }
+});
+
+test("un domaine que la source ecrit faux est corrige", () => {
+  // Mesure du 2026-09-02 : le flux de la DNCMP publie marches-public.bj,
+  // sans le s. Ce domaine ne resout pas ; le portail est marches-publics.bj
+  // et sert la meme page.
+  assert.equal(nettoyerLien("https://www.marches-public.bj/appels-doffres"),
+               "https://www.marches-publics.bj/appels-doffres");
+  assert.equal(nettoyerLien("http://marches-public.bj/x?a=1"),
+               "https://www.marches-publics.bj/x?a=1");
+  // Deja correct : inchange.
+  assert.equal(nettoyerLien("https://www.marches-publics.bj/appels-doffres"),
+               "https://www.marches-publics.bj/appels-doffres");
+  // UN DOMAINE SOSIE N'EST PAS REECRIT. Sans cette precaution, un domaine
+  // qui commence pareil serait redirige vers le portail beninois.
+  assert.equal(nettoyerLien("https://www.marches-public.bj.autre.test/x"),
+               "https://www.marches-public.bj.autre.test/x");
+});
+
+test("le portail europeen : un appel, une ligne", () => {
+  // Mesure du 2026-09-02 : 100 resultats pour 50 identifiants. Le portail
+  // rend chaque appel dans toutes ses langues.
+  const topic = (id: string, langue: string, titre: string) => ({
+    reference: `topic/${id}-${langue}`,
+    metadata: { title: [titre], identifier: [id], language: [langue],
+                deadlineDate: ["2026-12-01T17:00:00+01:00"], type: ["1"] },
+  });
+  const corps = JSON.stringify({ results: [
+    topic("CERV-2026-TEST", "en", "Call for proposals"),
+    topic("CERV-2026-TEST", "fr", "Appel a propositions"),
+    topic("HORIZON-2026-SEUL", "en", "Only in English"),
+  ] });
+
+  const entrees = analyserEuropa(corps);
+  assert.equal(entrees.length, 2, "le meme appel ne compte qu'une fois");
+  // Le francais l'emporte quand il existe.
+  assert.equal(entrees[0].titre, "Appel a propositions");
+  // Sans version francaise, l'appel reste, dans sa langue.
+  assert.equal(entrees[1].titre, "Only in English");
+});
+
+test("Grand Challenges : le lien de candidature plutot qu'un 404", () => {
+  // Mesure du 2026-09-02 : www.grandchallenges.org + le slug rend 404 pour
+  // les trois defis ouverts. apply_link repond 200 pour les trois.
+  const corps = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+    props: { pageProps: { initialData: { listing: { data: [
+      { title: "Defi avec lien de candidature",
+        url: "/challenge/defi-un",
+        apply_link: "https://submit.gatesfoundation.org/prog/defi_un",
+        date_end: Math.floor(Date.now() / 1000) + 86400 * 30 },
+      { title: "Defi sans lien de candidature",
+        url: "/challenge/defi-deux",
+        date_end: Math.floor(Date.now() / 1000) + 86400 * 30 },
+    ] } } } },
+  })}</script>`;
+
+  const entrees = analyserGrandChallenges(corps);
+  assert.equal(entrees.length, 2);
+  assert.equal(entrees[0].lien, "https://submit.gatesfoundation.org/prog/defi_un");
+  // Sans candidature, on retombe sur l'hote qui repond - gcgh, pas www.
+  assert.equal(entrees[1].lien,
+               "https://gcgh.grandchallenges.org/challenge/defi-deux");
+});
+
+// ------------------------------------------------- Expertise France --
+
+test("Expertise France : lit les offres avec pays, secteur et echeance", () => {
+  const entrees = analyserExpertiseFrance(lire("expertise-france-offres.html"));
+  assert.equal(entrees.length, 10, "dix offres par page");
+  for (const e of entrees) {
+    assert.ok(e.titre.length > 0);
+    assert.match(e.lien, /^https:\/\/expertise-france\.gestmax\.fr\/\d+\/\d+\//);
+    // Le lien ne garde pas le ?backlink=search du site.
+    assert.ok(!e.lien.includes("backlink"));
+  }
+});
+
+test("Expertise France : chaque offre porte une date limite", () => {
+  // Mesure du 2026-09-04 : dix sur dix. Une source qui date tout son flux
+  // est assez rare pour etre verifiee.
+  for (const e of analyserExpertiseFrance(lire("expertise-france-offres.html"))) {
+    assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/, e.titre);
+  }
+});
+
+test("Expertise France : le PAYS prime sur la zone", () => {
+  // Deux <span class="country"> : "AFRIQUE SUBSAHARIENNE" puis "TANZANIE".
+  // C'est le pays qui situe l'annonce, et c'est lui que la colonne
+  // Pertinence compare aux pays suivis.
+  const entrees = analyserExpertiseFrance(lire("expertise-france-offres.html"));
+  const pays = entrees.map((e) => e.pays);
+  assert.ok(pays.includes("TANZANIE"), String(pays));
+  assert.ok(!pays.includes("AFRIQUE SUBSAHARIENNE"),
+            "la zone ne doit pas remplacer le pays");
+  // La zone reste dans le resume : elle n'est pas perdue.
+  assert.ok(entrees[0].resume.includes("AFRIQUE SUBSAHARIENNE"));
+});
+
+test("Expertise France : un poste est un poste, une prestation reste ouverte", () => {
+  const entrees = analyserExpertiseFrance(lire("expertise-france-offres.html"));
+  const cddu = entrees.find((e) => /Responsable Administratif/i.test(e.titre));
+  assert.equal(cddu?.type, "Recrutement", "CDDU est un poste");
+
+  // "Contrat de prestation de services" recouvre l'expert individuel comme
+  // l'agence : on ne tranche pas, le defaut de la source s'applique.
+  const prestation = entrees.find((e) => /career guidance/i.test(e.titre));
+  assert.equal(prestation?.type, null);
+  assert.ok(prestation?.resume.includes("Contrat de prestation de services"));
+});
+
+test("les entites nommees des pages francaises sont decodees", () => {
+  // Mesure du 2026-09-04 : les titres d'Expertise France arrivaient en
+  // "Consultant charg&eacute; d&rsquo;une &eacute;tude".
+  assert.equal(decoderEntites("charg&eacute; d&rsquo;une &eacute;tude"),
+               "chargé d’une étude");
+  assert.equal(decoderEntites("C&ocirc;te d&rsquo;Ivoire &amp; ailleurs"),
+               "Côte d’Ivoire & ailleurs");
+  assert.equal(decoderEntites("&laquo; oui &raquo; &hellip;"), "« oui » …");
+  // Une entite inconnue reste telle quelle : on ne devine pas.
+  assert.equal(decoderEntites("&inconnu; intact"), "&inconnu; intact");
+
+  const entrees = analyserExpertiseFrance(lire("expertise-france-offres.html"));
+  const texte = entrees.map((e) => e.titre + " " + e.resume).join(" ");
+  assert.ok(!/&[a-z]+;/i.test(texte), "aucune entite ne subsiste");
+});
+
+// ------------------------------------------------- Plan International --
+
+test("Plan International : huit appels, tous dates", () => {
+  const entrees = analyserPlanInternational(lire("plan-international-tenders.html"));
+  assert.equal(entrees.length, 8);
+  for (const e of entrees) {
+    assert.ok(e.titre.length > 0);
+    // Mesure du 2026-09-04 : huit sur huit portent une echeance, en prose
+    // anglaise. C'est ce qui a fait ajouter "no later than" et le rang
+    // ordinal a extraireDeadline.
+    assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/, e.titre);
+  }
+});
+
+test("Plan International : le dossier remplit la colonne PDF", () => {
+  // Pas de page par appel - les huit vivent sur la meme - mais le dossier,
+  // lui, est propre a chacun. C'est le contraire de la DNCMP.
+  const entrees = analyserPlanInternational(lire("plan-international-tenders.html"));
+  for (const e of entrees) {
+    assert.equal(e.lien, "https://plan-international.org/calls-tender/");
+    assert.match(String(e.pdf),
+                 /^https:\/\/plan-international\.org\/uploads\//, e.titre);
+  }
+  // Les separateurs <h3> vides de la page ne deviennent pas des annonces.
+  assert.ok(entrees.every((e) => e.titre.trim().length > 3));
+});
+
+test("une echeance en prose anglaise est lue", () => {
+  // Mesure du 2026-09-04 : ni la tournure ni le rang ordinal n'etaient
+  // reconnus, et huit appels sur huit arrivaient sans date.
+  assert.equal(
+    extraireDeadline("Responses should be submitted no later than Friday, 28th August 2026."),
+    "2026-08-28");
+  assert.equal(
+    extraireDeadline("no later than Wednesday, 2nd September 2026"), "2026-09-02");
+  assert.equal(extraireDeadline("Bids must be received by 15 October 2026"),
+               "2026-10-15");
+  // Une date sans mot annonciateur reste ignoree : c'est la regle.
+  assert.equal(extraireDeadline("Publie le 12 mars 2026, sans autre mention"), null);
+});
+
+test("la lecture en deux temps : la fiche date ce que la liste tait", () => {
+  const liste = analyserJobrelais(lire("jobrelais-liste.html"));
+  assert.equal(liste.length, 12);
+  assert.ok(liste.every((e) => !e.deadline), "la liste ne date rien");
+  assert.equal(new Set(liste.map((e) => e.lien)).size, liste.length,
+               "la meme carte n'est pas comptee deux fois");
+
+  const fiche = analyseurFiche("HTML:jobrelais.com")!(lire("jobrelais-fiche.html"));
+  assert.equal(fiche.deadline, "2026-11-26");
+  assert.equal(fiche.publie, "2026-08-26");
+
+  // La fusion comble les vides, jamais le reste.
+  const complete = fusionnerFiche(
+    { titre: "De la liste", lien: "x", publie: null, resume: "deja la",
+      deadline: null },
+    { deadline: "2026-11-26", resume: "de la fiche", titre: "De la fiche" });
+  assert.equal(complete.deadline, "2026-11-26");
+  assert.equal(complete.resume, "deja la");
+  assert.equal(complete.titre, "De la liste");
+});
+
+test("un analyseur de fiche n'existe que pour les sources qui en declarent", () => {
+  assert.equal(typeof analyseurFiche("HTML:jobrelais.com"), "function");
+  assert.equal(analyseurFiche("HTML:giz.de"), null);
+  assert.equal(analyseurFiche("RSS"), null);
+  // Une fiche illisible rend un objet vide, jamais une exception.
+  assert.deepEqual(analyseurFiche("HTML:jobrelais.com")!("<html>rien</html>"), {});
 });
 
 // --------------------------------------------------------------------- BAD --
@@ -559,4 +937,111 @@ test("les methodes de source pointent vers le bon analyseur", () => {
   assert.equal(analyseurJson("JSON:inconnu.fr"), null);
   assert.equal(analyseurHtml("RSS"), null);
   assert.equal(analyseurJson("HTML:gouv.bj"), null);
+});
+
+// ----------------------------------------------------------------- UNGM --
+
+test("UNGM : une reponse de recherche, pas une page", () => {
+  // La fixture est la reponse REELLE du POST /Public/Notice/Search filtre
+  // sur les quinze pays de la CEDEAO, capturee le 2026-09-04.
+  const entrees = analyserUngm(lire("ungm-cedeao.html"));
+  assert.equal(entrees.length, 15, "quinze avis par page, plafond du serveur");
+
+  for (const e of entrees) {
+    assert.ok(e.titre.length > 0, "un avis sans titre n'entre pas");
+    assert.match(e.lien, /^https:\/\/www\.ungm\.org\/Public\/Notice\/\d+$/);
+    // Une source dont TOUTES les annonces sont datees est assez rare pour
+    // etre verifiee : c'est ce qui la rend utilisable sans second temps.
+    assert.match(String(e.deadline), /^\d{4}-\d{2}-\d{2}$/, e.titre);
+    assert.ok(e.organisation, "l'acheteur reel est l'agence, jamais UNGM");
+  }
+  assert.equal(new Set(entrees.map((e) => e.lien)).size, 15,
+               "la meme rangee ne compte pas deux fois");
+});
+
+test("UNGM : chaque cellule va dans la bonne colonne", () => {
+  const entrees = analyserUngm(lire("ungm-cedeao.html"));
+  const unops = entrees.find((e) => e.lien.endsWith("/313464"));
+  assert.equal(unops?.deadline, "2026-09-22");
+  assert.equal(unops?.publie, "2026-09-04");
+  assert.equal(unops?.organisation, "UNOPS");
+  assert.equal(unops?.pays, "Guinea-Bissau");
+  assert.equal(unops?.type, "Invitation to bid");
+  assert.equal(unops?.resume, "ITB/2026/64376", "la reference sert de resume");
+});
+
+test("UNGM : la derniere cellule s'arrete avant le script", () => {
+  // La rangee est suivie du <script> qui colore les echeances proches.
+  // Sans la borne sur </div>, le pays du dernier avis valait trente lignes
+  // de JavaScript - et la colonne Pays devenait illisible.
+  for (const e of analyserUngm(lire("ungm-cedeao.html"))) {
+    assert.ok(!String(e.pays ?? "").includes("document"), String(e.pays));
+    assert.ok((e.pays ?? "").length < 40, String(e.pays));
+  }
+});
+
+test("UNGM : un avis regional n'invente pas de pays", () => {
+  // "Multiple destinations" n'est pas un pays. On laisse le champ vide pour
+  // que le defaut de la source s'applique, plutot que d'ecrire dans la
+  // colonne Pays une valeur qu'aucun filtre ne saurait lire.
+  const entrees = analyserUngm(lire("ungm-cedeao.html"));
+  const regionaux = entrees.filter((e) => !e.pays);
+  assert.ok(regionaux.length > 0, "la fixture en contient");
+  for (const e of entrees) {
+    assert.ok(!/multiple/i.test(String(e.pays ?? "")), String(e.pays));
+  }
+});
+
+test("UNGM : la date se lit, ou ne se lit pas - jamais a peu pres", () => {
+  assert.equal(dateUngm("15-Sep-2026 13:00"), "2026-09-15");
+  assert.equal(dateUngm("02-Oct-2026 23:59"), "2026-10-02");
+  assert.equal(dateUngm("4-Jan-2027"), "2027-01-04");
+  // Un mois qui n'existe pas ne devient pas janvier.
+  assert.equal(dateUngm("15-Xyz-2026"), null);
+  assert.equal(dateUngm("2026-09-15"), null);
+  assert.equal(dateUngm(""), null);
+});
+
+test("UNGM : le POST pagine par le corps, pas par l'URL", () => {
+  const page1 = formeRequete("HTML:ungm.org", 1);
+  const page3 = formeRequete("HTML:ungm.org", 3);
+  assert.equal(page1?.methode, "POST");
+  assert.equal(page1?.paginee, true, "le moteur doit boucler sans {page}");
+  // PageIndex commence a 0 la ou le moteur compte a partir de 1.
+  assert.equal(JSON.parse(String(page1?.corps)).PageIndex, 0);
+  assert.equal(JSON.parse(String(page3?.corps)).PageIndex, 2);
+  // Plafonne A 15 PAR LE SERVEUR : en demander 100 en rend 15.
+  assert.equal(JSON.parse(String(page1?.corps)).PageSize, 15);
+  assert.equal(JSON.parse(String(page1?.corps)).Countries.length, 15);
+
+  // Une methode HTML ordinaire reste un GET : rien n'a change pour elle.
+  assert.equal(formeRequete("HTML:giz.de"), undefined);
+  assert.equal(formeRequete("RSS"), undefined);
+  // Et les deux formes JSON existantes sont intactes.
+  assert.match(String(formeRequete("JSON:ec.europa.eu")?.contentType),
+               /^multipart\/form-data/);
+  assert.equal(formeRequete("JSON:grants.gov")?.contentType,
+               "application/json");
+});
+
+test("UNGM : le moteur enchaine les pages d'un POST", async () => {
+  // Sans {page} dans l'adresse, le moteur ne paginait pas. Le drapeau
+  // paginee de la forme de requete le lui dit.
+  const corps: string[] = [];
+  const annonces = await collecterSource(
+    { id: "UNGM-CEDEAO", nom: "UNGM", methode: "HTML:ungm.org",
+      url: "https://www.ungm.org/Public/Notice/Search",
+      pays: "Afrique de l'Ouest", secteur: "", type: "Appel d'offres",
+      active: true } as never,
+    { ...CONFIG_DEFAUT, collecterExpirees: true, maxParSource: 40 },
+    async (_url, requete) => {
+      corps.push(String(requete?.corps ?? ""));
+      // La meme page trois fois : la deduplication doit arreter la boucle.
+      return { code: 200, texte: lire("ungm-cedeao.html") };
+    });
+
+  assert.ok(corps.length >= 2, "au moins deux pages demandees");
+  assert.equal(JSON.parse(corps[0]).PageIndex, 0);
+  assert.equal(JSON.parse(corps[1]).PageIndex, 1, "la page 2 suit la page 1");
+  assert.equal(annonces.length, 15, "et rien n'entre deux fois");
 });

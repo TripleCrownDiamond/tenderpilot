@@ -13,7 +13,10 @@ import { test } from "node:test";
 
 import {
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
-  construireIndex,
+  construireIndex, inventaireProfil, listeConfig, parDelai,
+  parPertinence, pertinence, pertinenceNotifiable, PROFIL_TYPE_PAYS,
+  PERTINENCES, PERTINENCE_A_VOIR, PERTINENCE_HORS_PROFIL,
+  PERTINENCE_POSSIBLE, PERTINENCE_PRIORITAIRE,
   trouverDoublon,
   normaliserType,
   deduireSecteur,
@@ -23,7 +26,7 @@ import {
   Depot, Envoyeur, OpportuniteStockee, Recuperateur, SourceCollecte,
   enregistrerOuMettreAJour, executer, referenceSuivante,
 } from "../src/lib/run";
-import { analyserFlux } from "../src/lib/domain/rss";
+import { analyserFlux, estFluxXml } from "../src/lib/domain/rss";
 
 function jourRelatif(n: number): string {
   const d = new Date();
@@ -54,6 +57,8 @@ interface Monde {
              message: string }[];
   boite: { sujet: string; corps: string }[];
   sources: SourceCollecte[];
+  /** La configuration vivante : la modifier change le passage suivant. */
+  config: Config;
 }
 
 function monde(options: {
@@ -92,7 +97,14 @@ function monde(options: {
     },
     async majOpportunite(id, champs) {
       const cible = opportunites.find((o) => o.id === id);
-      if (cible) Object.assign(cible, champs);
+      // Prisma refuse une mise a jour sur un identifiant inconnu (P2025).
+      // Le faux depot doit refuser pareil : sans cela il absorbe en silence
+      // une ecriture dans une ligne qui n'existe pas encore, exactement le
+      // defaut mesure le 2026-09-02 cote Sheets.
+      if (!cible) {
+        throw new Error(`majOpportunite : aucune opportunite "${id}"`);
+      }
+      Object.assign(cible, champs);
     },
     async majDelais(lignes) {
       for (const l of lignes) {
@@ -100,6 +112,7 @@ function monde(options: {
         if (cible) {
           cible.joursRestants = l.joursRestants;
           cible.statutDelai = l.statutDelai as OpportuniteStockee["statutDelai"];
+          cible.pertinence = l.pertinence;
         }
       }
     },
@@ -130,7 +143,8 @@ function monde(options: {
     return { code: 200, texte: reponse };
   };
 
-  return { depot, envoyeur, recuperer, opportunites, journal, boite, sources };
+  return { depot, envoyeur, recuperer, opportunites, journal, boite, sources,
+           config };
 }
 
 function source(id: string, url: string, extra: Partial<SourceCollecte> = {}) {
@@ -336,6 +350,345 @@ test("deux annonces identiques dans la meme collecte : une seule ligne", async (
   assert.equal(m.opportunites.length, 1);
 });
 
+test("deux copies d une meme annonce, dont une seule datee", async () => {
+  // MESURE DU 2026-09-02, sur la BCEAO : la meme page listait deux fois le
+  // meme avis. Le second exemplaire etait reconnu comme doublon du PREMIER
+  // - une annonce qui n'a ni identifiant ni ligne tant qu'elle n'est pas
+  // ecrite - et partait quand meme en mise a jour de base.
+  const url = "https://example.org/f-doublon-interne";
+  const lien = "https://example.org/meme-avis";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([
+      { titre: "Fourniture de materiel", lien, texte: "Avis de la banque" },
+      { titre: "Fourniture de materiel", lien,
+        texte: `Date limite : ${enFrancais(jourRelatif(25))}` },
+      // Un troisieme avis, distinct : sans lui tous les titres seraient
+      // identiques et le flux passerait par la reparation DNCMP.
+      { titre: "Etude hydraulique", lien: "https://example.org/autre",
+        texte: `Date limite : ${enFrancais(jourRelatif(40))}` },
+    ]) },
+    config: { envoiNouvelle: false },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+
+  assert.equal(m.opportunites.length, 2, "l avis en double ne cree qu une ligne");
+  assert.equal(m.opportunites[0].deadline, jourRelatif(25),
+    "l echeance lue sur le second exemplaire complete le premier");
+
+  const doublons = m.journal.filter((l) => l.statut === "DUPLICATE");
+  assert.equal(doublons.length, 1);
+  assert.ok(!doublons[0].message.includes("undefined"));
+  assert.ok(doublons[0].message.startsWith("Fourniture de materiel"),
+            doublons[0].message);
+});
+
+test("une valeur deja lue n est jamais remplacee par une autre copie", async () => {
+  // Les deux exemplaires ont ete lus dans la MEME collecte : aucun n'est
+  // plus recent que l'autre. On complete ce qui manque, on n'arbitre pas
+  // entre deux echeances - regle 2 du depot, ne jamais inventer une date.
+  const url = "https://example.org/f-doublon-dates";
+  const lien = "https://example.org/avis-deux-dates";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([
+      { titre: "Avis date deux fois", lien,
+        texte: `Date limite : ${enFrancais(jourRelatif(10))}` },
+      { titre: "Avis date deux fois", lien,
+        texte: `Date limite : ${enFrancais(jourRelatif(50))}` },
+      { titre: "Autre avis", lien: "https://example.org/autre-2",
+        texte: `Date limite : ${enFrancais(jourRelatif(40))}` },
+    ]) },
+    config: { envoiNouvelle: false },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+
+  assert.equal(m.opportunites.length, 2);
+  assert.equal(m.opportunites[0].deadline, jourRelatif(10),
+    "la premiere echeance lue reste celle de la fiche");
+});
+
+test("un flux valide mais vide n est pas signale comme casse", async () => {
+  // MESURE DU 2026-09-02 : les bureaux PNUD du Cap-Vert et du Togo servent
+  // un flux RSS 1.0 parfaitement valide, dont la liste est vide. Ils
+  // etaient signales comme "la page a peut-etre change de structure" a
+  // chaque execution.
+  const vide = "https://example.org/f-vide";
+  const casse = "https://example.org/f-casse";
+  const m = monde({
+    sources: [source("s-vide", vide), source("s-casse", casse)],
+    flux: {
+      [vide]: '<?xml version="1.0" encoding="ISO-8859-1" ?><rdf:RDF '
+        + 'xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+        + 'xmlns="http://purl.org/rss/1.0/"><channel><title>UNDP - TOGO'
+        + "</title><items><rdf:Seq></rdf:Seq></items></channel></rdf:RDF>",
+      [casse]: "<!DOCTYPE html><html><body><h1>Page introuvable</h1></body></html>",
+    },
+    config: { envoiNouvelle: false },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+
+  const journalVide = m.journal.filter((l) => l.source === "SRC-s-vide");
+  const journalCasse = m.journal.filter((l) => l.source === "SRC-s-casse");
+  assert.equal(journalVide.length, 1);
+  assert.ok(!journalVide[0].message.includes("structure"),
+            journalVide[0].message);
+  assert.ok(journalVide[0].message.includes("vide"), journalVide[0].message);
+  assert.equal(journalCasse.length, 1);
+  assert.ok(journalCasse[0].message.includes("structure"),
+            journalCasse[0].message);
+});
+
+test("estFluxXml distingue un flux d une page", () => {
+  assert.equal(estFluxXml('<?xml version="1.0"?><rss version="2.0"></rss>'), true);
+  assert.equal(estFluxXml('<feed xmlns="http://www.w3.org/2005/Atom"></feed>'), true);
+  assert.equal(estFluxXml(""), false);
+  // Une page HTML qui mentionne un flux bien plus loin n'en est pas un.
+  assert.equal(
+    estFluxXml(`<!DOCTYPE html><html><body>${"texte ".repeat(900)}<a>rss</a>`),
+    false);
+});
+
+// ------------------------------------------------------------ pertinence --
+
+test("pertinence : les deux axes, pays et secteur", () => {
+  const profil = { paysSuivis: "Benin, Togo",
+                   secteursSuivis: "Energie, Eau et assainissement" };
+  const avis = (pays: string, secteur: string) => ({ pays, secteur });
+
+  assert.equal(pertinence(avis("Benin", "Energie"), profil),
+               PERTINENCE_PRIORITAIRE);
+  assert.equal(pertinence(avis("Togo", "Non precise"), profil),
+               PERTINENCE_A_VOIR);
+  assert.equal(pertinence(avis("Benin", "Culture et arts"), profil),
+               PERTINENCE_POSSIBLE);
+  // Un appel mondial n'est jamais ecarte : une structure beninoise peut y
+  // candidater. Meme decision que LLM_APPELS_MONDIAUX, sans aucune cle.
+  assert.equal(pertinence(avis("International", "Energie"), profil),
+               PERTINENCE_A_VOIR);
+  assert.equal(pertinence(avis("Kenya", "Culture et arts"), profil),
+               PERTINENCE_HORS_PROFIL);
+});
+
+test("pertinence : ne rien declarer n'est pas se restreindre", () => {
+  const sansSecteurs = { paysSuivis: "Benin", secteursSuivis: "" };
+  assert.equal(pertinence({ pays: "Benin", secteur: "Culture et arts" },
+                          sansSecteurs), PERTINENCE_PRIORITAIRE);
+  // Configuration entierement vide : rien n'est jamais degrade.
+  assert.equal(pertinence({ pays: "Kenya", secteur: "Culture et arts" }, {}),
+               PERTINENCE_A_VOIR);
+});
+
+test("pertinence : les deux moteurs partagent le meme vocabulaire", () => {
+  // Jumeau de SCHEMA.PERTINENCE_* dans apps_script/Schema.gs. Les libelles
+  // commencent par leur rang : le tri alphabetique de Google Sheets range
+  // alors le plus pertinent en premier.
+  for (const p of PERTINENCES) assert.match(p, /^\d - [A-Z]/);
+  assert.deepEqual(PERTINENCES, ["3 - PRIORITAIRE", "2 - A VOIR",
+                                 "1 - POSSIBLE", "0 - HORS PROFIL"]);
+});
+
+test("pertinence : la liste de configuration tolere l'ecriture humaine", () => {
+  assert.deepEqual(listeConfig("Benin, Togo ; Niger"), ["benin", "togo", "niger"]);
+  assert.deepEqual(listeConfig(""), []);
+  assert.deepEqual(listeConfig(null), []);
+  assert.equal(pertinence({ pays: "BENIN", secteur: "ENERGIE" },
+                          { paysSuivis: "benin", secteursSuivis: "energie" }),
+               PERTINENCE_PRIORITAIRE);
+});
+
+test("le profil ETIQUETTE, il ne supprime jamais", async () => {
+  const url = "https://example.org/f-pertinence";
+  const m = monde({
+    sources: [source("s1", url, { paysDefaut: "Kenya",
+                                  secteurDefaut: "Culture et arts" })],
+    flux: { [url]: fluxRss([
+      { titre: "Atelier de peinture a Nairobi", lien: "https://example.org/p1",
+        texte: `Date limite : ${enFrancais(jourRelatif(30))}` }]) },
+    config: { envoiNouvelle: false, paysSuivis: "Benin", secteursSuivis: "Energie" },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.opportunites.length, 1, "l'annonce hors profil est conservee");
+  assert.equal(m.opportunites[0].pertinence, PERTINENCE_HORS_PROFIL);
+});
+
+test("elargir le profil remet a jour la liste entiere", async () => {
+  const url = "https://example.org/f-pertinence-2";
+  const m = monde({
+    sources: [source("s1", url, { paysDefaut: "Kenya",
+                                  secteurDefaut: "Culture et arts" })],
+    flux: { [url]: fluxRss([
+      { titre: "Atelier de peinture a Nairobi", lien: "https://example.org/p2",
+        texte: `Date limite : ${enFrancais(jourRelatif(30))}` }]) },
+    config: { envoiNouvelle: false, paysSuivis: "Benin",
+              secteursSuivis: "Energie" },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.opportunites[0].pertinence, PERTINENCE_HORS_PROFIL);
+
+  // Le client elargit son profil. Rien n'est recollecte : la pertinence se
+  // recalcule au passage suivant, comme les jours restants.
+  m.config.paysSuivis = "Benin, Kenya";
+  m.config.secteursSuivis = "Energie, Culture et arts";
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.opportunites.length, 1);
+  assert.equal(m.opportunites[0].pertinence, PERTINENCE_PRIORITAIRE);
+});
+
+test("les alertes au-dela du plafond sont reportees, jamais perdues", async () => {
+  // MESURE DU 2026-09-02 : sur une base vierge, 28 opportunites se
+  // retrouvaient d'un coup a moins de sept jours. Le digest ramene les
+  // nouveautes a un email, mais les rappels partaient un par un.
+  const url = "https://example.org/f-etalement";
+  const entrees = Array.from({ length: 8 }, (_, i) => ({
+    titre: `Echeance proche ${i}`,
+    lien: `https://example.org/e${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss(entrees) },
+    config: { envoiNouvelle: false, maxEmailsParExecution: 3 },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 3, "le plafond doit etre respecte");
+  assert.equal(m.opportunites.filter((o) => o.notifJ7).length, 3,
+               "seules les lignes servies sont marquees");
+  assert.ok(m.journal.some((l) => l.message.includes("reportee")));
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 6);
+  const sujets = m.boite.map((e) => e.sujet);
+  assert.equal(new Set(sujets).size, sujets.length,
+               "aucune alerte ne part deux fois");
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 8, "au bout du compte, les huit sont parties");
+});
+
+test("sans plafond, le comportement ne change pas", async () => {
+  const url = "https://example.org/f-sans-plafond";
+  const entrees = Array.from({ length: 4 }, (_, i) => ({
+    titre: `Echeance ${i}`,
+    lien: `https://example.org/s${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss(entrees) },
+    config: { envoiNouvelle: false, maxEmailsParExecution: 0 },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 4);
+  assert.ok(!m.journal.some((l) => l.message.includes("reportee")));
+});
+
+test("l'ordre du tableau : le plus de temps devant en haut", () => {
+  const l = (id: string, joursRestants: number | null, pertinence?: string) =>
+    ({ id, joursRestants, pertinence });
+
+  const ordre = parDelai([
+    l("C", 3), l("A", 60), l("SANS", null), l("B", 12), l("EXPIRE", -5),
+  ]).map((o) => o.id);
+  assert.deepEqual(ordre, ["A", "B", "C", "EXPIRE", "SANS"]);
+
+  // A delai egal, c'est la pertinence qui departage.
+  const egalite = parDelai([
+    l("BANAL", 10, PERTINENCE_HORS_PROFIL),
+    l("POUR-MOI", 10, PERTINENCE_PRIORITAIRE),
+  ]).map((o) => o.id);
+  assert.deepEqual(egalite, ["POUR-MOI", "BANAL"]);
+
+  // Le tableau recu n'est pas modifie.
+  const source = [l("X", 1), l("Y", 9)];
+  parDelai(source);
+  assert.equal(source[0].id, "X");
+});
+
+test("l'inventaire ne montre que ce qui existe vraiment", () => {
+  const a = (pays: string, secteur: string) => ({ pays, secteur });
+  const lignes = [
+    a("Benin", "Energie"), a("Benin", "Energie"), a("Benin", "Sante"),
+    a("Niger", "Energie"), a("Togo", ""), a("", "Eau et assainissement"),
+  ];
+  const rangees = inventaireProfil(lignes,
+    { paysSuivis: "Benin", secteursSuivis: "Energie" });
+
+  const pays = rangees.filter((r) => r[0] === PROFIL_TYPE_PAYS);
+  assert.deepEqual(pays.map((r) => r[1]), ["Benin", "Niger", "Togo"]);
+  assert.equal(pays[0][2], 3, "le plus present passe en tete");
+  assert.equal(pays[0][3], "OUI");
+  assert.equal(pays[1][3], "NON");
+  // Une case vide n'invente jamais une valeur.
+  assert.ok(rangees.every((r) => r[1].trim().length > 0));
+
+  // Sans liste declaree, rien n'est ecarte.
+  assert.ok(inventaireProfil(lignes, {}).every((r) => r[3] === "OUI"));
+
+  // A egalite, l'ordre alphabetique fige le classement.
+  const un = inventaireProfil([a("Zimbabwe", "X"), a("Angola", "X")], {});
+  const deux = inventaireProfil([a("Angola", "X"), a("Zimbabwe", "X")], {});
+  assert.deepEqual(un, deux);
+});
+
+test("le client choisit les niveaux de pertinence qui le previennent", () => {
+  assert.equal(pertinenceNotifiable(PERTINENCE_HORS_PROFIL, {}), true,
+               "sans reglage, tout est notifie");
+
+  const seul = { notifierPertinence: "3 - PRIORITAIRE" };
+  assert.equal(pertinenceNotifiable(PERTINENCE_PRIORITAIRE, seul), true);
+  assert.equal(pertinenceNotifiable(PERTINENCE_A_VOIR, seul), false);
+
+  const deux = { notifierPertinence: "3 - PRIORITAIRE, 2 - A VOIR" };
+  assert.equal(pertinenceNotifiable(PERTINENCE_A_VOIR, deux), true);
+  assert.equal(pertinenceNotifiable(PERTINENCE_POSSIBLE, deux), false);
+
+  // Le libelle se recopie a la main : trois ecritures pour un niveau.
+  assert.equal(pertinenceNotifiable(PERTINENCE_PRIORITAIRE,
+                                    { notifierPertinence: "PRIORITAIRE" }), true);
+  assert.equal(pertinenceNotifiable(PERTINENCE_PRIORITAIRE,
+                                    { notifierPertinence: "3" }), true);
+  assert.equal(pertinenceNotifiable(PERTINENCE_A_VOIR,
+                                    { notifierPertinence: "3" }), false);
+  // Une annonce sans pertinence passe : le doute lui profite.
+  assert.equal(pertinenceNotifiable("", seul), true);
+  assert.equal(pertinenceNotifiable(null, seul), true);
+});
+
+test("le filtre coupe les emails, jamais la liste", async () => {
+  const url = "https://example.org/f-notif-pertinence";
+  const m = monde({
+    sources: [source("s1", url, { paysDefaut: "Kenya",
+                                  secteurDefaut: "Culture et arts" })],
+    flux: { [url]: fluxRss([
+      { titre: "Atelier lointain", lien: "https://example.org/n1",
+        texte: `Date limite : ${enFrancais(jourRelatif(20))}` }]) },
+    config: { paysSuivis: "Benin", secteursSuivis: "Energie",
+              notifierPertinence: "3 - PRIORITAIRE" },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.opportunites.length, 1, "l'annonce entre dans la liste");
+  assert.equal(m.boite.length, 0, "aucun email");
+  assert.ok(m.journal.some((l) => l.message.includes("notifierPertinence")));
+  assert.notEqual(m.opportunites[0].notifNouvelle, true,
+                  "rien n'est marque comme notifie");
+
+  // Elargir le profil libere l'alerte, sans recollecter.
+  m.config.paysSuivis = "Benin, Kenya";
+  m.config.secteursSuivis = "Energie, Culture et arts";
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 1);
+});
+
 test("references sequentielles sans trou", async () => {
   const m = monde();
   const bilan = await enregistrerOuMettreAJour(
@@ -370,6 +723,44 @@ test("le meme avis recollecte reste reconnu", () => {
   const index = construireIndex([{ ...(a as object), id: "1",
                                    reference: "TP-000001" }] as never);
   assert.ok(trouverDoublon(a, index), "un avis deja suivi ne doit pas se dedoubler");
+});
+
+test("l'auteur d'une entree devient l'acheteur", () => {
+  // MESURE DU 2026-09-02, sur la DNCMP : le flux des marches publics du
+  // Benin met le pouvoir adjudicateur dans <author>. On l'ignorait, et les
+  // 46 annonces portaient le nom de la SOURCE a la place de leur acheteur.
+  const flux = '<?xml version="1.0"?><rss version="2.0"><channel>'
+    + "<item><title>Appel d'Offre</title>"
+    + "<link>https://www.marches-public.bj/appels-doffres</link>"
+    + "<description>Acquisition d'une infrastructure hyperconvergee</description>"
+    + "<author>Societe Beninoise d'Energie Electrique</author></item>"
+    + "<item><title>Appel d'Offre</title>"
+    + "<link>https://www.marches-public.bj/appels-doffres</link>"
+    + "<description>Renouvellement des licences</description>"
+    + "<author>Agence des Systemes d'Information et du Numerique (ASIN)</author>"
+    + "</item></channel></rss>";
+
+  const entrees = analyserFlux(flux);
+  assert.equal(entrees[0].organisation, "Societe Beninoise d'Energie Electrique");
+  // La parenthese ne prime que derriere une adresse : un acheteur ne doit
+  // pas etre reduit a son sigle.
+  assert.equal(entrees[1].organisation,
+               "Agence des Systemes d'Information et du Numerique (ASIN)");
+});
+
+test("une adresse email seule ne nomme aucun acheteur", () => {
+  const item = (auteur: string) =>
+    '<?xml version="1.0"?><rss version="2.0"><channel>'
+    + `<item><title>Avis</title><link>https://x.test/a</link>`
+    + `<description>Objet</description><author>${auteur}</author>`
+    + "</item></channel></rss>";
+
+  // La specification RSS dit que <author> est une ADRESSE, pas un nom.
+  assert.equal(analyserFlux(item("redaction@site.org"))[0].organisation, null);
+  assert.equal(analyserFlux(item("redaction@site.org (Agence X)"))[0].organisation,
+               "Agence X");
+  // Sans auteur, c'est le defaut de la source qui reprend la main.
+  assert.equal(analyserFlux(item(""))[0].organisation, null);
 });
 
 test("un flux dont tous les titres sont identiques remonte les descriptions", () => {
@@ -453,6 +844,23 @@ test("les trois erreurs mesurees le 2026-09-02 ne reviennent pas", () => {
   // LE PLUS INSTRUCTIF : "election" se trouvait a l'interieur de
   // "selection". Un terme d'un seul mot doit correspondre a un MOT ENTIER.
   assert.equal(deduireSecteur("Cabinet international pour la selection de 20 campements"), "");
+});
+
+test("capacity building n'est pas du BTP", () => {
+  // Mesure du 2026-09-02, sur la GIZ : "building" seul rangeait "CAPACITY
+  // BUILDING ON HUMAN RIGHTS" dans les infrastructures. En anglais du
+  // developpement, "capacity building" est partout - c'etait donc une
+  // erreur systematique, pas un cas isole.
+  assert.notEqual(
+    deduireSecteur("TRAINING MODULE & CAPACITY BUILDING ON HUMAN RIGHTS"),
+    "Infrastructures et BTP");
+  // Les vrais travaux restent couverts.
+  assert.equal(deduireSecteur("Building works for the new warehouse"),
+               "Infrastructures et BTP");
+  assert.equal(deduireSecteur("Civil works for the bridge"),
+               "Infrastructures et BTP");
+  assert.equal(deduireSecteur("Construction d un batiment administratif"),
+               "Infrastructures et BTP");
 });
 
 test("sans correspondance nette, on ne devine pas", () => {

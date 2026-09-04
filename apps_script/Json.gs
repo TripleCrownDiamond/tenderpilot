@@ -23,7 +23,8 @@ var ANALYSEURS_JSON = {
   'worldbank.org': analyserApiWorldBank,
   'fundpilote.com': analyserApiFundpilote,
   'ec.europa.eu': analyserApiEuropa,
-  'grants.gov': analyserApiGrantsGov
+  'grants.gov': analyserApiGrantsGov,
+  'nigermarches.com': analyserApiNigerMarches
 };
 
 /** Retourne l'analyseur correspondant a une methode JSON:<nom>, ou null. */
@@ -43,6 +44,67 @@ function isoDepuis_(valeur) {
   return d.getUTCFullYear() + '-'
     + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-'
     + ('0' + d.getUTCDate()).slice(-2);
+}
+
+/**
+ * Met en forme un budget annonce par la source. JAMAIS devine.
+ *
+ * MESURE DU 2026-09-02 : sur les seize sources structurees du registre,
+ * DEUX SEULEMENT publient un montant exploitable - le portail europeen
+ * (metadata.budget, 20 avis sur 100) et Fundpilote (amount_min /
+ * amount_max / currency, 10 sur 20). La Banque mondiale, Grants.gov, Niger
+ * Marches, la GIZ, la DNCMP, le PNUD, la SBEE, la BCEAO et l'UNICEF n'en
+ * exposent aucun : leur colonne Budget reste vide, et c'est exact.
+ *
+ * On ne lit pas les montants ecrits en prose. Wellcome affiche "£3.5" pour
+ * trois millions et demi, en toutes lettres plus loin dans la phrase : un
+ * chiffre extrait la serait faux d'un facteur mille. Un budget faux vaut
+ * moins que pas de budget - c'est la meme regle que pour les dates.
+ *
+ * Le resultat est du TEXTE, pas un nombre : les devises different d'une
+ * source a l'autre, et additionner des euros avec des francs CFA dans une
+ * colonne de Google Sheets ne voudrait rien dire.
+ */
+function formaterMontant(valeur) {
+  var brut = String(valeur === null || valeur === undefined ? '' : valeur)
+    .replace(/[\s,]/g, '');
+  var n = Number(brut);
+  if (!isFinite(n) || n <= 0) return '';
+  // Espace ordinaire entre les milliers : lisible, et Google Sheets ne
+  // prend pas la cellule pour un nombre a additionner. Pas d'espace fine
+  // insecable - le depot est en ASCII, et ce caractere voyage mal dans un
+  // email ou un export CSV.
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/** "120000", "EUR" -> "120 000 EUR". Une valeur absente rend "". */
+function budgetSimple(montant, devise) {
+  var m = formaterMontant(montant);
+  if (!m) return '';
+  var d = String(devise === null || devise === undefined ? '' : devise)
+    .trim().toUpperCase();
+  return d ? m + ' ' + d : m;
+}
+
+/**
+ * Une fourchette, telle que Fundpilote la publie.
+ *
+ *   min = max            "730 000 USD"
+ *   min absent ou nul    "jusqu'a 42 000 EUR"
+ *   les deux             "10 000 - 250 000 USD"
+ */
+function budgetFourchette(minimum, maximum, devise) {
+  var min = formaterMontant(minimum);
+  var max = formaterMontant(maximum);
+  var d = String(devise === null || devise === undefined ? '' : devise)
+    .trim().toUpperCase();
+  var suffixe = d ? ' ' + d : '';
+  if (min && max) {
+    return min === max ? max + suffixe : min + ' - ' + max + suffixe;
+  }
+  if (max) return 'jusqu\'a ' + max + suffixe;
+  if (min) return 'a partir de ' + min + suffixe;
+  return '';
 }
 
 /**
@@ -169,15 +231,9 @@ function analyserApiFundpilote(corps, source) {
       || (a.id ? 'https://fundpilote.com/opportunities/' + String(a.id) : ''));
     if (!lien) return;
 
-    var devise = String(a.currency || '').trim();
     // Un minimum a zero n est pas une information : l API le pose par
-    // defaut sur la moitie des annonces.
-    var brutMin = a.amount_min ? String(a.amount_min) : '';
-    var min = Number(brutMin) > 0 ? brutMin : '';
-    var max = a.amount_max ? String(a.amount_max) : '';
-    var montant = (min && max) ? (min + ' - ' + max + ' ' + devise).trim()
-      : max ? ('jusqu a ' + max + ' ' + devise).trim()
-      : min ? ('a partir de ' + min + ' ' + devise).trim() : '';
+    // defaut sur la moitie des annonces - budgetFourchette l ecarte.
+    var montant = budgetFourchette(a.amount_min, a.amount_max, a.currency);
 
     var pays = [];
     if (Object.prototype.toString.call(a.eligible_countries) === '[object Array]') {
@@ -192,7 +248,6 @@ function analyserApiFundpilote(corps, source) {
     if (description) morceaux.push(description.slice(0, 200));
     if (eligibilite) morceaux.push('Eligibilite : ' + eligibilite.slice(0, 120));
     if (pays.length) morceaux.push('Pays eligibles : ' + pays.join(', '));
-    if (montant) morceaux.push('Budget : ' + montant);
 
     var typeBrut = String(a.funding_type || '').trim();
 
@@ -203,13 +258,60 @@ function analyserApiFundpilote(corps, source) {
       published: null,
       deadline: isoDepuis_(a.deadline),
       org: String(a.sponsor_name || '').trim(),
-      type: TYPE_MAP[typeBrut] || typeBrut
+      type: TYPE_MAP[typeBrut] || typeBrut,
+      budget: montant
     }, source));
   });
 
   return sortie.filter(function (o) { return o.title; });
 }
 
+
+/**
+ * UN APPEL, UNE LIGNE - meme quand le portail le rend quatre fois.
+ *
+ * MESURE DU 2026-09-02 : les 100 resultats de la page ne portent que 50
+ * identifiants. Le portail rend chaque appel dans TOUTES ses langues, et
+ * parfois deux fois par langue. Sans ce regroupement, la moitie du tableau
+ * europeen etait le meme appel en anglais puis en francais - deux titres
+ * differents, donc deux lignes que la deduplication generale ne pouvait pas
+ * reunir.
+ *
+ * On garde le FRANCAIS quand il existe, l'autre langue sinon : le produit
+ * est en francais, et un titre traduit se lit mieux qu'un titre anglais.
+ * Jamais de perte : un appel sans version francaise reste, dans sa langue.
+ */
+function groupesParLangue_(resultats) {
+  var parIdentifiant = {};
+  var sortie = [];
+
+  resultats.forEach(function (brut) {
+    var m = (brut && brut.metadata) || {};
+    function prem(cle) {
+      var v = m[cle];
+      if (Object.prototype.toString.call(v) === '[object Array]') {
+        return String(v[0] === undefined || v[0] === null ? '' : v[0]).trim();
+      }
+      return String(v === undefined || v === null ? '' : v).trim();
+    }
+    var identifiant = prem('identifier');
+    // Sans identifiant, on ne peut rien regrouper : l appel passe tel quel.
+    if (!identifiant) { sortie.push(brut); return; }
+
+    var dejaVu = parIdentifiant[identifiant];
+    if (dejaVu === undefined) {
+      parIdentifiant[identifiant] = brut;
+      sortie.push(brut);
+      return;
+    }
+    // Le francais remplace ce qui est deja la ; le reste est ignore.
+    if (prem('language').toLowerCase() === 'fr') {
+      sortie[sortie.indexOf(dejaVu)] = brut;
+      parIdentifiant[identifiant] = brut;
+    }
+  });
+  return sortie;
+}
 
 /**
  * Appels et marches du portail europeen Funding & Tenders.
@@ -236,7 +338,7 @@ function analyserApiEuropa(corps, source) {
   if (!resultats || !resultats.length) return [];
 
   var sortie = [];
-  resultats.forEach(function (x) {
+  groupesParLangue_(resultats).forEach(function (x) {
     var m = (x && x.metadata) || {};
     function prem(cle) {
       var v = m[cle];
@@ -272,7 +374,9 @@ function analyserApiEuropa(corps, source) {
       published: isoDepuis_(prem('startDate')),
       deadline: isoDepuis_(prem('deadlineDate') || prem('closingDate')),
       org: 'Commission europeenne',
-      type: prem('type') === '2' ? 'Appel a projets' : ''
+      type: prem('type') === '2' ? 'Appel a projets' : '',
+      // Un nombre nu, en euros : 20 avis sur 100 en portent un.
+      budget: budgetSimple(prem('budget'), 'EUR')
     }, source));
   });
 
@@ -336,6 +440,72 @@ function analyserApiGrantsGov(corps, source) {
 }
 
 
+/**
+ * Appels d'offres du Niger, via l'API WordPress de Niger Marches.
+ *
+ * Jumeau de analyserNigerMarches() dans web/src/lib/domain/json.ts.
+ *
+ * Le site publie ses avis dans un type de contenu "appel_d_offre" expose
+ * par l'API standard de WordPress, sans authentification :
+ *
+ *   /wp-json/wp/v2/appel_d_offre?per_page=100&page=N&_fields=id,link,title,date,acf
+ *
+ * Mesure du 2026-09-02 : 668 avis, 20 sur 20 avec une date d'expiration.
+ * Les champs ACF portent ce qui compte - date_expiration, et
+ * nom_de_la_societe qui donne l'acheteur reel ("Medecins Sans Frontieres au
+ * Niger", "Projet d'Acceleration de l'Acces a l'Electricite").
+ *
+ * ON PASSE PAR L'API PLUTOT QUE PAR LA PAGE, et ce n'est pas un detail : la
+ * page est construite par Elementor, ses classes changent a chaque
+ * changement de theme. L'API, elle, est un contrat de WordPress.
+ *
+ * _fields n'est pas une coquetterie : sans lui chaque avis traine son HTML
+ * complet et ses metadonnees SEO, soit vingt fois le volume utile.
+ */
+function typeNigerMarches_(titre) {
+  if (/manifestation\s+d.?inter[eê]t|\bami\b/i.test(titre)) return 'AMI';
+  if (/demande\s+de\s+(cotation|prix)|cotation/i.test(titre)) {
+    return 'Demande de cotation';
+  }
+  if (/recrutement|consultant/i.test(titre)) return 'Recrutement';
+  return '';
+}
+
+function analyserApiNigerMarches(corps, source) {
+  var donnees;
+  try {
+    donnees = JSON.parse(corps);
+  } catch (e) {
+    return [];
+  }
+  if (!donnees || !donnees.length) return [];
+
+  var sortie = [];
+  donnees.forEach(function (avis) {
+    var titre = stripTags(reparerCaracteres(
+      String((avis.title && avis.title.rendered) || '')));
+    if (!titre) return;
+
+    var acf = avis.acf || {};
+    var acheteur = stripTags(reparerCaracteres(
+      String(acf.nom_de_la_societe || '')));
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: nettoyerLien(String(avis.link || '')),
+      summary: acheteur ? 'Acheteur : ' + acheteur : '',
+      published: isoDepuis_(avis.date),
+      // "2026-10-05 09:00:00" : isoDepuis_ garde la partie date telle
+      // quelle, sans passer par new Date() - donc sans decalage de fuseau.
+      deadline: isoDepuis_(acf.date_expiration),
+      org: acheteur,
+      type: typeNigerMarches_(titre)
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
 // ------------------------------------------------------ FORMES DE REQUETE
 
 /** Frontiere fixe : rien dans les donnees envoyees ne peut la contenir. */
@@ -395,22 +565,88 @@ function requeteGrantsGov_() {
   };
 }
 
-var REQUETES_JSON = {
+/**
+ * Requete d UNGM, le marche public des agences des Nations unies.
+ *
+ * Jumeau de requeteUngm() dans web/src/lib/domain/json.ts.
+ *
+ * DEUX PARTICULARITES QUI EXPLIQUENT SA PLACE ICI.
+ *
+ * 1. Elle sert du HTML, pas du JSON. La liste arrive d un POST sur
+ *    /Public/Notice/Search, qui repond par des rangees HTML. C est donc une
+ *    methode "HTML:ungm.org" avec une forme de requete - le premier cas, et
+ *    la raison pour laquelle formeRequete_ ne regarde plus le seul prefixe
+ *    JSON.
+ *
+ * 2. Elle pagine par le CORPS. PageIndex commence a 0 quand le moteur
+ *    compte a partir de 1 : d ou le page - 1. PageSize est plafonne A 15
+ *    PAR LE SERVEUR - mesure du 2026-09-04, une demande de 100 rend 15.
+ *
+ * Les quinze pays sont ceux de la CEDEAO, par leur identifiant UNGM. Sans
+ * ce filtre la recherche rend le monde entier.
+ */
+var PAYS_CEDEAO_UNGM = [
+  '2314', // Benin
+  '2324', // Burkina Faso
+  '2329', // Cap-Vert
+  '2341', // Cote d Ivoire
+  '2367', // Gambie
+  '2370', // Ghana
+  '2378', // Guinee
+  '2379', // Guinee-Bissau
+  '2407', // Liberia
+  '2418', // Mali
+  '2442', // Niger
+  '2443', // Nigeria
+  '2472', // Senegal
+  '2475', // Sierra Leone
+  '2494'  // Togo
+];
+
+function requeteUngm_(page) {
+  return {
+    methode: 'post',
+    contentType: 'application/json',
+    paginee: true,
+    corps: JSON.stringify({
+      PageIndex: Math.max(0, (Number(page) || 1) - 1),
+      PageSize: 15,
+      Title: '',
+      Description: '',
+      Published: '',
+      Deadline: '',
+      NoticeTypes: [],
+      UNSPSCs: [],
+      Countries: PAYS_CEDEAO_UNGM,
+      Agencies: [],
+      // Les plus recemment publies d abord : ce sont ceux dont l echeance
+      // a le plus de chances d etre encore ouverte.
+      SortField: 'DatePublished',
+      SortAscending: false
+    })
+  };
+}
+
+/** Formes de requete, par hote. Les autres sources restent en GET. */
+var REQUETES_SOURCES = {
   'ec.europa.eu': requeteEuropa_,
-  'grants.gov': requeteGrantsGov_
+  'grants.gov': requeteGrantsGov_,
+  'ungm.org': requeteUngm_
 };
 
 /**
- * Forme de requete d une methode "JSON:<nom>", ou null pour un GET.
+ * Forme de requete d une methode "JSON:<nom>" ou "HTML:<nom>", ou null.
  *
- * Les 104 autres sources n en declarent aucune et restent en GET, sans
- * changement de comportement.
+ * Le prefixe dit comment LIRE la reponse, pas comment la DEMANDER : UNGM
+ * repond en HTML a un POST. Les deux prefixes sont donc acceptes ici. Les
+ * autres sources n en declarent aucune et restent en GET, sans changement
+ * de comportement.
  */
-function requeteJson_(methode) {
-  var m = /^JSON:(.+)$/i.exec(String(methode || '').trim());
+function formeRequete_(methode, page) {
+  var m = /^(?:JSON|HTML):(.+)$/i.exec(String(methode || '').trim());
   if (!m) return null;
-  var fabrique = REQUETES_JSON[m[1].trim()];
-  return fabrique ? fabrique() : null;
+  var fabrique = REQUETES_SOURCES[m[1].trim()];
+  return fabrique ? fabrique(page || 1) : null;
 }
 
 if (typeof module !== 'undefined') {
@@ -422,8 +658,9 @@ if (typeof module !== 'undefined') {
     analyserApiEuropa: analyserApiEuropa,
     analyserApiGrantsGov: analyserApiGrantsGov,
     corpsMultipart_: corpsMultipart_,
-    requeteJson_: requeteJson_,
+    formeRequete_: formeRequete_,
     FRONTIERE_MULTIPART: FRONTIERE_MULTIPART,
+    REQUETES_SOURCES: REQUETES_SOURCES,
     ANALYSEURS_JSON: ANALYSEURS_JSON
   };
 }

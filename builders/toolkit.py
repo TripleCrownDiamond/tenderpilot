@@ -57,10 +57,11 @@ WIDTHS = {
     "Date_Ajout": 17, "Derniere_MAJ": 17, "Statut_Delai": 17,
     "Jours_Restants": 14, "Deadline": 13, "Date_Publication": 16, "ID": 13,
     "Nom": 30, "URL": 40, "Methode": 12, "Pays_Defaut": 16,
-    "Secteur_Defaut": 20, "Type_Defaut": 18, "Active": 10,
+    "Secteur_Defaut": 20, "Type_Defaut": 18, "Active": 10, "Budget": 18,
     "Derniere_Collecte": 18, "Statut": 12, "Source_ID": 14,
     "Cle": 26, "Valeur": 24, "Description": 68,
     "Date": 17, "Action": 20, "Message": 62,
+    "Type": 12, "Valeur": 34, "Annonces": 12, "Suivi": 10,
 }
 
 def lire_sources():
@@ -108,16 +109,24 @@ def feuille_sources(wb):
     for r, ligne in enumerate(sources, start=2):
         for i, valeur in enumerate(ligne, start=1):
             ws.cell(row=r, column=i, value=valeur).font = F_BODY
-    ws.cell(row=len(sources) + 3, column=1,
+    # La note occupe la colonne B, pas la colonne A : la colonne A est le
+    # Source_ID, et le script lit comme une source toute ligne qui en porte
+    # un. Le 2026-09-02, cette note apparaissait a chaque execution dans le
+    # journal, sous la forme d'une source "Methode : RSS ou JSON..."
+    # desactivee.
+    ws.cell(row=len(sources) + 3, column=2,
             value="Methode : RSS ou JSON:<site> et HTML:<site> (collecte "
                   "automatique), MANUAL (saisie a la main). Active : OUI pour "
                   "collecter. Pour ecarter une source, mettez NON plutot que "
                   "de supprimer la ligne : la synchronisation la remettrait."
             ).font = F_MUTED
     ws.auto_filter.ref = f"A1:{get_column_letter(len(S.SOURCES))}{len(sources) + 1}"
-    # Onglet technique : masque par defaut. Le menu TenderPilot le reaffiche,
-    # et la synchronisation le tient a jour sans qu'on ait a l'ouvrir.
-    ws.sheet_state = "hidden"
+    # VISIBLE. L'onglet a longtemps ete livre masque - c'etait de la
+    # plomberie. Il ne l'est plus : la colonne Active est le seul endroit ou
+    # le client choisit ce qu'il surveille, et une commande de menu pour
+    # afficher un onglet est une marche de trop devant le reglage le plus
+    # utile du produit. Le menu TenderPilot garde de quoi le remasquer.
+    ws.sheet_state = "visible"
     return ws
 
 
@@ -144,6 +153,23 @@ def feuille_logs(wb):
     entete(ws, S.LOGS)
     ws.cell(row=2, column=1,
             value="Rempli automatiquement a chaque execution.").font = F_MUTED
+    return ws
+
+
+def feuille_profil(wb):
+    """L'inventaire des pays et secteurs reellement collectes.
+
+    Livre vide : il se remplit au premier passage, depuis les annonces
+    reellement collectees. Une liste ecrite d'avance mentirait - elle
+    afficherait des pays qu'aucune source active ne publie.
+    """
+    ws = wb.create_sheet(S.SHEETS["profil"])
+    entete(ws, S.PROFIL)
+    ws.cell(row=2, column=1,
+            value="Rempli automatiquement a chaque execution : recopiez les "
+                  "valeurs qui vous interessent dans PAYS_SUIVIS et "
+                  "SECTEURS_SUIVIS, onglet CONFIG.").font = F_MUTED
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(S.PROFIL))}{MAX_ROWS}"
     return ws
 
 
@@ -185,15 +211,72 @@ def feuille_demarrage(wb):
                      "et vous envoie un email ou une notification Telegram "
                      "quand une echeance approche."),
         ("blank",    ""),
-        ("section",  "Demarrer en 2 etapes"),
+        ("section",  "Demarrer en 3 etapes"),
         ("bullet",  "1.  Menu TenderPilot > Activer l execution automatique."),
         ("bullet",  "2.  Onglet CONFIG : renseignez votre adresse email "
                      "(NOTIFICATION_EMAIL) pour recevoir les alertes."),
+        ("bullet",  "3.  Onglet CONFIG : PAYS_SUIVIS et SECTEURS_SUIVIS "
+                     "decrivent votre metier."),
+        ("blank",    ""),
+        ("section",  "Ce qui vous concerne : la colonne Pertinence"),
+        ("body",     "Elle repond a une seule question : est-ce que cela me "
+                     "concerne ? Elle croise le pays et le secteur de "
+                     "l annonce avec vos PAYS_SUIVIS et SECTEURS_SUIVIS."),
+        ("color",    "3 - PRIORITAIRE   votre pays ET votre domaine"),
+        ("color",    "2 - A VOIR        l un des deux, ou un appel mondial"),
+        ("color",    "1 - POSSIBLE      ni l un ni l autre, rien ne l exclut"),
+        ("color",    "0 - HORS PROFIL   ailleurs"),
+        ("body",     "Rien n est jamais supprime : une annonce hors profil "
+                     "reste dans le tableau, rangee en dernier. Triez la "
+                     "colonne de Z vers A pour voir vos opportunites en "
+                     "premier."),
+        ("body",     "Changez PAYS_SUIVIS ou SECTEURS_SUIVIS : tout le "
+                     "tableau se remet a jour au passage suivant, sans rien "
+                     "recollecter."),
+        ("blank",    ""),
+        ("section",  "Regler votre profil sans rien inventer"),
+        ("body",     "L onglet PAYS_ET_SECTEURS se remplit tout seul a "
+                     "chaque passage : il liste les pays et les secteurs "
+                     "REELLEMENT collectes, avec le nombre d annonces, et "
+                     "dit lesquels vous suivez aujourd hui."),
+        ("body",     "Recopiez de la les valeurs qui vous interessent dans "
+                     "PAYS_SUIVIS et SECTEURS_SUIVIS. Un pays ecrit de "
+                     "memoire, qu aucune source ne publie, ne remonterait "
+                     "rien - et vous ne le verriez jamais."),
+        ("blank",    ""),
+        ("section",  "Choisir les alertes que vous recevez"),
+        ("body",     "NOTIFIER_PERTINENCE, onglet CONFIG : listez les "
+                     "niveaux qui doivent vous ecrire. Par exemple 3 - "
+                     "PRIORITAIRE seul, ou 3 - PRIORITAIRE, 2 - A VOIR. "
+                     "Vide = tout vous est notifie."),
+        ("body",     "Ce reglage coupe le bruit dans votre boite, jamais "
+                     "dans le tableau : les annonces ecartees restent la, "
+                     "avec leur couleur et leur echeance. Elargissez le "
+                     "reglage et leurs alertes repartent au passage suivant."),
+        ("blank",    ""),
+        ("section",  "Choisir ce qui est surveille"),
+        ("body",     "L onglet SOURCES liste tout ce que TenderPilot sait "
+                     "lire. La colonne Active decide : OUI pour collecter, "
+                     "NON pour ignorer. Ecrivez NON plutot que de supprimer "
+                     "la ligne : la synchronisation la remettrait."),
+        ("body",     "La colonne Statut dit ce que chaque source a donne a "
+                     "la derniere execution."),
         ("blank",    ""),
         ("section",  "Lire le tableau"),
+        ("body",     "Les lignes sont rangees a chaque passage : celles qui "
+                     "vous laissent le plus de temps en haut, les plus "
+                     "urgentes ensuite, les expirees plus bas, et celles "
+                     "dont la source n a pas publie de date tout en bas. A "
+                     "delai egal, la plus pertinente passe devant."),
         ("body",     "Chaque ligne est une opportunite. Les colonnes "
                      "importantes : opportunite, organisation, pays, type, "
-                     "secteur, date limite, jours restants, statut."),
+                     "secteur, budget, date limite, jours restants, statut, "
+                     "pertinence."),
+        ("body",     "La colonne Budget n est remplie que quand la source "
+                     "publie un montant - le portail europeen et Fundpilote "
+                     "le font, les autres non. Une case vide veut dire que "
+                     "la source ne l a pas dit, jamais que le marche est "
+                     "sans budget."),
         ("blank",    ""),
         ("section",  "Les couleurs"),
         ("body",     "Le systeme colore chaque ligne selon le delai restant. "
@@ -211,6 +294,16 @@ def feuille_demarrage(wb):
                      "recevoir aussi sur Telegram, creez un bot via "
                      "@BotFather puis renseignez TELEGRAM_TOKEN et "
                      "TELEGRAM_CHAT_ID dans l onglet CONFIG."),
+        ("body",     "Le tout premier passage trouve beaucoup d echeances "
+                     "proches d un coup. Deux reglages evitent l avalanche : "
+                     "au-dela de DIGEST_THRESHOLD nouveautes, un seul email "
+                     "recapitulatif ; et MAX_EMAILS_PAR_EXECUTION limite les "
+                     "rappels envoyes par passage."),
+        ("body",     "Ce qui depasse le plafond n est pas perdu : les "
+                     "alertes repartent au passage suivant, les plus "
+                     "pertinentes et les plus urgentes d abord. Google "
+                     "n accepte que 100 destinataires par jour sur une "
+                     "adresse gmail.com ordinaire."),
         ("blank",    ""),
         ("section",  "Classement intelligent (optionnel)"),
         ("body",     "Sans cle : collecte, dates, couleurs, alertes - le "
@@ -219,6 +312,70 @@ def feuille_demarrage(wb):
                      "FAQ ecartes. Fournissez votre cle dans CONFIG (LLM_CLE) "
                      "et activez USE_LLM. Le modele ne touche jamais aux "
                      "dates."),
+        ("blank",    ""),
+        ("section",  "A quelle heure ca tourne"),
+        ("body",     "Trois passages par jour : 8h, 13h et 18h, a QUINZE "
+                     "MINUTES PRES. Google repartit la charge de tous ses "
+                     "utilisateurs et ne garantit pas la minute exacte : un "
+                     "passage de 8h peut arriver a 7h50 ou 8h10. Ce n est "
+                     "pas un reveil, c est une veille."),
+        ("body",     "Le classeur n a pas besoin d etre ouvert, ni votre "
+                     "ordinateur allume : le passage tourne sur les serveurs "
+                     "de Google, sous votre compte."),
+        ("blank",    ""),
+        ("section",  "Certaines sources sont lues en deux temps"),
+        ("body",     "Quelques sites listent leurs avis sans jamais ecrire "
+                     "la date limite dans la liste : elle n existe que sur "
+                     "la fiche de chaque avis. TenderPilot va donc la "
+                     "chercher fiche par fiche, dans la limite de "
+                     "MAX_FICHES_PAR_PASSAGE."),
+        ("body",     "Ces sources arrivent donc par petits paquets, quelques "
+                     "annonces a chaque passage, jusqu a ce que tout soit "
+                     "rattrape. Une annonce que nous n avons pas pu dater n "
+                     "entre pas : mieux vaut l attendre un passage de plus "
+                     "que remplir votre tableau de lignes mortes."),
+        ("blank",    ""),
+        ("section",  "Si une execution est trop longue"),
+        ("body",     "Google arrete toute execution a 6 minutes. Au-dela de "
+                     "BUDGET_COLLECTE_SECONDES (4 minutes par defaut), la "
+                     "collecte s arrete d elle-meme : ce qui a ete lu est "
+                     "enregistre normalement, avec les deadlines, les "
+                     "couleurs et les alertes."),
+        ("body",     "Les sources non lues passent en tete au passage "
+                     "suivant : rien n est oublie, le tour se fait sur "
+                     "quelques executions. Le journal vous dit combien ont "
+                     "ete reportees et par laquelle on reprendra."),
+        ("blank",    ""),
+        ("section",  "Quand une case reste vide"),
+        ("body",     "Une case vide veut toujours dire LA SOURCE NE L A PAS "
+                     "DIT, jamais que l information n existe pas. Nous "
+                     "n inventons ni date limite ni montant : une date "
+                     "devinee vous ferait manquer un depot."),
+        ("body",     "Le portail des marches publics du Benin ne publie "
+                     "aucune echeance dans son flux : ses lignes restent en "
+                     "DATE A VERIFIER, et la date limite est dans le PDF de "
+                     "l avis. Le budget, lui, n est publie que par le portail "
+                     "europeen et Fundpilote."),
+        ("blank",    ""),
+        ("section",  "Pourquoi un lien ouvre parfois une liste"),
+        ("body",     "Le portail beninois n a pas de page par avis - meme "
+                     "dans un navigateur, une ligne n a pour seul lien que "
+                     "son PDF, dont l adresse n est publiee nulle part. Le "
+                     "lien vous amene donc a la liste : retrouvez l avis par "
+                     "son objet ou son autorite contractante."),
+        ("body",     "Quelques sites, comme l UNICEF, refusent les visites "
+                     "automatiques mais s ouvrent normalement chez vous. Le "
+                     "lien est bon."),
+        ("blank",    ""),
+        ("section",  "Repartir de zero"),
+        ("body",     "Menu TenderPilot > Vider les opportunites et le "
+                     "journal efface le tableau ET l onglet des journaux, "
+                     "apres confirmation. Vos sources et votre configuration "
+                     "ne sont jamais touchees."),
+        ("body",     "Les temoins d envoi partent avec les lignes : la "
+                     "collecte suivante renverra donc les alertes de ces "
+                     "memes opportunites. Pensez au plafond "
+                     "MAX_EMAILS_PAR_EXECUTION juste apres un vidage."),
         ("blank",    ""),
         ("section",  "Ce que TenderPilot ne fait pas"),
         ("body",     "Il ne remplit pas vos dossiers. Il n invente aucune "
@@ -272,6 +429,8 @@ def js(valeur):
 def render_schema_gs():
     seuils = "[" + ", ".join(
         f'["{statut}", {seuil}]' for statut, seuil in S.DELAI_SEUILS) + "]"
+    pertinences = "[" + ", ".join(
+        f'["{libelle}", {score}]' for libelle, score in S.PERTINENCE_SEUILS) + "]"
     # Le catalogue voyage avec le script : voir SOURCES_LIVREES ci-dessous.
     sources_livrees = lire_sources()
     return f"""/**
@@ -312,8 +471,28 @@ var SCHEMA = {{
 
   COULEURS: {js(S.COULEURS)},
 
+  /**
+   * Pertinence : ce que l'annonce vaut POUR CE CLIENT-LA, d'apres
+   * PAYS_SUIVIS et SECTEURS_SUIVIS. Elle etiquette, elle ne supprime pas.
+   */
+  PERTINENCE_PRIORITAIRE: {js(S.PERTINENCE_PRIORITAIRE)},
+  PERTINENCE_A_VOIR: {js(S.PERTINENCE_A_VOIR)},
+  PERTINENCE_POSSIBLE: {js(S.PERTINENCE_POSSIBLE)},
+  PERTINENCE_HORS_PROFIL: {js(S.PERTINENCE_HORS_PROFIL)},
+
+  /** (libelle, score minimum), du plus pertinent au moins pertinent. */
+  PERTINENCE_SEUILS: {pertinences},
+
+  /** Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. */
+  PAYS_OUVERTS: {js(S.PAYS_OUVERTS)},
+
   /** Une opportunite recoit au maximum un email de chaque type. */
   NOTIFICATIONS: {js(S.NOTIFICATIONS)},
+
+  /** Colonnes de l'onglet PAYS_ET_SECTEURS, reecrit a chaque passage. */
+  PROFIL: {js(S.PROFIL)},
+  PROFIL_TYPE_PAYS: {js(S.PROFIL_TYPE_PAYS)},
+  PROFIL_TYPE_SECTEUR: {js(S.PROFIL_TYPE_SECTEUR)},
 
   /**
    * Le catalogue de sources livre avec cette version.
@@ -674,10 +853,13 @@ def build():
     feuille_opportunites(wb)
     feuille_sources(wb)
     feuille_config(wb)
+    feuille_profil(wb)
     feuille_logs(wb)
+    # PAYS_ET_SECTEURS se lit juste apres CONFIG : on y regle son profil,
+    # on vient ici verifier ce qui existe.
     wb._sheets = [wb[n] for n in ["LISEZ_MOI", S.SHEETS["opportunities"],
                                   S.SHEETS["sources"], S.SHEETS["config"],
-                                  S.SHEETS["logs"]]]
+                                  S.SHEETS["profil"], S.SHEETS["logs"]]]
     wb.active = 0
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)

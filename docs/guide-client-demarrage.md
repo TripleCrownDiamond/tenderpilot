@@ -257,4 +257,14 @@ correction est envoyee a tous.
 
 ---
 
+## Rester au courant
+
+Le groupe WhatsApp TenderPilot annonce les nouvelles sources, les
+corrections et les nouveautes du produit. C'est aussi la que les questions
+recoivent une reponse le plus vite.
+
+{groupe}
+
+---
+
 Une question, un blocage : {contact}

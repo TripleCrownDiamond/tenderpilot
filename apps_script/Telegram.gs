@@ -73,7 +73,9 @@ function messageTelegramDigest(nouvelles) {
   var lignes = ['<b>' + nouvelles.length + ' nouvelles opportunites</b>', ''];
   // Au-dela d'une dizaine de lignes on depasserait la limite de l'API : on
   // liste les premieres et on annonce le reste.
-  var montrees = nouvelles.slice(0, 10);
+  // Le plus pertinent d'abord : les dix montrees doivent etre les dix qui
+  // comptent, pas les dix premieres arrivees.
+  var montrees = parPertinence_(nouvelles).slice(0, 10);
   montrees.forEach(function (o, i) {
     var echeance = estVide(o.deadline) ? ''
       : ' - ' + echapperTelegram_(jour(o.deadline));

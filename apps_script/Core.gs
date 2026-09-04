@@ -137,9 +137,15 @@ var MOTS_SECTEUR = [
     "logiciel", "software", "internet", "cybersecur", "donnees", "data",
     "intelligence artificielle", "artificial intelligence", "serveur",
     "ordinateur", "computer", "telecom", "connectivite"]],
+  // "building" seul a ete RETIRE le 2026-09-02 : en anglais du
+  // developpement, "capacity building" est partout, et il rangeait
+  // "TRAINING MODULE & CAPACITY BUILDING ON HUMAN RIGHTS" dans le BTP.
+  // Les vrais travaux restent couverts par construction, civil works,
+  // batiment et genie civil.
   ["Infrastructures et BTP", ["construction", "travaux de rehabilitation",
-    "batiment", "building", "genie civil", "civil works", "voirie",
-    "amenagement", "refection", "pistes rurales", "pont", "bridge"]],
+    "batiment", "building works", "building construction", "genie civil",
+    "civil works", "voirie", "amenagement", "refection", "pistes rurales",
+    "pont", "bridge"]],
   ["Transport et logistique", ["transport", "logistique", "logistics",
     "vehicule", "vehicle", "fret", "freight", "portuaire", "aeroport",
     "airport", "route nationale", "ferroviaire", "railway"]],
@@ -269,6 +275,8 @@ var TYPES_CONNUS = {
   'manifestation d interet': 'AMI',
   'request for expression of interest': 'AMI',
   'expression of interest': 'AMI',
+  // UNGM abrege : "Request for EOI".
+  'request for eoi': 'AMI',
   'general procurement notice': 'AMI',
   'consultant qualification selection': 'AMI',
   'demande de cotation': 'Demande de cotation',
@@ -517,6 +525,44 @@ function fraicheurSource_(dates, aujourdhui) {
   return { silencieuse: jours > JOURS_SOURCE_SILENCIEUSE, jours: jours };
 }
 
+/**
+ * Une source dont une annonce est encore ouverte n'est pas abandonnee.
+ *
+ * MESURE DU 2026-09-02 sur Grants.gov : le portail federal americain
+ * publiait 1034 subventions ouvertes, et etait pourtant signale comme
+ * "rien de neuf depuis 442 jours : source peut-etre abandonnee". La
+ * date de publication qu'il expose est celle de l'OUVERTURE du programme -
+ * des programmes ouverts en 2024 recoivent des dossiers jusqu'en 2028.
+ *
+ * La fraicheur des publications ne suffit donc pas a juger une source. Une
+ * echeance a venir, elle, prouve qu'il y a quelque chose a deposer : c'est
+ * la seule chose que l'utilisateur ait besoin de savoir, et elle prime.
+ */
+function aUneEcheanceOuverte_(annonces, jourCourant) {
+  return (annonces || []).some(function (a) {
+    var reste = joursRestants(a.deadline, jourCourant);
+    return reste !== null && reste >= 0;
+  });
+}
+
+/**
+ * Une cellule de la colonne Source_ID est-elle un identifiant de source ?
+ *
+ * L'onglet SOURCES se termine par une note d'aide en clair. Tant qu'elle a
+ * occupe la colonne A, le script la lisait comme une source de plus :
+ * chaque execution du 2026-09-02 journalisait "Methode : RSS ou JSON:<site>
+ * ... Source desactivee." La note est desormais en colonne B, mais les
+ * classeurs deja installes gardent la leur en colonne A - d'ou ce filtre,
+ * qui les repare sans qu'on ait a y toucher.
+ *
+ * Un identifiant est un code : sans espace, court. Aucune phrase n'en est
+ * un, et aucun des identifiants livres n'en contient.
+ */
+function estIdSource(valeur) {
+  var t = String(valeur === null || valeur === undefined ? '' : valeur).trim();
+  return t.length > 0 && t.length <= 40 && !/\s/.test(t);
+}
+
 /** Resume tronque proprement - section 28. Pas d'IA. */
 function tronquer(texte, maximum) {
   var t = String(texte === null || texte === undefined ? '' : texte)
@@ -549,6 +595,8 @@ function normalizeOpportunity(brut, source) {
     sector: String(brut.sector || source.sector || '').trim()
       || deduireSecteur(brut.title) || SECTEUR_INCONNU,
     source: String(source.id || '').trim(),
+    // Ce que la source ANNONCE, ou rien : on ne devine jamais un montant.
+    budget: String(brut.budget || '').trim(),
     url: String(brut.url || '').trim(),
     pdf: String(brut.pdf || '').trim(),
     published: jour(brut.published),
@@ -559,6 +607,217 @@ function normalizeOpportunity(brut, source) {
 }
 
 // Export pour les tests Node. Apps Script n'a pas de module.
+// ---------------------------------------------------------- PERTINENCE
+
+/**
+ * Une liste "Benin, Togo, Niger" en tableau de mots comparables.
+ * Une case vide rend un tableau vide : le client n'a rien dit.
+ */
+function listeConfig_(valeur) {
+  return String(valeur === null || valeur === undefined ? '' : valeur)
+    .split(/[;,]/)
+    .map(function (m) { return normalizeText(m); })
+    .filter(function (m) { return m.length > 0; });
+}
+
+/** Un des elements de la liste apparait-il dans le texte ? */
+function correspond_(texte, liste) {
+  var t = normalizeText(texte);
+  if (!t) return false;
+  for (var i = 0; i < liste.length; i++) {
+    if (t.indexOf(liste[i]) !== -1 || liste[i].indexOf(t) !== -1) return true;
+  }
+  return false;
+}
+
+/**
+ * Ce que l'annonce vaut POUR CE CLIENT-LA - deux axes, deux points chacun.
+ *
+ * PAYS. Deux points si l'annonce est dans un pays suivi. UN point si elle
+ * n'exclut personne - "International", "Afrique (multi-pays)", pays vide :
+ * une structure beninoise peut candidater a un appel mondial, et le lui
+ * cacher couterait un marche. Zero point pour un pays qui n'est pas le sien.
+ *
+ * SECTEUR. Deux points si le secteur est suivi, mais AUSSI deux points si le
+ * client n'a declare aucun secteur : ne rien dire n'est pas se restreindre.
+ * Un point quand le secteur est inconnu - on ne sait pas, on ne tranche pas.
+ * Zero point pour un secteur qui n'est pas le sien.
+ *
+ * Le total, de 0 a 4, donne le libelle. Aucune cle, aucun reseau : c'est la
+ * meme exigence que pour les types et les secteurs, un client sans
+ * classement intelligent doit pouvoir trier.
+ */
+function pertinence(annonce, config) {
+  var paysSuivis = listeConfig_((config || {}).PAYS_SUIVIS);
+  var secteursSuivis = listeConfig_((config || {}).SECTEURS_SUIVIS);
+
+  var pays = String((annonce || {}).country || '');
+  var points = 0;
+  if (paysSuivis.length && correspond_(pays, paysSuivis)) {
+    points += 2;
+  } else if (!paysSuivis.length || estVide(pays)
+             || correspond_(pays, SCHEMA.PAYS_OUVERTS)) {
+    points += 1;
+  }
+
+  var secteur = String((annonce || {}).sector || '');
+  if (!secteursSuivis.length || correspond_(secteur, secteursSuivis)) {
+    points += 2;
+  } else if (estVide(secteur) || secteur === SECTEUR_INCONNU) {
+    points += 1;
+  }
+
+  var seuils = SCHEMA.PERTINENCE_SEUILS;
+  for (var i = 0; i < seuils.length; i++) {
+    if (points >= seuils[i][1]) return seuils[i][0];
+  }
+  return SCHEMA.PERTINENCE_HORS_PROFIL;
+}
+
+/**
+ * Trie du plus pertinent au moins pertinent, puis du plus urgent au moins
+ * urgent. Sert aux emails et au recapitulatif : ce qui vous concerne se lit
+ * en premier, sans avoir a faire defiler.
+ *
+ * Ne modifie pas le tableau recu.
+ */
+function parPertinence_(lignes) {
+  return (lignes || []).slice().sort(function (a, b) {
+    var pa = String(a.pertinence || '');
+    var pb = String(b.pertinence || '');
+    if (pa !== pb) return pa < pb ? 1 : -1;
+    var ja = a.days === null || a.days === undefined || a.days === '' ? 9999 : a.days;
+    var jb = b.days === null || b.days === undefined || b.days === '' ? 9999 : b.days;
+    return ja - jb;
+  });
+}
+
+/**
+ * L'ordre du tableau : le plus de temps devant en haut.
+ *
+ * Trois rangs, dans cet ordre :
+ *
+ *   1. les opportunites ENCORE OUVERTES, de la plus lointaine a la plus
+ *      proche - on voit d'abord celles qu'on a le temps de preparer ;
+ *   2. les EXPIREES, jours restants negatifs, du plus recemment echu ;
+ *   3. les SANS ECHEANCE, tout en bas. Elles ne sont pas moins bonnes -
+ *      la DNCMP n'en publie aucune - mais elles ne se rangent nulle part
+ *      sur un axe de temps, et les laisser au milieu casserait la lecture.
+ *
+ * A egalite de delai, le plus pertinent passe devant : c'est la seule
+ * information qui departage deux echeances identiques.
+ *
+ * Ne modifie pas le tableau recu. Jumeau de parDelai() dans regles.ts.
+ */
+function parDelai_(lignes) {
+  function jours(l) {
+    var j = l.days;
+    if (j === null || j === undefined || j === '') return null;
+    var n = Number(j);
+    return isFinite(n) ? n : null;
+  }
+  return (lignes || []).slice().sort(function (a, b) {
+    var ja = jours(a);
+    var jb = jours(b);
+    // Sans echeance : toujours en bas, quel que soit le reste.
+    if (ja === null && jb === null) return 0;
+    if (ja === null) return 1;
+    if (jb === null) return -1;
+    if (ja !== jb) return jb - ja;
+    var pa = String(a.pertinence || '');
+    var pb = String(b.pertinence || '');
+    if (pa !== pb) return pa < pb ? 1 : -1;
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+// ------------------------------------------------- INVENTAIRE DU PROFIL
+
+/**
+ * Ce qui a REELLEMENT ete collecte : pays et secteurs, avec leur compte.
+ *
+ * A QUOI CA SERT. PAYS_SUIVIS et SECTEURS_SUIVIS se remplissent a la main.
+ * Une valeur inventee - un pays qu'aucune source ne publie, un secteur
+ * ecrit autrement que dans le tableau - ne correspond a rien, ne remonte
+ * rien, et NE SE VOIT PAS : la colonne Pertinence baisse sans que personne
+ * comprenne pourquoi. Le client lit donc ici ce qui existe vraiment, et
+ * recopie.
+ *
+ * La colonne Suivi dit ce que la configuration retient AUJOURD'HUI : on
+ * voit d'un coup d'oeil ce qu'on a coche et ce qu'on a laisse de cote.
+ *
+ * Trie par nombre d'annonces decroissant, puis par ordre alphabetique : ce
+ * qui pese le plus se lit en premier, et deux valeurs a egalite ne dansent
+ * pas d'un passage a l'autre.
+ *
+ * Jumeau de inventaireProfil() dans web/src/lib/domain/regles.ts.
+ */
+function inventaireProfil(lignes, config) {
+  var paysSuivis = listeConfig_((config || {}).PAYS_SUIVIS);
+  var secteursSuivis = listeConfig_((config || {}).SECTEURS_SUIVIS);
+
+  function compter(champ) {
+    var comptes = {};
+    (lignes || []).forEach(function (l) {
+      var valeur = String(l[champ] === null || l[champ] === undefined
+                          ? '' : l[champ]).trim();
+      if (!valeur) return;
+      comptes[valeur] = (comptes[valeur] || 0) + 1;
+    });
+    return comptes;
+  }
+
+  function rangs(comptes, type, suivis) {
+    return Object.keys(comptes).sort(function (a, b) {
+      if (comptes[b] !== comptes[a]) return comptes[b] - comptes[a];
+      return a.localeCompare(b);
+    }).map(function (valeur) {
+      // Aucune liste declaree = rien n'est ecarte : tout est suivi.
+      var suivi = !suivis.length || correspond_(valeur, suivis);
+      return [type, valeur, comptes[valeur], suivi ? 'OUI' : 'NON'];
+    });
+  }
+
+  return rangs(compter('country'), SCHEMA.PROFIL_TYPE_PAYS, paysSuivis)
+    .concat(rangs(compter('sector'), SCHEMA.PROFIL_TYPE_SECTEUR,
+                  secteursSuivis));
+}
+
+/**
+ * Ce niveau de pertinence doit-il declencher une notification ?
+ *
+ * NOTIFIER_PERTINENCE vide = tout est notifie. C'est le defaut, et c'est le
+ * bon : un client qui n'a rien regle ne doit rien rater.
+ *
+ * La comparaison est TOLERANTE parce que le libelle est long et se recopie
+ * a la main : "3 - PRIORITAIRE", "PRIORITAIRE" et "3" designent le meme
+ * niveau. Un reglage qui ne marche que si l'on a recopie le tiret et les
+ * espaces au bon endroit est un reglage qui ne marche pas.
+ *
+ * Une annonce sans pertinence calculee passe : le doute profite a
+ * l'annonce, comme partout ailleurs.
+ */
+function pertinenceNotifiable(pertinence, config) {
+  var voulus = listeConfig_((config || {}).NOTIFIER_PERTINENCE);
+  if (!voulus.length) return true;
+
+  var brut = String(pertinence === null || pertinence === undefined
+                    ? '' : pertinence).trim();
+  if (!brut) return true;
+
+  var normalise = normalizeText(brut);
+  var rang = (/^(\d)/.exec(brut) || [])[1];
+  for (var i = 0; i < voulus.length; i++) {
+    var voulu = voulus[i];
+    if (!voulu) continue;
+    if (normalise.indexOf(voulu) !== -1 || voulu.indexOf(normalise) !== -1) {
+      return true;
+    }
+    if (rang && voulu === rang) return true;
+  }
+  return false;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     normalizeText: normalizeText, estVide: estVide, jour: jour,
@@ -573,6 +832,12 @@ if (typeof module !== 'undefined') {
     normalizeOpportunity: normalizeOpportunity,
     normaliserType: normaliserType, TYPES_ANNONCE: TYPES_ANNONCE,
     deduireSecteur: deduireSecteur, SECTEURS_ANNONCE: SECTEURS_ANNONCE,
-    SECTEUR_INCONNU: SECTEUR_INCONNU
+    SECTEUR_INCONNU: SECTEUR_INCONNU,
+    pertinence: pertinence, parPertinence_: parPertinence_,
+    parDelai_: parDelai_,
+    inventaireProfil: inventaireProfil,
+    pertinenceNotifiable: pertinenceNotifiable,
+    aUneEcheanceOuverte_: aUneEcheanceOuverte_,
+    estIdSource: estIdSource
   };
 }

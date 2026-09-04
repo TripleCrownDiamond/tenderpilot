@@ -30,7 +30,12 @@ var ANALYSEURS_HTML = {
   'afd.fr': analyserPageAfd,
   'wellcome.org': analyserPageWellcome,
   'grandchallenges.org': analyserPageGrandChallenges,
-  'unicef.org/supply': analyserPageUnicefSupply
+  'unicef.org/supply': analyserPageUnicefSupply,
+  'giz.de': analyserPageGiz,
+  'expertise-france.gestmax.fr': analyserPageExpertiseFrance,
+  'plan-international.org': analyserPagePlanInternational,
+  'jobrelais.com': analyserPageJobrelais,
+  'ungm.org': analyserPageUngm
 };
 
 /** Retourne l'analyseur correspondant a une methode HTML:<nom>, ou null. */
@@ -482,9 +487,18 @@ function analyserPageDedras(html, source) {
     if (type) morceaux.push('Type : ' + type);
     if (reference) morceaux.push('Reference : ' + reference);
 
+    // LE LIEN DE LA FICHE, PAS CELUI DE LA LISTE. Chaque carte porte le
+    // bouton "Details" vers /tenderforapplicationbis/<uuid> : sans lui, les
+    // 98 avis renvoyaient tous a la meme page et il fallait y rechercher
+    // l'annonce a la main. On retombe sur la liste seulement si le bouton
+    // manque - mieux vaut un lien large qu'aucun lien.
+    const lienFiche = /href="(https:\/\/eprocurement\.dedras\.org\/tenderforapplication[^"]*)"/i
+      .exec(carte);
+
     return normalizeOpportunity({
       title: titre,
-      url: 'https://eprocurement.dedras.org/toutvoir',
+      url: nettoyerLien(lienFiche ? lienFiche[1]
+        : 'https://eprocurement.dedras.org/toutvoir'),
       summary: morceaux.join(' - ') || titre,
       // "2026-08-19 16:26:03" : deja en annee-mois-jour.
       published: publie ? publie.slice(0, 10) : null,
@@ -634,7 +648,16 @@ function analyserPageGrandChallenges(html, source) {
     if (!titre) return;
 
     var slug = String(g.url || '').trim();
-    var lien = slug ? nettoyerLien('https://www.grandchallenges.org' + slug) : String(g.apply_link || '');
+    // LE LIEN QUI REPOND. Mesure du 2026-09-02, sur les trois defis
+    // ouverts : "www.grandchallenges.org" + le slug rend 404 pour les
+    // TROIS - c'etait donc un lien systematiquement mort. Le champ
+    // apply_link, lui, repond 200 pour les trois et mene la ou l'on
+    // candidate. La fiche descriptive vit sur un autre hote,
+    // gcgh.grandchallenges.org, qui rend 200 pour deux defis sur trois :
+    // elle sert de repli, jamais de premier choix.
+    var candidature = String(g.apply_link || '').trim();
+    var lien = nettoyerLien(candidature
+      || (slug ? 'https://gcgh.grandchallenges.org' + slug : ''));
     var challenge = String(g.challenge_goal || '').trim();
     var initiative = String(g.initiative_title || '').trim();
     var description = nettoyerHtml(String(g.opportunity_description_summary || g.opportunity_description || ''));
@@ -750,6 +773,491 @@ function analyserPageUnicefSupply(html, source) {
   return resultats.filter(function (o) { return o && o.title; });
 }
 
+/**
+ * Analyseur du Vergabemarktplatz de la GIZ, la cooperation allemande.
+ *
+ * Jumeau de analyserGiz() dans web/src/lib/domain/html.ts.
+ *
+ * La page welcome.do sert un tableau, cote serveur, sans authentification.
+ * Une ligne = un avis, six cellules dans cet ordre :
+ *
+ *   0  Veroffentlicht              date de publication, JJ.MM.AAAA
+ *   1  Angebots-/Teilnahmefrist    echeance, JJ.MM.AAAA - ou "nv"
+ *   2  Bezeichnung                 l'objet du marche
+ *   3  Vergabeordnung + type       "UVgO Ausschreibung", "VgV TNW"...
+ *   4  Ausschreibende Stelle       le pouvoir adjudicateur
+ *   5  lien vers projectForwarding.do?pid=NNNNN
+ *
+ * DEUX TRIS, mesures le 2026-09-02 sur les 224 avis des douze pages.
+ *
+ * 1. On ecarte les "Vergebener Auftrag" - des marches DEJA ATTRIBUES, 131
+ *    des 224 avis - et les "Bekanntmachung uber Auftragsanderung", des
+ *    avenants. Meme decision que pour les "Contract Award" de la Banque
+ *    mondiale : TenderPilot sert a candidater. Restent 91 avis, et tous
+ *    portent une echeance - les 133 lignes sans date etaient exactement
+ *    celles qu'on ecarte.
+ *
+ * 2. Le type allemand est traduit dans le vocabulaire ferme :
+ *    "Ausschreibung" est un appel d'offres, "TNW" (Teilnahmewettbewerb) est
+ *    un appel a candidatures, donc un AMI.
+ *
+ * LA DATE EST CONVERTIE ICI, ET SUREMENT. "02.09.2026" passe par
+ * parseFeedDate vaut le 9 FEVRIER : new Date() lit le point a l'americaine.
+ * On decoupe donc les trois nombres a la main. Une echeance fausse d'un
+ * jour fait rater un depot ; une echeance fausse de sept mois aussi.
+ */
+var GIZ_RACINE = 'https://ausschreibungen.giz.de';
+
+/** "24.09.2026" -> "2026-09-24". Rien d'autre n'est accepte. */
+function dateAllemande(valeur) {
+  var m = /^\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*$/.exec(String(valeur || ''));
+  if (!m) return null;
+  var jour = ('0' + m[1]).slice(-2);
+  var mois = ('0' + m[2]).slice(-2);
+  if (Number(mois) < 1 || Number(mois) > 12) return null;
+  if (Number(jour) < 1 || Number(jour) > 31) return null;
+  return m[3] + '-' + mois + '-' + jour;
+}
+
+function analyserPageGiz(html, source) {
+  if (!html) return [];
+  var lignes = String(html).match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || [];
+  var sortie = [];
+
+  lignes.forEach(function (ligne) {
+    var lien = /href="([^"]*projectForwarding\.do\?pid=\d+)"/i.exec(ligne);
+    if (!lien) return;
+
+    // Le tableau de la GIZ ne ferme pas toujours ses <td> : on decoupe sur
+    // le debut de la cellule suivante plutot que sur la balise fermante.
+    var cellules = (ligne.match(/<td\b[^>]*>[\s\S]*?(?=<td\b|<\/tr>)/gi) || [])
+      .map(function (c) { return nettoyerHtml(c); });
+    if (cellules.length < 4) return;
+
+    var nature = cellules[3];
+    // Marche attribue ou avenant : rien a soumissionner.
+    if (/vergebener auftrag/i.test(nature)) return;
+    if (/auftrags.nderung/i.test(nature)) return;
+
+    var titre = cellules[2];
+    if (!titre) return;
+
+    var morceaux = ['Procedure GIZ : ' + nature];
+    if (cellules[4]) morceaux.push('Pouvoir adjudicateur : ' + cellules[4]);
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: nettoyerLien(GIZ_RACINE + lien[1].replace(GIZ_RACINE, '')),
+      summary: morceaux.join(' - '),
+      published: dateAllemande(cellules[0]),
+      deadline: dateAllemande(cellules[1]),
+      org: cellules[4] || '',
+      type: /\bTNW\b|teilnahmewettbewerb/i.test(nature) ? 'AMI' : "Appel d'offres"
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
+/**
+ * Analyseur des offres d'Expertise France, sur sa plateforme Gestmax.
+ *
+ * Jumeau de analyserExpertiseFrance() dans web/src/lib/domain/html.ts.
+ *
+ * MESURE DU 2026-09-04 : 144 offres, dix par page, quinze pages, rendues
+ * cote serveur. Chaque carte porte ce que TenderPilot cherche et que peu de
+ * sources donnent d'un coup : le titre, la zone ET le pays, le type de
+ * contrat, le secteur declare, et une vraie "Date limite de candidature".
+ *
+ * CE N'EST PAS QU'UN SITE D'EMPLOI. Expertise France y publie aussi ses
+ * marches de prestation - "Recrutement d'une agence de communication pour
+ * la realisation d'outils de communication, Benin" est une consultation,
+ * pas un poste. Le type de contrat le dit, et normaliserType s'en sert.
+ *
+ * La pagination passe par {page} dans l'URL du registre : rien de special
+ * a ecrire ici, le moteur s'en charge.
+ */
+var EF_RACINE = 'https://expertise-france.gestmax.fr';
+
+/**
+ * Le type de contrat d'Expertise France, ramene au vocabulaire ferme.
+ *
+ * "CDD", "CDDU", "CDI", "Stage" sont des POSTES : Recrutement. Tout le
+ * reste - "Contrat de prestation de services", huit offres sur dix - reste
+ * volontairement NON traduit : le defaut de la source s'applique alors.
+ *
+ * Pourquoi ne pas le traduire ? Parce qu'il couvre les deux natures a la
+ * fois : un expert individuel comme une agence de communication. Le ranger
+ * d'office dans "Recrutement" ferait disparaitre les marches d'agence pour
+ * qui filtre les postes ; le ranger dans "Appel d'offres" ferait l'inverse.
+ * Un libelle qui recouvre deux notions ne se tranche pas a l'aveugle, et le
+ * detail exact reste dans le resume.
+ */
+function typeExpertiseFrance_(contrat) {
+  return /\b(CDD|CDDU|CDI|stage|alternance|apprentissage)\b/i.test(contrat)
+    ? 'Recrutement' : '';
+}
+
+function analyserPageExpertiseFrance(html, source) {
+  if (!html) return [];
+  var cartes = String(html).match(
+    /<div class="list-group-item[\s\S]*?(?=<div class="list-group-item|<div class="pager|$)/gi) || [];
+  var resultats = [];
+
+  cartes.forEach(function (carte) {
+    var lien = /<a href="([^"]*gestmax\.fr\/\d+\/\d+\/[^"]*)"/i.exec(carte);
+    if (!lien) return;
+
+    var titreBrut = /<h2[^>]*>([\s\S]*?)<\/h2>/i.exec(carte);
+    // Le gabarit ajoute un avertissement pour les lecteurs d'ecran : il
+    // n'a rien a faire dans l'intitule d'un marche.
+    var titre = nettoyerHtml(titreBrut ? titreBrut[1] : '')
+      .replace(/\(Nouvelle fen[eê]tre\)\s*$/i, '').trim();
+    if (!titre) return;
+
+    // Deux <span class="country"> : la zone d'abord, le pays ensuite. On
+    // garde le PAYS quand il existe - "TANZANIE" situe une annonce,
+    // "AFRIQUE SUBSAHARIENNE" beaucoup moins.
+    var lieux = [];
+    var motif = /<span class="country">[\s\S]*?<strong>([\s\S]*?)<\/strong>/gi;
+    var trouve;
+    while ((trouve = motif.exec(carte)) !== null) {
+      var lieu = nettoyerHtml(trouve[1]);
+      if (lieu) lieux.push(lieu);
+    }
+    var pays = lieux.length > 1 ? lieux[lieux.length - 1] : (lieux[0] || '');
+
+    function champ(expression) {
+      var m = expression.exec(carte);
+      return nettoyerHtml(m ? m[1] : '');
+    }
+    var contrat = champ(/<div class="text-blue-light listdiv-value">([\s\S]*?)<\/div>/i);
+    var secteur = champ(/listdiv-vac_thematique[\s\S]*?<span class="listdiv-value">([\s\S]*?)<\/span>/i);
+    // "Date limite de candidature : 24/09/2026 17:00" - extractDeadline
+    // reconnait deja l'annonce et la forme.
+    var limite = champ(/<div class="text-grey listdiv-value">([\s\S]*?)<\/div>/i);
+
+    var morceaux = [];
+    if (lieux.length > 1) morceaux.push('Zone : ' + lieux[0]);
+    if (contrat) morceaux.push('Contrat : ' + contrat);
+    if (secteur) morceaux.push('Secteur declare : ' + secteur);
+
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: nettoyerLien(lien[1].split('?')[0]),
+      summary: morceaux.join(' - '),
+      deadline: extractDeadline(limite),
+      org: 'Expertise France',
+      country: pays,
+      sector: secteur,
+      type: typeExpertiseFrance_(contrat)
+    }, source));
+  });
+
+  return resultats.filter(function (o) { return o.title; });
+}
+
+/**
+ * Analyseur des appels d'offres de Plan International.
+ *
+ * Jumeau de analyserPlanInternational() dans web/src/lib/domain/html.ts.
+ *
+ * MESURE DU 2026-09-04 : huit appels actifs, tous sur UNE seule page, en
+ * clair. Chacun est un titre de niveau 3 suivi de ses paragraphes, puis
+ * d'un bloc de telechargement.
+ *
+ * DEUX PARTICULARITES.
+ *
+ * 1. Il n'y a pas de page par appel : les huit vivent sur celle-ci. Le lien
+ *    mene donc a la liste - mais le DOSSIER, lui, est propre a chaque appel,
+ *    et il part dans la colonne PDF. C'est le contraire de la DNCMP, ou ni
+ *    l'un ni l'autre n'existait.
+ *
+ * 2. L'echeance est en prose anglaise : "no later than Friday, 28th August
+ *    2026". Ni la tournure ni le rang ordinal n'etaient reconnus le
+ *    2026-09-04 - les deux ont ete ajoutes a extractDeadline, ce qui profite
+ *    a toutes les sources.
+ *
+ * Le titre peut etre vide : la page en pose plusieurs comme separateurs.
+ */
+var PLAN_PAGE = 'https://plan-international.org/calls-tender/';
+
+function analyserPagePlanInternational(html, source) {
+  if (!html) return [];
+  // Chaque appel court d'un <h3> au suivant.
+  var blocs = String(html).split(/<h3 class="wp-block-heading">/i).slice(1);
+  var resultats = [];
+
+  blocs.forEach(function (bloc) {
+    var fin = bloc.indexOf('</h3>');
+    if (fin === -1) return;
+    var titre = nettoyerHtml(bloc.slice(0, fin));
+    // La page pose des <h3> vides en guise de separateurs.
+    if (!titre) return;
+
+    var corps = bloc.slice(fin);
+    var texte = nettoyerHtml(corps);
+    // Le dossier complet : un ZIP ou un PDF, propre a cet appel.
+    var dossier = /href=['"]([^'"]*plan-international\.org\/uploads\/[^'"]+)['"]/i
+      .exec(corps);
+
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: PLAN_PAGE,
+      summary: texte.slice(0, 400),
+      deadline: extractDeadline(texte),
+      org: 'Plan International',
+      pdf: dossier ? nettoyerLien(dossier[1]) : ''
+    }, source));
+  });
+
+  return resultats.filter(function (o) { return o.title; });
+}
+
+/**
+ * COLLECTE EN DEUX TEMPS : la liste, puis les fiches.
+ *
+ * Jumeau de ANALYSEURS_FICHE dans web/src/lib/domain/html.ts.
+ *
+ * Certains sites listent leurs avis sans jamais ecrire l'echeance dans la
+ * liste - elle n'existe que sur la fiche. JobRelais est le cas type : sa
+ * liste rend 12 avis par page avec, pour toute date, "il y a 3 mois" ; la
+ * fiche, elle, porte un JSON-LD propre avec validThrough. Sans second
+ * temps, ces sources arrivent SANS DATE, le filtre des echues ne peut pas
+ * jouer, et le tableau du client se remplit d'avis morts.
+ *
+ * TROIS BORNES, parce que ce n'est pas gratuit.
+ *
+ * 1. Une fiche n'est lue que si l'echeance MANQUE.
+ * 2. Une annonce deja au classeur n'est jamais relue : chaque passage
+ *    enrichit du NOUVEAU, et le rattrapage avance au lieu de tourner en
+ *    rond.
+ * 3. Un plafond par passage (MAX_FICHES_PAR_PASSAGE). Ce qui depasse
+ *    revient au passage suivant.
+ *
+ * ET ON NE GARDE PAS CE QU'ON N'A PAS PU DATER : pour une source qui
+ * declare un analyseur de fiche, l'absence de date veut dire "fiche non
+ * lue", pas "avis sans echeance".
+ */
+var ANALYSEURS_FICHE = {
+  'jobrelais.com': analyserFicheJobrelais
+};
+
+/** Retourne l'analyseur de fiche d'une methode, ou null. */
+function analyseurFiche_(methode) {
+  var m = /^HTML:(.+)$/i.exec(String(methode || '').trim());
+  return m ? (ANALYSEURS_FICHE[m[1].trim()] || null) : null;
+}
+
+/** Complete une annonce avec ce que sa fiche apporte, sans rien ecraser. */
+function fusionnerFiche_(annonce, fiche) {
+  Object.keys(fiche || {}).forEach(function (cle) {
+    var valeur = fiche[cle];
+    var actuelle = annonce[cle];
+    var vide = actuelle === undefined || actuelle === null || actuelle === '';
+    if (vide && valeur !== undefined && valeur !== null && valeur !== '') {
+      annonce[cle] = valeur;
+    }
+  });
+  return annonce;
+}
+
+/**
+ * Analyseur d'une FICHE JobRelais.
+ *
+ * La fiche porte un JSON-LD de type JobPosting, correctement balise :
+ * datePosted, validThrough, description. On lit le balisage plutot que la
+ * page : c'est un contrat, la mise en page n'en est pas un.
+ *
+ * hiringOrganization est volontairement IGNORE : il vaut "JobRelais Sarl",
+ * le site lui-meme, jamais l'acheteur reel.
+ */
+function analyserFicheJobrelais(html) {
+  if (!html) return {};
+  var motif = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+  var trouve;
+  while ((trouve = motif.exec(String(html))) !== null) {
+    var donnees;
+    try {
+      donnees = JSON.parse(trouve[1]);
+    } catch (e) {
+      // La page en sert plusieurs, dont un qui laisse fuir du PHP brut.
+      continue;
+    }
+    if (!donnees || donnees['@type'] !== 'JobPosting') continue;
+
+    var description = stripTags(reparerCaracteres(
+      String(donnees.description || '')));
+    return {
+      deadline: isoFiche_(donnees.validThrough),
+      published: isoFiche_(donnees.datePosted),
+      summary: description.slice(0, 400)
+    };
+  }
+  return {};
+}
+
+/** "2026-11-26T11:16" ou "2026-08-26" -> "2026-11-26". Rien d'autre. */
+function isoFiche_(valeur) {
+  var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(valeur === null
+    || valeur === undefined ? '' : valeur).trim());
+  return m ? m[1] : null;
+}
+
+/**
+ * Analyseur de la LISTE de JobRelais, l'agregateur beninois.
+ *
+ * Jumeau de analyserJobrelais() dans web/src/lib/domain/html.ts.
+ *
+ * La liste ne porte AUCUNE echeance, et n'est pas triee par date : la page
+ * 1 melange "il y a 2 jours" et "il y a 3 mois". C'est la fiche qui date.
+ */
+function analyserPageJobrelais(html, source) {
+  if (!html) return [];
+  var motif = /<h3[^>]*class="[^"]*line-clamp-2[^"]*"[^>]*>\s*<a\s+href="([^"]*\/opportunities\/call-for-tenders\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  var resultats = [];
+  var vus = {};
+  var trouve;
+
+  while ((trouve = motif.exec(String(html))) !== null) {
+    var lien = nettoyerLien(trouve[1]);
+    var titre = nettoyerHtml(trouve[2]);
+    // La meme carte apparait deux fois : l'image et le titre pointent
+    // toutes deux vers la fiche.
+    if (!titre || vus[lien]) continue;
+    vus[lien] = true;
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: lien,
+      summary: '',
+      // La liste ne date rien : la fiche s'en charge.
+      deadline: null
+    }, source));
+  }
+  return resultats;
+}
+
+/**
+ * Analyseur de la liste UNGM - le marche public des agences des Nations
+ * unies.
+ *
+ * Jumeau de analyserUngm() dans web/src/lib/domain/html.ts.
+ *
+ * CE N'EST PAS UNE PAGE, C'EST UNE REPONSE DE RECHERCHE. UNGM ne rend aucun
+ * avis dans le HTML de /Public/Notice : la liste arrive d'un POST sur
+ * /Public/Notice/Search, qui repond par des RANGEES HTML - pas du JSON.
+ * D'ou une methode HTML servie par un POST : voir requeteUngm_ dans Json.gs.
+ *
+ * Les cellules qui portent une classe se reconnaissent a elle ; les autres
+ * se reperent a leur VOISINE - la publication suit l'echeance, le type suit
+ * l'agence, et le pays est la derniere. Se fier au rang absolu casserait a
+ * la premiere colonne ajoutee.
+ */
+var MOIS_UNGM = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+};
+
+/** "15-Sep-2026 13:00" -> "2026-09-15". L'heure est ecartee. */
+function dateUngm_(valeur) {
+  var m = /(\d{1,2})-([A-Za-z]{3})-(\d{4})/.exec(String(valeur || ''));
+  if (!m) return null;
+  var mois = MOIS_UNGM[m[2].toLowerCase()];
+  if (!mois) return null;
+  var jour = m[1].length < 2 ? '0' + m[1] : m[1];
+  if (Number(jour) < 1 || Number(jour) > 31) return null;
+  return m[3] + '-' + mois + '-' + jour;
+}
+
+/**
+ * Les cellules d'une rangee, dans l'ordre, avec leur classe.
+ *
+ * On decoupe sur l'ouverture des cellules plutot que d'apparier les
+ * balises : la premiere cellule contient des div imbriques - boutons,
+ * infobulles - qu'aucune expression non gourmande ne refermerait au bon
+ * endroit. Ces div-la n'ont pas role="cell" : le decoupage les ignore.
+ */
+function cellulesUngm_(rangee) {
+  var morceaux = String(rangee).split(/<div role="cell" class="tableCell/i);
+  var cellules = [];
+  for (var i = 1; i < morceaux.length; i++) {
+    var finClasse = morceaux[i].indexOf('"');
+    // Le contenu commence apres la balise ouvrante, pas apres la classe :
+    // il reste sinon la fin du tag (data-description, et le chevron).
+    var ouvert = morceaux[i].indexOf('>');
+    // ET IL S'ARRETE AU PREMIER </div>. La derniere cellule d'une rangee
+    // est suivie du <script> qui colore les echeances proches : sans cette
+    // borne, le pays du dernier avis vaut trente lignes de JavaScript.
+    var ferme = morceaux[i].indexOf('</div>', ouvert);
+    cellules.push({
+      classe: finClasse === -1 ? ''
+        : morceaux[i].slice(0, finClasse).replace(/^\s+|\s+$/g, ''),
+      texte: nettoyerHtml(ouvert === -1 ? ''
+        : morceaux[i].slice(ouvert + 1, ferme === -1 ? undefined : ferme))
+    });
+  }
+  return cellules;
+}
+
+/** "Multiple destinations" designe un avis regional, pas un pays. */
+function paysUngm_(valeur) {
+  var net = String(valeur || '').replace(/^\s+|\s+$/g, '');
+  if (!net || /multiple/i.test(net)) return '';
+  return net;
+}
+
+function analyserPageUngm(html, source) {
+  if (!html) return [];
+  var rangees = String(html).split(/<div role="row"[^>]*data-noticeid="/i);
+  var resultats = [];
+  var vus = {};
+
+  for (var i = 1; i < rangees.length; i++) {
+    var rangee = rangees[i];
+    var id = /^(\d+)/.exec(rangee);
+    // La meme rangee revient dans le fragment : une fois pour la liste,
+    // une fois pour le gabarit mobile.
+    if (!id || vus[id[1]]) continue;
+
+    // Le titre vit dans son propre span, jamais dans la cellule brute : la
+    // cellule porte aussi le libelle du lien "Open in a new window".
+    var titreBrut = /<span class="ungm-title[^"]*"[^>]*>([\s\S]*?)<\/span>/i
+      .exec(rangee);
+    var titre = nettoyerHtml(titreBrut ? titreBrut[1] : '');
+    if (!titre) continue;
+    vus[id[1]] = true;
+
+    var cellules = cellulesUngm_(rangee);
+    var iEcheance = -1;
+    var iAgence = -1;
+    var nues = [];
+    var reference = '';
+    for (var c = 0; c < cellules.length; c++) {
+      var classe = cellules[c].classe;
+      if (iEcheance === -1 && classe.indexOf('deadline') !== -1) iEcheance = c;
+      if (iAgence === -1 && classe === 'resultAgency') iAgence = c;
+      if (!reference && classe === 'resultInfo1') reference = cellules[c].texte;
+      if (!classe) nues.push(cellules[c]);
+    }
+    function nue_(rang) {
+      var cel = cellules[rang];
+      return (cel && !cel.classe) ? cel.texte : '';
+    }
+
+    resultats.push(normalizeOpportunity({
+      title: titre,
+      url: 'https://www.ungm.org/Public/Notice/' + id[1],
+      summary: reference,
+      deadline: iEcheance >= 0 ? dateUngm_(cellules[iEcheance].texte) : null,
+      published: dateUngm_(nue_(iEcheance + 1)),
+      org: iAgence >= 0 ? cellules[iAgence].texte : '',
+      type: nue_(iAgence + 1),
+      country: paysUngm_(nues.length ? nues[nues.length - 1].texte : '')
+    }, source));
+  }
+  return resultats;
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     analyseurHtml_: analyseurHtml_,
@@ -768,6 +1276,8 @@ if (typeof module !== 'undefined') {
     analyserPageWellcome: analyserPageWellcome,
     analyserPageGrandChallenges: analyserPageGrandChallenges,
     analyserPageUnicefSupply: analyserPageUnicefSupply,
+    analyserPageUngm: analyserPageUngm,
+    dateUngm_: dateUngm_,
     ANALYSEURS_HTML: ANALYSEURS_HTML
   };
 }

@@ -19,6 +19,7 @@ SHEETS = {
     "sources": "SOURCES",
     "config": "CONFIG",
     "logs": "LOGS",
+    "profil": "PAYS_ET_SECTEURS",
 }
 
 # --------------------------------------------------------------------------
@@ -34,6 +35,7 @@ OPPORTUNITIES = [
     "Pays",
     "Type",
     "Secteur",
+    "Budget",
     "Source",
     "Lien",
     "PDF",
@@ -41,6 +43,7 @@ OPPORTUNITIES = [
     "Deadline",
     "Jours_Restants",
     "Statut_Delai",
+    "Pertinence",
     "Resume",
     "Notif_Nouvelle",
     "Notif_J7",
@@ -63,6 +66,7 @@ OPP_KEYS = {
     "country": "Pays",
     "type": "Type",
     "sector": "Secteur",
+    "budget": "Budget",
     "source": "Source",
     "url": "Lien",
     "pdf": "PDF",
@@ -70,6 +74,7 @@ OPP_KEYS = {
     "deadline": "Deadline",
     "days": "Jours_Restants",
     "status": "Statut_Delai",
+    "pertinence": "Pertinence",
     "summary": "Resume",
     "notifNew": "Notif_Nouvelle",
     "notifJ7": "Notif_J7",
@@ -81,7 +86,7 @@ OPP_KEYS = {
 
 # Champs compares a chaque collecte : si la source a change, on met a jour.
 UPDATABLE = ["title", "org", "country", "type", "sector", "url", "pdf",
-             "published", "deadline", "summary"]
+             "published", "deadline", "budget", "summary"]
 
 ID_PREFIX = "TP"
 SUMMARY_MAX = 400  # caracteres - section 28
@@ -117,6 +122,43 @@ COULEURS = {
     STATUT_EXPIRE: "#ECECEC",
     STATUT_INCONNU: "#FFFBEA",
 }
+
+# --------------------------------------------------------------------------
+# Pertinence - ce que l'annonce vaut POUR CE CLIENT-LA.
+#
+# Deux clients recoivent les memes annonces et n'ont pas le meme metier. La
+# colonne Pertinence repond a une seule question : "est-ce que cela me
+# concerne ?", d'apres PAYS_SUIVIS et SECTEURS_SUIVIS dans l'onglet CONFIG.
+#
+# ELLE ETIQUETTE, ELLE NE SUPPRIME PAS. Une annonce hors profil reste dans
+# le tableau : une ligne de trop coute un defilement, une opportunite
+# supprimee coute un marche. Le libelle commence par un chiffre pour que le
+# tri alphabetique de Google Sheets range le plus pertinent en premier.
+#
+# Le calcul est DETERMINISTE et n'a besoin d'aucune cle : c'est la meme
+# regle que pour les types et les secteurs, un client sans classement
+# intelligent doit pouvoir trier.
+# --------------------------------------------------------------------------
+PERTINENCE_PRIORITAIRE = "3 - PRIORITAIRE"
+PERTINENCE_A_VOIR = "2 - A VOIR"
+PERTINENCE_POSSIBLE = "1 - POSSIBLE"
+PERTINENCE_HORS_PROFIL = "0 - HORS PROFIL"
+
+PERTINENCES = [PERTINENCE_PRIORITAIRE, PERTINENCE_A_VOIR,
+               PERTINENCE_POSSIBLE, PERTINENCE_HORS_PROFIL]
+
+# Score total (pays + secteur, 0 a 2 chacun) -> libelle.
+PERTINENCE_SEUILS = [
+    (PERTINENCE_PRIORITAIRE, 4),
+    (PERTINENCE_A_VOIR, 3),
+    (PERTINENCE_POSSIBLE, 2),
+]
+
+# Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. Une
+# structure beninoise peut candidater a un appel mondial - c'est la meme
+# decision que LLM_APPELS_MONDIAUX, et elle vaut sans aucune cle.
+PAYS_OUVERTS = ["international", "afrique", "multi-pays", "monde", "mondial",
+                "global", "worldwide", "afrique de l'ouest", "cedeao", "umoa"]
 
 # --------------------------------------------------------------------------
 # Notifications - sections 11 a 17. Une opportunite recoit au maximum un
@@ -219,6 +261,24 @@ SECTEURS = [
 # LOGS - section 23
 # --------------------------------------------------------------------------
 LOGS = ["Date", "Source", "Action", "Statut", "Message"]
+
+# --------------------------------------------------------------------------
+# PAYS_ET_SECTEURS - l'inventaire de ce qui a REELLEMENT ete collecte.
+#
+# Cet onglet est REECRIT a chaque passage, depuis les opportunites du
+# tableau. Il existe pour une raison precise : PAYS_SUIVIS et
+# SECTEURS_SUIVIS se remplissent a la main, et une valeur inventee - un pays
+# qu'aucune source ne publie, un secteur ecrit autrement - ne correspond a
+# rien et ne se voit pas. Le client lit ici ce qui existe vraiment, avec le
+# nombre d'annonces, et recopie.
+#
+# Une seule table plutot que deux blocs cote a cote : elle se trie et se
+# filtre, ce que deux blocs juxtaposes ne permettent pas.
+# --------------------------------------------------------------------------
+PROFIL = ["Type", "Valeur", "Annonces", "Suivi"]
+
+PROFIL_TYPE_PAYS = "Pays"
+PROFIL_TYPE_SECTEUR = "Secteur"
 LOG_STATUTS = ["SUCCESS", "ERROR", "SKIPPED", "DUPLICATE", "INFO"]
 
 # --------------------------------------------------------------------------
@@ -236,11 +296,37 @@ CONFIG = [
     ("SEND_J3", "true", "Email quand il reste 3 jours ou moins."),
     ("SEND_J1", "true", "Email quand il reste 1 jour ou moins."),
     ("SEND_EXPIRED", "false", "Email quand la deadline est depassee."),
+    ("NOTIFIER_PERTINENCE", "",
+     "Ne recevoir que certains niveaux de pertinence, separes par des "
+     "virgules. Exemple : 3 - PRIORITAIRE, 2 - A VOIR. Vide = tout est "
+     "notifie. Les annonces ecartees restent dans le tableau : ce reglage "
+     "coupe le bruit dans votre boite, il ne supprime rien. Voir l'onglet "
+     "PAYS_ET_SECTEURS pour regler vos pays et vos secteurs."),
+    ("MAX_EMAILS_PAR_EXECUTION", "20",
+     "Nombre maximum d'emails envoyes en une seule execution. Les alertes "
+     "au-dela ne sont PAS perdues : elles repartent au passage suivant, les "
+     "plus pertinentes et les plus urgentes d'abord. Evite les 30 emails "
+     "d'un coup au premier passage, et protege le quota Google (100 "
+     "destinataires par jour sur un compte gmail.com, 1500 sur Workspace). "
+     "Mettez 0 pour ne plafonner que sur le quota."),
     ("DIGEST_THRESHOLD", "5",
      "Au-dela de ce nombre de nouvelles opportunites dans une meme "
      "execution, un seul email recapitulatif remplace les emails unitaires."),
     ("TIMEZONE", "Africa/Porto-Novo",
      "Fuseau utilise pour calculer les jours restants."),
+    ("BUDGET_COLLECTE_SECONDES", "240",
+     "Temps maximum passe a lire les sources, en secondes. Google arrete "
+     "toute execution a 6 minutes : au-dela de ce budget la collecte rend "
+     "la main, et ce qui a ete lu est enregistre normalement - deadlines, "
+     "couleurs et alertes comprises. Les sources non lues passent en tete "
+     "au passage suivant, rien n'est oublie. Baissez-le si vos executions "
+     "sont trop longues."),
+    ("MAX_FICHES_PAR_PASSAGE", "12",
+     "Certaines sources listent leurs avis sans date : l'echeance n'existe "
+     "que sur la fiche de chaque avis. TenderPilot va alors la chercher, "
+     "fiche par fiche, dans la limite de ce nombre par execution. Les "
+     "annonces non traitees reviennent au passage suivant. Mettez 0 pour "
+     "desactiver cette lecture en deux temps."),
     ("MAX_ITEMS_PER_SOURCE", "40",
      "Nombre maximum d'annonces lues par source et par execution."),
     ("COLLECT_EXPIRED", "false",
@@ -255,6 +341,23 @@ CONFIG = [
     ("TELEGRAM_CHAT_ID", "",
      "Identifiant du salon ou du canal qui recoit les alertes. "
      "Ecrivez a @userinfobot pour connaitre le votre."),
+
+    # ------------------------------------------------------------------
+    # Votre profil. Il remplit la colonne Pertinence de l'onglet
+    # OPPORTUNITIES, SANS AUCUNE CLE : ces deux reglages agissent meme
+    # quand le classement intelligent est eteint.
+    # ------------------------------------------------------------------
+    ("PAYS_SUIVIS", "Benin",
+     "Vos pays, separes par des virgules. Exemple : Benin, Togo, Niger. "
+     "Remplit la colonne Pertinence a chaque passage, sans aucune cle : vos "
+     "annonces remontent en tete du tableau. Ne decide PAS de ce qui est "
+     "collecte - c'est l'onglet SOURCES qui le decide - et ne supprime "
+     "jamais une ligne."),
+    ("SECTEURS_SUIVIS", "",
+     "Vos domaines, separes par des virgules. Exemple : Energie, Eau et "
+     "assainissement, Numerique et technologie. Vide = tous les secteurs "
+     "comptent. Comme PAYS_SUIVIS : remplit la colonne Pertinence, sans cle, "
+     "et ne supprime jamais rien."),
 
     # ------------------------------------------------------------------
     # Classement intelligent. Entierement optionnel : sans cle, la collecte
@@ -282,10 +385,6 @@ CONFIG = [
     ("LLM_TAILLE_LOT", "30",
      "Nombre d'annonces envoyees en un seul appel. 30 est un bon compromis "
      "entre le cout et le risque de reponse tronquee."),
-    ("PAYS_SUIVIS", "Benin",
-     "Pays qui vous interessent, separes par des virgules. Exemple : "
-     "Benin, Togo, Niger. Sert au tri, pas a la collecte - c'est l'onglet "
-     "SOURCES qui decide ce qui est lu."),
     ("LLM_APPELS_MONDIAUX", "true",
      "Garder les appels ouverts a tous les pays. Laissez a true : une "
      "structure beninoise peut candidater a un appel mondial."),
