@@ -42,6 +42,11 @@ dist/
 # clone frais doit avoir la skill sans avoir a lancer le build.
 # Un test refuse toute divergence entre les deux.
 
+# .agents/ est ecrit par l outil, pas par ce depot : rien ici ne le
+# genere. C est un second miroir d AGENTS.md, donc une troisieme copie a
+# tenir d accord avec les deux autres - pour rien. On l ignore.
+.agents/
+
 # --------------------------------------------------------------------
 # Systeme et editeurs
 # --------------------------------------------------------------------
