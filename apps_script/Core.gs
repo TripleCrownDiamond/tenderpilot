@@ -434,8 +434,11 @@ function estVrai(valeur) {
 }
 
 /**
- * Notifications a declencher pour une ligne - sections 12 a 17.
+ * Notifications a declencher pour une ligne, SUR UN CANAL donne.
  * Retourne { envoyer: [...], marquer: [...] }.
+ *
+ * Le canal compte : l email et Telegram ont chacun leur plafond, donc
+ * chacun sa memoire. Voir canauxNotifies_ juste au-dessus.
  *
  * Deux precisions au-dela du texte du cahier des charges, pour tenir la
  * promesse "ne pas spammer" :
@@ -447,15 +450,82 @@ function estVrai(valeur) {
  *   J-1 en meme temps. On envoie alors le plus urgent seulement, et on
  *   marque les autres comme envoyes : ils n'ont plus lieu d'etre.
  */
-function notificationsAEnvoyer(ligne, config) {
+/**
+ * Cette ligne est-elle suivie par le client ?
+ *
+ * La colonne Suivi est la SEULE que le client remplit. Elle vit ici, dans
+ * la logique pure, parce que deux mecanismes s'en servent : l'agenda, qui
+ * ne pose que les echeances suivies, et les rappels, quand le client a
+ * demande qu'ils s'y limitent.
+ */
+function estSuivie_(ligne) {
+  return estVrai(ligne.suivi);
+}
+
+var CANAUX = ['email', 'telegram', 'ntfy'];
+
+/**
+ * LA MEMOIRE D UNE ALERTE EST PAR CANAL, PAS PAR LIGNE.
+ *
+ * Une case Notif_* portait un booleen : "cette alerte est partie". Cela
+ * suffisait tant que les deux canaux partaient ensemble. Des l instant ou
+ * l email et Telegram ont leur propre plafond, ils n avancent plus au meme
+ * rythme : Telegram peut avoir servi une ligne que l email doit encore
+ * envoyer au passage suivant. Un seul booleen ne sait pas dire cela - il
+ * ferait soit un doublon sur Telegram, soit un email perdu.
+ *
+ * La case porte donc la LISTE DES CANAUX deja servis : '', 'email',
+ * 'telegram' ou 'email,telegram'.
+ *
+ * RETROCOMPATIBILITE. Une case ecrite par une version precedente vaut
+ * TRUE : elle est lue comme "tous canaux servis". C est le seul choix sur
+ * pour un classeur deja en service - l inverse renverrait a l utilisateur
+ * des alertes qu il a deja recues.
+ */
+function canauxNotifies_(valeur) {
+  if (estVrai(valeur)) return CANAUX.slice();
+  return String(valeur === null || valeur === undefined ? '' : valeur)
+    .toLowerCase().split(',')
+    .map(function (c) { return c.trim(); })
+    .filter(function (c) { return CANAUX.indexOf(c) !== -1; });
+}
+
+/** Cette alerte est-elle deja partie SUR CE CANAL ? */
+function dejaNotifie_(valeur, canal) {
+  return canauxNotifies_(valeur).indexOf(canal) !== -1;
+}
+
+/** Ajoute un canal a une case, sans perdre ceux qui y sont deja. */
+function ajouterCanal_(valeur, canal) {
+  var canaux = canauxNotifies_(valeur);
+  if (canaux.indexOf(canal) === -1) canaux.push(canal);
+  // Toujours dans l ordre de CANAUX : deux passages doivent produire la
+  // meme chaine, sinon la cellule change sans que rien n ait change.
+  return CANAUX.filter(function (c) { return canaux.indexOf(c) !== -1; })
+    .join(',');
+}
+
+function notificationsAEnvoyer(ligne, config, canal) {
+  var voie = canal || 'email';
   var envoyer = [];
   var candidats = [];
   var jours = ligne.days;
   if (jours === '' || jours === undefined) jours = null;
 
+  // LES RAPPELS PEUVENT ETRE RESERVES AUX OFFRES SUIVIES, PAS L'ANNONCE
+  // D'UNE NOUVEAUTE. Une opportunite qui vient d'entrer ne peut pas encore
+  // etre suivie - le client ne l'a pas vue. La restreindre reviendrait a ne
+  // plus rien annoncer, et le produit ne servirait plus a rien.
+  var rappelsReserves = estVrai(config.RAPPELS_SUIVIS_SEULEMENT)
+    && !estSuivie_(ligne);
+
   SCHEMA.NOTIFICATIONS.forEach(function (notif) {
     if (!estVrai(config[notif.config])) return;
-    if (estVrai(ligne[notif.column])) return;
+    if (dejaNotifie_(ligne[notif.column], voie)) return;
+    // NI ENVOYE, NI MARQUE : le client peut cocher Suivi demain, et le
+    // rappel doit alors partir. Marquer ici le lui interdirait - meme
+    // raison que pour NOTIFIER_PERTINENCE.
+    if (notif.key !== 'new' && rappelsReserves) return;
 
     if (notif.key === 'new') { envoyer.push('new'); return; }
     if (jours === null) return;
@@ -826,6 +896,9 @@ if (typeof module !== 'undefined') {
     construireIndex: construireIndex, trouverDoublon: trouverDoublon,
     champsModifies: champsModifies, estVrai: estVrai,
     notificationsAEnvoyer: notificationsAEnvoyer, prochainId: prochainId,
+    canauxNotifies_: canauxNotifies_, dejaNotifie_: dejaNotifie_,
+    estSuivie_: estSuivie_,
+    ajouterCanal_: ajouterCanal_, CANAUX: CANAUX,
     tronquer: tronquer,
     fraicheurSource_: fraicheurSource_,
     JOURS_SOURCE_SILENCIEUSE: JOURS_SOURCE_SILENCIEUSE,

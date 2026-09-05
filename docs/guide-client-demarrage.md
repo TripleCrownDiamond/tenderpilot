@@ -54,13 +54,33 @@ Vous recevrez un email :
 
 Une opportunite ne vous ecrit jamais deux fois pour la meme raison.
 
-### Aussi sur Telegram, si vous voulez
+### Trois autres canaux, si vous voulez
 
-Un email se perd dans une boite pleine. Une notification Telegram arrive sur
-votre telephone.
+Un email se perd dans une boite pleine. Trois autres facons d'etre prevenu
+existent, toutes facultatives, toutes reglables dans l'onglet CONFIG. Vous
+pouvez les cumuler, ou n'en garder qu'une - laissez `NOTIFICATION_EMAIL`
+vide si vous ne voulez pas d'emails du tout.
 
-1. Dans Telegram, ecrivez a **@BotFather**, envoyez `/newbot`, suivez les
-   questions. Il vous donne un **jeton**.
+**Le plus simple : la notification push (ntfy).** Aucun compte a creer.
+
+1. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
+   navigateur).
+2. Abonnez-vous a un sujet de votre choix. **Prenez-en un long et difficile
+   a deviner** - par exemple `tenderpilot-benin-4f2a9c`. Sur le serveur
+   public, qui connait le sujet lit vos alertes.
+3. Onglet CONFIG :
+
+| Cle | Valeur |
+|-----|--------|
+| `SEND_NTFY` | `true` |
+| `NTFY_SUJET` | le sujet choisi |
+
+4. Menu **TenderPilot > Tester la notification push (ntfy)**.
+
+**Telegram**, si vous y etes deja.
+
+1. Ecrivez a **@BotFather**, envoyez `/newbot`, suivez les questions. Il
+   vous donne un **jeton**.
 2. Ecrivez a **@userinfobot** : il vous donne votre **identifiant**.
 3. Onglet CONFIG :
 
@@ -71,6 +91,41 @@ votre telephone.
 | `TELEGRAM_CHAT_ID` | votre identifiant |
 
 4. Menu **TenderPilot > Tester la notification Telegram**.
+
+**Chaque canal a son propre rythme.** `MAX_EMAILS_PAR_EXECUTION`,
+`MAX_TELEGRAM_PAR_EXECUTION` et `MAX_NTFY_PAR_EXECUTION` se reglent
+separement. C'est utile : Google ne vous laisse envoyer que 100 emails par
+jour, alors qu'un salon Telegram ou un telephone n'ont pas de limite. Vous
+pouvez donc garder 20 emails par passage et laisser les deux autres sans
+plafond. Une alerte deja partie sur un canal ne repart pas quand un autre la
+rattrape.
+
+## 3 bis. Vos echeances dans votre agenda
+
+C'est le reglage le plus utile du produit, et celui auquel on pense le
+moins. Il pose vos dates limites dans **Google Agenda** - vous les voyez
+dans le calendrier de votre telephone, des semaines a l'avance, avec les
+rappels que vous choisissez.
+
+**Il ne pose pas tout, et c'est voulu.** Le tableau ramene des centaines
+d'avis ; les verser tous dans votre agenda le rendrait illisible. Seuls
+entrent ceux que **vous** designez.
+
+1. Onglet CONFIG : mettez `SEND_AGENDA` a `true`. Reglez
+   `AGENDA_RAPPELS_JOURS` si `7, 1` ne vous convient pas - c'est le nombre
+   de jours avant l'echeance ou Google vous previendra.
+2. Onglet OPPORTUNITIES : ecrivez **OUI** dans la colonne **Suivi**, sur
+   les avis auxquels vous comptez repondre.
+3. Menu **TenderPilot > Tester l'agenda** vous dit combien seront poses au
+   prochain passage.
+
+**La colonne Suivi est la seule que vous remplissez.** Tout le reste du
+tableau est ecrit par le script. Celle-la est votre decision.
+
+Si vous voulez aller plus loin, mettez `RAPPELS_SUIVIS_SEULEMENT` a `true` :
+vos rappels J-7, J-3 et J-1 ne concerneront plus que les avis suivis.
+L'annonce des **nouveautes**, elle, continue toujours - une opportunite qui
+vient d'entrer, vous ne pouvez pas encore l'avoir suivie.
 
 ## 4. Laisser tourner
 
@@ -93,7 +148,11 @@ Onglet **OPPORTUNITIES**, une ligne par opportunite.
 | Rouge | trois jours ou moins |
 | Gris | echeance passee |
 
-Les colonnes qui comptent : **Deadline** et **Jours_Restants**.
+Les colonnes qui comptent : **Deadline**, **Jours_Restants**, et
+**Pertinence** - qui dit si l'avis correspond a vos pays et secteurs.
+
+**La colonne Suivi est a vous.** Ecrivez `OUI` sur ce a quoi vous comptez
+repondre : c'est ce qui alimente votre agenda.
 
 **Les annonces deja echues n'entrent pas.** Les portails laissent des annees
 d'archives en ligne : sans ce filtre, votre tableau serait rempli de lignes
@@ -161,7 +220,8 @@ condition. Si vous ne faites rien, tout ce qui suit continue de marcher :
 | **La lecture des dates limites** | oui |
 | **Les annonces deja echues ne rentrent pas** | oui |
 | Les couleurs, les jours restants | oui |
-| Les alertes email et Telegram a J-7, J-3, J-1 | oui |
+| Les alertes email, Telegram et push a J-7, J-3, J-1 | oui |
+| Poser vos echeances suivies dans Google Agenda | oui |
 | L'absence de doublons | oui |
 | **Le filtre par type** | oui, huit valeurs propres |
 | **Le filtre par secteur** | oui, deduit du titre pour une annonce sur deux |

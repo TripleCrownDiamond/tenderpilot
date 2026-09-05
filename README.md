@@ -11,9 +11,14 @@ SOURCES -> COLLECTE -> NORMALISATION -> DEDUPLICATION -> BASE
 Rien d'autre. Pas d'IA, pas de scoring, pas de Go/No-Go, pas de comptes
 utilisateurs.
 
-Les alertes partent par **email et par Telegram**. Les deux canaux partagent
-les memes regles de declenchement mais sont envoyes independamment : si l'un
-tombe, l'autre passe.
+Les alertes partent par **email, Telegram ou notification push (ntfy)**. Les
+trois canaux partagent les memes regles de declenchement, mais chacun a son
+plafond et sa memoire : si l'un tombe ou plafonne, les autres passent, et
+aucun ne renvoie ce qu'il a deja envoye.
+
+Les echeances que le client marque **Suivi** sont en plus posees dans son
+**Google Agenda** - celles-la seulement : y verser les centaines d'avis
+collectes rendrait son agenda inutilisable.
 
 ## Deux moteurs, une seule logique
 
@@ -48,7 +53,11 @@ Prerequis : Python 3.10+ avec `openpyxl`, et Node pour les tests et le web.
       Json.gs             lecture des API publiques
       Sources.gs          synchronisation du catalogue de sources
       Sheet.gs            acces au classeur
-      Run.gs              collecte, deadlines, emails, menu, declencheurs
+      Telegram.gs         second canal : messages Telegram
+      Ntfy.gs             troisieme canal : notifications push
+      Agenda.gs           echeances SUIVIES posees dans Google Agenda
+      Llm.gs              classement intelligent, inerte sans cle
+      Run.gs              collecte, deadlines, alertes, menu, declencheurs
       Schema.gs           GENERE depuis schema/columns.py
     web/src/lib/          le meme moteur, en TypeScript
       domain/rss.ts       equivalent de Rss.gs
@@ -120,9 +129,9 @@ JavaScript.
 
 ## Tests
 
-    node tests/test_logic.js    71 verifications - scenarios metier et synchronisation
-    python tests/test_sheet.py  73 controles - classeur et coherence des registres
-    cd web && npm test          43 tests - moteur web et analyseurs
+    node tests/test_logic.js    402 verifications - scenarios metier et synchronisation
+    python tests/test_sheet.py  136 controles - classeur et coherence des registres
+    cd web && npm test          176 tests - moteur web et analyseurs
 
 `test_logic.js` charge le vrai `Run.gs` et l'execute contre une feuille en
 memoire, une boite aux lettres factice et un reseau simule. La logique

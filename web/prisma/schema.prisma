@@ -78,13 +78,22 @@ model Opportunite {
   deadlineParIA   Boolean @default(false)
   scorePertinence Int?
 
-  // Temoins d'envoi : une opportunite ne recoit jamais deux fois le meme
-  // email. Les vider fait repartir les notifications.
-  notifNouvelle Boolean @default(false)
-  notifJ7       Boolean @default(false)
-  notifJ3       Boolean @default(false)
-  notifJ1       Boolean @default(false)
-  notifExpire   Boolean @default(false)
+  /// LA SEULE COLONNE QUE LE CLIENT REMPLIT : les avis auxquels il compte
+  /// repondre. Elle commande l'agenda, et - si rappelsSuivisSeulement est
+  /// vrai - les rappels d'echeance. Voir estSuivie() dans regles.ts.
+  suivi Boolean @default(false)
+
+  // Temoins d'envoi : une opportunite ne recoit jamais deux fois la meme
+  // alerte sur le meme canal. Les vider fait repartir les notifications.
+  //
+  // Chaque champ porte les CANAUX deja servis - "", "email", "telegram" ou
+  // "email,telegram" - parce que les deux canaux ont leur propre plafond et
+  // n'avancent pas au meme rythme. Voir canauxNotifies() dans regles.ts.
+  notifNouvelle String @default("")
+  notifJ7       String @default("")
+  notifJ3       String @default("")
+  notifJ1       String @default("")
+  notifExpire   String @default("")
 
   sourceId String?
   source   Source? @relation(fields: [sourceId], references: [id], onDelete: SetNull)

@@ -483,6 +483,132 @@ que le plafond d'envois, pour la même raison.
 désignent le même niveau. Un réglage qui n'obéit qu'à celui qui a recopié le
 tiret et les espaces au bon endroit est un réglage qui ne marche pas.
 
+## Deux canaux, deux rythmes, deux mémoires
+
+L'email et Telegram partagent leurs règles de **déclenchement** — une
+opportunité ne prévient jamais deux fois par le même canal. Tout le reste
+leur est propre, et c'est une décision, pas un oubli.
+
+**Pourquoi ils ne peuvent pas partager un plafond.** L'email est contraint
+par le quota Google — compté en *destinataires*, 100 par jour sur un compte
+gmail.com — et par une boîte qu'on noie en vingt messages. Telegram n'a ni
+l'un ni l'autre : l'API tolère une trentaine de messages par seconde vers un
+même salon. Tant qu'un seul plafond gouvernait les deux, régler l'email à 20
+imposait 20 à Telegram, et un salon qui aurait pu tout recevoir n'en recevait
+que vingt. `MAX_EMAILS_PAR_EXECUTION` et `MAX_TELEGRAM_PAR_EXECUTION` sont
+donc comptés séparément, chacun avec son compteur.
+
+**Et pourquoi ils ne peuvent plus partager un témoin.** Une case `Notif_*`
+portait un booléen : « cette alerte est partie ». Cela suffisait tant que les
+deux canaux avançaient ensemble. Dès l'instant où ils ont chacun leur
+plafond, ils n'avancent plus au même rythme : Telegram peut avoir servi une
+ligne que l'email doit encore envoyer au passage suivant. Un seul booléen ne
+sait pas dire cela — il ferait **soit un doublon sur Telegram, soit un email
+perdu**.
+
+La case porte donc la liste des canaux déjà servis : `` (vide), `email`,
+`telegram`, ou `email,telegram`. La chaîne est toujours écrite dans l'ordre
+de `CANAUX` : deux passages doivent produire la même valeur, sinon la
+cellule change sans que rien n'ait changé.
+
+**Rétrocompatibilité — le seul choix sûr.** Une case écrite par une version
+précédente vaut `TRUE`. Elle est lue comme **tous canaux servis**. L'autre
+lecture — « aucun canal » — renverrait à un client en service toutes les
+alertes qu'il a déjà reçues, et c'est la seule erreur des deux qu'on ne peut
+pas rattraper.
+
+**Un échec d'envoi ne marque rien.** Si l'appel échoue, le canal n'a rien
+servi : la ligne repassera au prochain passage. C'est la même règle que le
+plafond et que `NOTIFIER_PERTINENCE` — on ne marque que ce qui est parti.
+
+### Le troisième canal : ntfy
+
+Choisi pour une raison unique : **il ne demande rien au client**. L'email
+suppose une boîte qu'on relève ; Telegram suppose un bot, un jeton, un salon.
+ntfy suppose *un mot* — le client installe l'application, s'abonne à un sujet,
+colle ce sujet dans `CONFIG`, et son téléphone sonne. Aucun compte, aucune
+inscription, gratuit.
+
+Contrat **mesuré le 2026-09-04**, par un aller-retour réel sur `ntfy.sh` :
+un POST avec le texte en corps et les en-têtes `Title`, `Priority`, `Tags`,
+`Click` rend `200`, et le message se relit tel quel sur le sujet.
+
+Deux différences avec Telegram, qui sont dans le code :
+
+- **le corps est du texte simple.** ntfy affiche ce qu'on lui donne ; y
+  envoyer du HTML afficherait les balises ;
+- **le digest montre cinq lignes, pas dix.** Une notification push se lit
+  d'un coup d'œil sur un écran verrouillé.
+
+Et ce qui doit être dit au client, écrit dans `CONFIG` : sur le serveur
+public, **un sujet n'est pas un secret**. Quiconque le devine lit les alertes
+et peut en envoyer. Les avis de marchés sont publics — c'est son confort qui
+est en jeu, pas sa confidentialité — mais il doit le savoir, d'où la consigne
+de choisir un sujet long.
+
+## Suivre une offre : la seule colonne que le client remplit
+
+L'agenda n'est pas un canal comme les trois autres. Un email, un message, une
+notification : trois façons d'interrompre. L'agenda n'interrompt pas, il
+**organise** — la date limite apparaît dans le calendrier du téléphone, à sa
+place, des semaines à l'avance, et Google se charge des rappels.
+
+**Et il ne reçoit pas tout.** Le classeur ramène des centaines d'avis ; les y
+verser tous rendrait l'agenda du client inutilisable en une semaine, ce qui
+est exactement le contraire du service rendu. Seules entrent les lignes dont
+la colonne `Suivi` porte `OUI` : les avis auxquels il a décidé de répondre.
+
+C'est la **seule colonne que le client remplit**. Tout le reste du classeur
+est écrit par le script ; celle-là est sa décision, et elle commande son
+agenda. Ne la remplissez jamais depuis le code.
+
+Trois conditions pour qu'une échéance soit posée, et les trois comptent :
+`Suivi` vaut `OUI`, la ligne a une `Deadline`, et la colonne `Agenda` est
+vide. Cette dernière garde l'identifiant de l'événement : **une échéance
+posée ne l'est jamais deux fois**, et vider la cellule la fait reposer — la
+porte de sortie quand le client a supprimé l'événement à la main.
+
+### `RAPPELS_SUIVIS_SEULEMENT`, et l'exception qui le sauve
+
+Le même choix peut gouverner les rappels : avec ce réglage à `true`, les
+alertes J-7, J-3, J-1 et « échéance dépassée » ne partent plus que pour les
+lignes suivies.
+
+**L'annonce d'une nouveauté n'est JAMAIS concernée**, et c'est ce qui rend le
+réglage utilisable. Une opportunité qui vient d'entrer ne peut pas encore
+être suivie — le client ne l'a pas vue. La restreindre reviendrait à ne plus
+rien annoncer, et le produit ne servirait plus à rien.
+
+**Un rappel écarté n'est pas marqué.** Le client peut cocher `Suivi` demain,
+et le rappel doit alors partir. C'est la même règle que pour
+`NOTIFIER_PERTINENCE` et que pour le plafond : *on ne marque que ce qui est
+parti*.
+
+Le défaut est `false` : un classeur déjà en service ne perd pas ses rappels
+parce que son propriétaire n'a rien coché.
+
+**Pas de jumeau dans le moteur web, et c'est voulu.** `CalendarApp` agit sur
+le compte Google du propriétaire du classeur, qui est aussi le destinataire.
+Le produit web a sa propre base et aucun compte Google : un jumeau
+demanderait un consentement OAuth que ce produit ne demande pas. La règle de
+parité vise les **analyseurs** — ce qui lit une source — pas les transports.
+
+### Ce que la priorité entre rappels et nouveautés recouvre
+
+Il n'y a **pas** de priorité par catégorie : rien ne dit « les rappels
+d'abord » ni « les nouveautés d'abord ». L'ordre d'envoi est celui de
+`parPertinence_` — pertinence décroissante, puis délai croissant. À
+pertinence égale, un rappel J-1 passe donc avant une nouveauté à trois
+semaines, parce que son échéance est plus proche, pas parce que c'est un
+rappel. Et une nouveauté prioritaire passe devant un rappel hors profil.
+
+Deux effets de structure s'ajoutent à cet ordre :
+
+- le **digest** part avant la boucle, et absorbe toutes les nouveautés en un
+  message dès qu'elles dépassent `DIGEST_THRESHOLD` ;
+- parmi les rappels d'une même ligne, **un seul part** — le plus urgent — et
+  les autres sont marqués sans objet.
+
 ## L'onglet SOURCES est livré visible
 
 Il a longtemps été masqué — c'était de la plomberie. Il ne l'est plus : sa

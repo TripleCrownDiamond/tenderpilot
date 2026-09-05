@@ -427,8 +427,9 @@ function ecrireProfil_(lignes, config) {
 }
 
 /** Marque des notifications comme envoyees - sections 12 et 17. */
-function marquerNotifications_(ligne, cles) {
+function marquerNotifications_(ligne, cles, canal) {
   if (!cles.length) return;
+  var voie = canal || 'email';
   var feuille = feuilleOpp_();
   var carte = entetes_(feuille);
   cles.forEach(function (cle) {
@@ -437,8 +438,11 @@ function marquerNotifications_(ligne, cles) {
     if (!notif) return;
     var nom = SCHEMA.OPP[notif.column];
     if (nom && carte[nom]) {
-      feuille.getRange(ligne._row, carte[nom]).setValue(true);
-      ligne[notif.column] = true;
+      // La case cumule les canaux : marquer Telegram n efface pas la trace
+      // de l email deja parti. Voir ajouterCanal_ dans Core.gs.
+      var valeur = ajouterCanal_(ligne[notif.column], voie);
+      feuille.getRange(ligne._row, carte[nom]).setValue(valeur);
+      ligne[notif.column] = valeur;
     }
   });
 }

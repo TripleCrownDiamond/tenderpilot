@@ -44,17 +44,19 @@ OPPORTUNITIES = [
     "Jours_Restants",
     "Statut_Delai",
     "Pertinence",
+    "Suivi",
     "Resume",
     "Notif_Nouvelle",
     "Notif_J7",
     "Notif_J3",
     "Notif_J1",
     "Notif_Expire",
+    "Agenda",
     "Derniere_MAJ",
 ]
 
 HIDDEN_COLUMNS = ["Notif_Nouvelle", "Notif_J7", "Notif_J3", "Notif_J1",
-                  "Notif_Expire"]
+                  "Notif_Expire", "Agenda"]
 
 # Cle technique -> nom de colonne. Le script ne nomme jamais une colonne en
 # dur : il passe par SCHEMA.OPP.<cle>.
@@ -75,12 +77,19 @@ OPP_KEYS = {
     "days": "Jours_Restants",
     "status": "Statut_Delai",
     "pertinence": "Pertinence",
+    # LA SEULE COLONNE QUE LE CLIENT REMPLIT. Il ecrit OUI sur les avis
+    # auxquels il compte repondre : ce sont ceux-la, et eux seuls, qui
+    # entrent dans son agenda. Voir "Suivre une offre" dans AGENTS.md.
+    "suivi": "Suivi",
     "summary": "Resume",
     "notifNew": "Notif_Nouvelle",
     "notifJ7": "Notif_J7",
     "notifJ3": "Notif_J3",
     "notifJ1": "Notif_J1",
     "notifExpired": "Notif_Expire",
+    # Identifiant de l'evenement d'agenda, quand l'echeance y a ete posee.
+    # Vide = pas encore posee. La vider fait reposer l'evenement.
+    "agenda": "Agenda",
     "updatedAt": "Derniere_MAJ",
 }
 
@@ -309,6 +318,13 @@ CONFIG = [
      "d'un coup au premier passage, et protege le quota Google (100 "
      "destinataires par jour sur un compte gmail.com, 1500 sur Workspace). "
      "Mettez 0 pour ne plafonner que sur le quota."),
+    ("MAX_TELEGRAM_PAR_EXECUTION", "0",
+     "Nombre maximum de messages Telegram envoyes en une seule execution, "
+     "compte a part des emails. Telegram n'a pas de quota journalier : ce "
+     "reglage dit seulement a quelle cadence vous acceptez que le salon "
+     "sonne. 0 = aucun plafond. Les deux canaux avancent chacun a son "
+     "rythme : une alerte deja partie sur Telegram ne repart pas quand "
+     "l'email la rattrape au passage suivant."),
     ("DIGEST_THRESHOLD", "5",
      "Au-dela de ce nombre de nouvelles opportunites dans une meme "
      "execution, un seul email recapitulatif remplace les emails unitaires."),
@@ -333,6 +349,45 @@ CONFIG = [
      "Collecter aussi les annonces dont la date limite est deja passee. "
      "Laisse a false : les portails gardent des annees d'archives en ligne, "
      "et elles noieraient les opportunites auxquelles vous pouvez repondre."),
+    ("SEND_NTFY", "false",
+     "Envoyer aussi les alertes en notification push, via ntfy.sh. Aucun "
+     "compte a creer : installez l'application ntfy sur votre telephone, "
+     "abonnez-vous a un sujet, et mettez ce sujet ci-dessous."),
+    ("NTFY_SUJET", "",
+     "Le sujet auquel votre telephone est abonne, par exemple "
+     "tenderpilot-benin-4f2a. CHOISISSEZ-EN UN DIFFICILE A DEVINER : sur "
+     "le serveur public, quiconque connait le sujet peut lire vos alertes "
+     "et vous en envoyer."),
+    ("NTFY_SERVEUR", "https://ntfy.sh",
+     "Serveur ntfy. Laissez tel quel pour le service public gratuit, ou "
+     "mettez l'adresse de votre propre serveur."),
+    ("NTFY_JETON", "",
+     "Jeton d'acces, uniquement si votre serveur ntfy exige une "
+     "authentification. Vide pour le service public."),
+    ("MAX_NTFY_PAR_EXECUTION", "0",
+     "Nombre maximum de notifications push par execution, compte a part "
+     "des emails et de Telegram. 0 = aucun plafond."),
+    ("RAPPELS_SUIVIS_SEULEMENT", "false",
+     "Ne recevoir les rappels d'echeance (J-7, J-3, J-1, expiree) que pour "
+     "les avis ou vous avez ecrit OUI dans la colonne SUIVI de l'onglet "
+     "OPPORTUNITIES. L'annonce des NOUVEAUTES n'est jamais concernee : une "
+     "opportunite qui vient d'entrer ne peut pas encore etre suivie. "
+     "Laisse a false, vous recevez les rappels de tout ce que "
+     "NOTIFIER_PERTINENCE laisse passer."),
+    ("SEND_AGENDA", "false",
+     "Poser chaque echeance dans votre Google Agenda. Un evenement d'une "
+     "journee a la date limite, avec des rappels automatiques : vous voyez "
+     "vos depots a venir dans l'agenda de votre telephone, sans rien "
+     "installer. Seules les annonces retenues par NOTIFIER_PERTINENCE y "
+     "sont posees."),
+    ("AGENDA_ID",  "",
+     "Agenda qui recoit les echeances. Vide = votre agenda principal. Pour "
+     "un agenda dedie, creez-le dans Google Agenda et collez son "
+     "identifiant (Parametres de l'agenda > Integrer l'agenda)."),
+    ("AGENDA_RAPPELS_JOURS", "7, 1",
+     "Combien de jours avant l'echeance Google doit vous prevenir. "
+     "Plusieurs valeurs separees par des virgules. Vide = aucun rappel, "
+     "l'evenement est pose sans alerte."),
     ("SEND_TELEGRAM", "false",
      "Envoyer aussi les alertes sur Telegram, en plus des emails."),
     ("TELEGRAM_TOKEN", "",

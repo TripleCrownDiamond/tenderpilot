@@ -101,6 +101,12 @@ Avec un DEUXIEME compte Google - pas le votre, il est deja proprietaire :
 
 Si les six points passent, vous pouvez vendre.
 
+**Les canaux facultatifs se testent a part**, et seulement si vous les
+vendez comme arguments : Menu > *Tester la notification push (ntfy)* et
+Menu > *Tester l'agenda*. Le test d'agenda ne pose rien - il dit ce que le
+prochain passage ferait. Un test qui ecrirait dans l'agenda de quelqu'un
+sans qu'il l'ait demande serait un mauvais test.
+
 > Si le menu n'apparait pas : rechargez la page une fois, Google met
 > parfois quelques secondes a charger le script.
 

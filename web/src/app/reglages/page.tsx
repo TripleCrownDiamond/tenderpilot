@@ -67,6 +67,9 @@ export default function Page() {
             <Ligne nom="Emails par execution"
                    valeur={c.maxEmailsParExecution ? String(c.maxEmailsParExecution) : "sans plafond"}
                    quoi="Au-dela, les alertes repartent au passage suivant - les plus pertinentes d'abord. Rien n'est perdu." />
+            <Ligne nom="Messages Telegram par execution"
+                   valeur={c.maxTelegramParExecution ? String(c.maxTelegramParExecution) : "sans plafond"}
+                   quoi="Compte a part des emails : Telegram n'a pas de quota, les deux canaux avancent chacun a son rythme." />
             <Ligne nom="Annonces par source" valeur={String(c.maxParSource)}
                    quoi="Plafond par passage, pour qu'une source bavarde n'ecrase pas les autres." />
             <Ligne nom="Fuseau horaire" valeur={c.fuseau}

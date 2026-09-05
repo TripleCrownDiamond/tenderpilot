@@ -62,11 +62,16 @@ export interface Opportunite {
   /** Ce que l'annonce vaut pour CE client-la. Voir pertinence(). */
   pertinence?: string | null;
   resume?: string | null;
-  notifNouvelle?: boolean;
-  notifJ7?: boolean;
-  notifJ3?: boolean;
-  notifJ1?: boolean;
-  notifExpire?: boolean;
+  // Les canaux deja servis pour cette alerte : "", "email", "telegram" ou
+  // "email,telegram". Le booleen des versions precedentes vaut "tous
+  // canaux". Voir canauxNotifies().
+  /** La seule colonne que le client remplit : les avis qu'il compte suivre. */
+  suivi?: boolean | string | null;
+  notifNouvelle?: MarqueNotification;
+  notifJ7?: MarqueNotification;
+  notifJ3?: MarqueNotification;
+  notifJ1?: MarqueNotification;
+  notifExpire?: MarqueNotification;
 }
 
 export interface Config {
@@ -83,6 +88,15 @@ export interface Config {
    * pertinentes et les plus urgentes d'abord. 0 = aucun plafond.
    */
   maxEmailsParExecution?: number;
+  /** Plafond propre a Telegram. 0 ou absent : aucun plafond. */
+  maxTelegramParExecution?: number;
+  /** Plafond propre aux notifications push. 0 ou absent : aucun plafond. */
+  maxNtfyParExecution?: number;
+  envoiNtfy?: boolean;
+  /** Reserver les rappels d'echeance aux offres suivies. Jamais les nouveautes. */
+  rappelsSuivisSeulement?: boolean;
+  ntfySujet?: string;
+  ntfyServeur?: string;
   /**
    * Fiches lues au maximum en un passage, pour les sources qui datent leurs
    * avis sur la fiche et non dans la liste. Voir ANALYSEURS_FICHE.
@@ -149,6 +163,12 @@ export const CONFIG_DEFAUT: Config = {
   envoiExpire: false,
   seuilDigest: 5,
   maxEmailsParExecution: 20,
+  maxTelegramParExecution: 0,
+  maxNtfyParExecution: 0,
+  envoiNtfy: false,
+  rappelsSuivisSeulement: false,
+  ntfySujet: "",
+  ntfyServeur: "https://ntfy.sh",
   maxFichesParPassage: 12,
   fuseau: "Africa/Porto-Novo",
   maxParSource: 40,
@@ -895,7 +915,63 @@ export const NOTIFICATIONS: RegleNotification[] = [
 ];
 
 /**
- * Notifications a declencher pour une opportunite.
+ * Cette opportunite est-elle suivie par le client ?
+ *
+ * Jumeau d'estSuivie_() dans Core.gs. Deux mecanismes s'en servent :
+ * l'agenda, et les rappels quand le client a demande qu'ils s'y limitent.
+ */
+export function estSuivie(o: Opportunite): boolean {
+  const v = o.suivi;
+  if (v === true) return true;
+  return ["true", "vrai", "oui", "yes", "1"]
+    .includes(String(v ?? "").trim().toLowerCase());
+}
+
+/** Les canaux d'alerte, dans l'ordre ou une case les enumere. */
+export const CANAUX = ["email", "telegram", "ntfy"] as const;
+export type Canal = (typeof CANAUX)[number];
+
+/** Ce que porte une case Notif_* : la liste des canaux deja servis. */
+export type MarqueNotification = string | boolean;
+
+/**
+ * LA MEMOIRE D'UNE ALERTE EST PAR CANAL, PAS PAR LIGNE.
+ *
+ * Un booleen suffisait tant que les deux canaux partaient ensemble. Des
+ * l'instant ou l'email et Telegram ont leur propre plafond, ils n'avancent
+ * plus au meme rythme : Telegram peut avoir servi une ligne que l'email
+ * doit encore envoyer au passage suivant. Un seul booleen ne sait pas dire
+ * cela - il ferait soit un doublon sur Telegram, soit un email perdu.
+ *
+ * RETROCOMPATIBILITE : `true`, ecrit par une version precedente, se lit
+ * "tous canaux servis". C'est le seul choix sur pour une base deja en
+ * service - l'inverse renverrait des alertes deja recues.
+ *
+ * Jumeau de canauxNotifies_() dans Core.gs.
+ */
+export function canauxNotifies(valeur: unknown): Canal[] {
+  if (valeur === true) return [...CANAUX];
+  return String(valeur ?? "").toLowerCase().split(",")
+    .map((c) => c.trim())
+    .filter((c): c is Canal => (CANAUX as readonly string[]).includes(c));
+}
+
+/** Cette alerte est-elle deja partie SUR CE CANAL ? */
+export function dejaNotifie(valeur: unknown, canal: Canal): boolean {
+  return canauxNotifies(valeur).includes(canal);
+}
+
+/** Ajoute un canal a une case, sans perdre ceux qui y sont deja. */
+export function ajouterCanal(valeur: unknown, canal: Canal): string {
+  const canaux = canauxNotifies(valeur);
+  if (!canaux.includes(canal)) canaux.push(canal);
+  // Toujours dans l'ordre de CANAUX : deux passages doivent produire la
+  // meme chaine, sinon la cellule change sans que rien n'ait change.
+  return CANAUX.filter((c) => canaux.includes(c)).join(",");
+}
+
+/**
+ * Notifications a declencher pour une opportunite, SUR UN CANAL donne.
  *
  * Deux regles qui evitent le harcelement :
  * - les rappels J-7 / J-3 / J-1 ne concernent que les deadlines a venir.
@@ -906,15 +982,23 @@ export const NOTIFICATIONS: RegleNotification[] = [
  *   comme envoyes : ils n'ont plus lieu d'etre.
  */
 export function notificationsAEnvoyer(
-  o: Opportunite, config: Config,
+  o: Opportunite, config: Config, canal: Canal = "email",
 ): { envoyer: TypeNotification[]; marquer: TypeNotification[] } {
   const envoyer: TypeNotification[] = [];
   const candidats: TypeNotification[] = [];
   const jours = o.joursRestants ?? null;
 
+  // LES RAPPELS PEUVENT ETRE RESERVES AUX OFFRES SUIVIES, PAS L'ANNONCE
+  // D'UNE NOUVEAUTE : une opportunite qui vient d'entrer ne peut pas encore
+  // etre suivie, et la restreindre reviendrait a ne plus rien annoncer.
+  const rappelsReserves = Boolean(config.rappelsSuivisSeulement)
+    && !estSuivie(o);
+
   for (const regle of NOTIFICATIONS) {
     if (!config[regle.actif]) continue;
-    if (o[regle.champ] === true) continue;
+    if (dejaNotifie(o[regle.champ], canal)) continue;
+    // NI ENVOYE, NI MARQUE : le client peut cocher Suivi demain.
+    if (regle.cle !== "nouvelle" && rappelsReserves) continue;
 
     if (regle.cle === "nouvelle") { envoyer.push("nouvelle"); continue; }
     if (jours === null) continue;
@@ -1018,7 +1102,7 @@ export function alertes(
       });
       continue;
     }
-    if (!o.notifNouvelle && estVide(o.deadline)) {
+    if (canauxNotifies(o.notifNouvelle).length === 0 && estVide(o.deadline)) {
       trouvees.push({
         niveau: "nouvelle",
         titre: o.titre,

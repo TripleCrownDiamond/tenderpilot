@@ -36,12 +36,14 @@ var SCHEMA = {
   "days": "Jours_Restants",
   "status": "Statut_Delai",
   "pertinence": "Pertinence",
+  "suivi": "Suivi",
   "summary": "Resume",
   "notifNew": "Notif_Nouvelle",
   "notifJ7": "Notif_J7",
   "notifJ3": "Notif_J3",
   "notifJ1": "Notif_J1",
   "notifExpired": "Notif_Expire",
+  "agenda": "Agenda",
   "updatedAt": "Derniere_MAJ"
 },
 

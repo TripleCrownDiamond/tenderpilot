@@ -62,6 +62,9 @@ function exigeNumeroDeLigne(ligne, appelant) {
  */
 function monde(options) {
   const opt = options || {};
+  const salon = [];
+  const pousses = [];
+  const agenda = [];
   const feuille = {
     // Opportunites deja presentes avant la collecte : indispensable pour
     // tester ce qui expire APRES etre entre en base.
@@ -170,11 +173,16 @@ function monde(options) {
     peindreLignes_: function (lignes) {
       lignes.forEach(l => { l._couleur = ctx.couleurStatut(l.status); });
     },
-    marquerNotifications_: function (ligne, cles) {
+    // Le faux marque COMME LE VRAI : par canal, en cumulant. Un stub qui
+    // ecrirait `true` dirait "tous canaux servis" et masquerait exactement
+    // ce qu'on cherche a empecher - une alerte renvoyee sur un canal qui
+    // l'a deja recue, ou un email perdu parce que Telegram est passe.
+    marquerNotifications_: function (ligne, cles, canal) {
       exigeNumeroDeLigne(ligne, 'marquerNotifications_');
       cles.forEach(cle => {
         const n = ctx.SCHEMA.NOTIFICATIONS.filter(x => x.key === cle)[0];
-        if (n) ligne[n.column] = true;
+        if (n) ligne[n.column] = ctx.ajouterCanal_(ligne[n.column],
+                                                   canal || 'email');
       });
     },
 
@@ -183,7 +191,22 @@ function monde(options) {
       sendEmail: (to, sujet, corps) => boite.push({ to, sujet, corps })
     },
     UrlFetchApp: {
-      fetch: function (url) {
+      fetch: function (url, options) {
+        // Telegram passe par le meme UrlFetchApp que les sources : le banc
+        // le detourne pour compter ce que le salon a recu.
+        // ntfy : le corps EST le message, le titre est dans un en-tete.
+        if (String(url).indexOf('ntfy.') !== -1
+            || String(url).indexOf('/tp-') !== -1) {
+          pousses.push({ titre: options.headers.Title,
+                         corps: options.payload,
+                         lien: options.headers.Click || '' });
+          return { getResponseCode: () => 200, getContentText: () => '{}' };
+        }
+        if (String(url).indexOf('api.telegram.org') !== -1) {
+          salon.push(JSON.parse(options.payload).text);
+          return { getResponseCode: () => 200,
+                   getContentText: () => '{"ok":true}' };
+        }
         if (flux[url] === undefined) throw new Error('reseau injoignable');
         const reponse = flux[url];
         if (typeof reponse === 'number') {
@@ -193,6 +216,27 @@ function monde(options) {
       }
     },
     SpreadsheetApp: { getActive: () => ({ toast: () => {} }) },
+    // Agenda simule. Le vrai CalendarApp rend un evenement porteur d un
+    // identifiant : sans lui, la colonne Agenda resterait vide et la meme
+    // echeance serait reposee a chaque passage.
+    CalendarApp: {
+      getDefaultCalendar: () => ({
+        getName: () => 'Agenda de test',
+        createAllDayEvent: function (titre, date, options) {
+          const e = { titre, date, description: (options || {}).description,
+                      rappels: [], id: 'evt-' + (agenda.length + 1) };
+          agenda.push(e);
+          return {
+            getId: () => e.id,
+            addPopupReminder: (m) => { e.rappels.push(m); }
+          };
+        }
+      }),
+      getCalendarById: function (id) {
+        if (!id || id === 'inconnu') return null;
+        return this.getDefaultCalendar();
+      }
+    },
     Utilities: { formatDate: () => AUJOURDHUI },
     ScriptApp: { getProjectTriggers: () => [] },
     // La reprise apres budget depasse s ecrit dans les proprietes du
@@ -207,10 +251,11 @@ function monde(options) {
 
   vm.createContext(ctx);
   ['Schema.gs', 'Core.gs', 'Rss.gs', 'Html.gs', 'Json.gs', 'Telegram.gs',
+   'Ntfy.gs', 'Agenda.gs',
    'Llm.gs', 'Run.gs'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(SCRIPT, f), 'utf8'), ctx, f);
   });
-  return { ctx, feuille, boite };
+  return { ctx, feuille, boite, salon, pousses, agenda };
 }
 
 function source(id, url, extra) {
@@ -298,7 +343,8 @@ console.log('\n[Test 3] Deadline dans 7 jours : J-7 envoye une seule fois');
   m.ctx.executerTenderPilot();
   const j7 = m.boite.filter(e => e.sujet.indexOf('Deadline dans 7 jours') !== -1);
   check('un email J-7 part', j7.length === 1, j7.length + ' emails J-7');
-  check('la ligne est marquee', m.feuille.opps[0].notifJ7 === true);
+  check('la ligne est marquee, sur le canal qui l a servie',
+        m.ctx.dejaNotifie_(m.feuille.opps[0].notifJ7, 'email'));
   check('le statut est BIENTOT', m.feuille.opps[0].status === 'BIENTOT',
         m.feuille.opps[0].status);
 
@@ -324,7 +370,8 @@ console.log('\n[Test 4] Deadline dans 3 jours : J-3 envoye une seule fois');
   check('un email URGENT part',
         m.boite.filter(e => e.sujet.indexOf('URGENT') !== -1).length === 1);
   check('J-7 est marque sans email supplementaire',
-        m.feuille.opps[0].notifJ7 === true && m.boite.length === 1,
+        m.ctx.dejaNotifie_(m.feuille.opps[0].notifJ7, 'email')
+        && m.boite.length === 1,
         m.boite.length + ' emails au total');
   check('le statut est URGENT', m.feuille.opps[0].status === 'URGENT',
         m.feuille.opps[0].status);
@@ -352,9 +399,8 @@ console.log('\n[Test 5] Deadline demain : J-1 envoye une seule fois');
   check('un seul email malgre trois paliers atteints',
         m.boite.length === 1, m.boite.length + ' emails');
   check('les trois paliers sont marques',
-        m.feuille.opps[0].notifJ7 === true
-        && m.feuille.opps[0].notifJ3 === true
-        && m.feuille.opps[0].notifJ1 === true);
+        ['notifJ7', 'notifJ3', 'notifJ1'].every(
+          c => m.ctx.dejaNotifie_(m.feuille.opps[0][c], 'email')));
 
   m.ctx.executerTenderPilot();
   check('la relance ne renvoie rien', m.boite.length === 1);
@@ -1702,7 +1748,8 @@ console.log('\n[Etalement] Les alertes en trop sont reportees, jamais perdues');
           && l.message.indexOf('reportee') !== -1),
         JSON.stringify(m.feuille.logs.filter(l => l.action === 'Notifications')));
 
-  const marquees = m.feuille.opps.filter(o => o.notifJ7 === true).length;
+  const marquees = m.feuille.opps.filter(
+    o => m.ctx.dejaNotifie_(o.notifJ7, 'email')).length;
   check('seules les lignes servies sont marquees', marquees === 3,
         marquees + ' lignes marquees');
 
@@ -1719,7 +1766,7 @@ console.log('\n[Etalement] Les alertes en trop sont reportees, jamais perdues');
   check('au bout du compte les huit sont parties',
         m.boite.length === 8, m.boite.length + ' emails');
   check('et plus rien ne part ensuite',
-        m.feuille.opps.every(o => o.notifJ7 === true));
+        m.feuille.opps.every(o => m.ctx.dejaNotifie_(o.notifJ7, 'email')));
 }
 
 // ==========================================================================
@@ -1800,7 +1847,7 @@ console.log('\n[Digest] Plus de 5 nouvelles opportunites : un seul email');
         m.boite[0].sujet === '[TenderPilot] 8 nouvelles opportunites detectees',
         m.boite[0].sujet);
   check('toutes les lignes sont marquees comme notifiees',
-        m.feuille.opps.every(o => o.notifNew === true));
+        m.feuille.opps.every(o => m.ctx.dejaNotifie_(o.notifNew, 'email')));
 }
 
 // ==========================================================================
@@ -2430,6 +2477,328 @@ console.log('\n[UNGM] Le moteur enchaine les pages d un POST');
         envoyes[0].Countries.length === 15 && envoyes[0].PageSize === 15);
   check('et rien n entre deux fois', m.feuille.opps.length === 15,
         m.feuille.opps.length + ' annonces');
+}
+
+// ==========================================================================
+console.log('\n[Deux canaux] Chacun son plafond, chacun sa memoire');
+{
+  // L email est contraint par le quota Google et par une boite qu on noie
+  // vite ; un salon Telegram, non. Tant que les deux partageaient un seul
+  // plafond et un seul temoin, regler l email a 3 imposait 3 a Telegram -
+  // et l inverse aurait fait des doublons.
+  const url = 'https://exemple.test/flux-deux-canaux';
+  const entrees = [];
+  for (let i = 0; i < 8; i++) {
+    entrees.push({ titre: 'Echeance proche ' + i,
+      lien: 'https://exemple.test/dc' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(5)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '3',
+              MAX_TELEGRAM_PAR_EXECUTION: '0',
+              SEND_TELEGRAM: 'true', TELEGRAM_TOKEN: 'jeton',
+              TELEGRAM_CHAT_ID: 'salon' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('l email s arrete a son plafond', m.boite.length === 3,
+        m.boite.length + ' emails');
+  check('Telegram n est plus retenu par le plafond de l email',
+        m.salon.length === 8, m.salon.length + ' messages');
+
+  const parCanal = (canal) => m.feuille.opps.filter(
+    o => m.ctx.dejaNotifie_(o.notifJ7, canal)).length;
+  check('huit lignes servies sur Telegram', parCanal('telegram') === 8,
+        parCanal('telegram') + ' lignes');
+  check('trois seulement par email', parCanal('email') === 3,
+        parCanal('email') + ' lignes');
+
+  // Passage suivant : l email rattrape, Telegram ne renvoie RIEN.
+  m.boite.length = 0;
+  m.salon.length = 0;
+  m.ctx.executerTenderPilot();
+  check('l email reprend ou il s etait arrete', m.boite.length === 3,
+        m.boite.length + ' emails');
+  check('Telegram a deja tout envoye : il ne redit rien',
+        m.salon.length === 0, m.salon.length + ' messages');
+  check('six lignes servies par email', parCanal('email') === 6,
+        parCanal('email') + ' lignes');
+
+  m.ctx.executerTenderPilot();
+  check('au troisieme passage tout est parti', parCanal('email') === 8,
+        parCanal('email') + ' lignes');
+  check('et Telegram est reste muet', m.salon.length === 0);
+}
+
+// ==========================================================================
+console.log('\n[Deux canaux] Telegram plafonne sans retenir l email');
+{
+  const url = 'https://exemple.test/flux-plafond-telegram';
+  const entrees = [];
+  for (let i = 0; i < 6; i++) {
+    entrees.push({ titre: 'Avis ' + i, lien: 'https://exemple.test/pt' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(5)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '0',
+              MAX_TELEGRAM_PAR_EXECUTION: '2',
+              SEND_TELEGRAM: 'true', TELEGRAM_TOKEN: 'jeton',
+              TELEGRAM_CHAT_ID: 'salon' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('l email n est pas retenu par Telegram', m.boite.length === 6,
+        m.boite.length + ' emails');
+  check('Telegram tient son propre plafond', m.salon.length === 2,
+        m.salon.length + ' messages');
+  check('le report est journalise, canal nomme',
+        m.feuille.logs.some(l => l.action === 'Notifications'
+          && l.message.indexOf('telegram par execution') !== -1),
+        JSON.stringify(m.feuille.logs.filter(l => l.action === 'Notifications')
+          .map(l => l.message)));
+}
+
+// ==========================================================================
+console.log('\n[Deux canaux] Un temoin d une version precedente vaut tout');
+{
+  const C = monde({}).ctx;
+  // Une feuille en service porte des TRUE. Les relire comme "aucun canal"
+  // renverrait au client des alertes deja recues : c est la seule erreur
+  // qu on ne peut pas rattraper.
+  check('true se lit tous canaux servis',
+        C.canauxNotifies_(true).join(',') === 'email,telegram,ntfy',
+        C.canauxNotifies_(true).join(','));
+  check('et VRAI aussi, comme partout ailleurs',
+        C.dejaNotifie_('VRAI', 'telegram') === true);
+  check('une case vide n a servi personne',
+        C.dejaNotifie_('', 'email') === false);
+  check('un canal ne repond pas pour l autre',
+        C.dejaNotifie_('telegram', 'email') === false
+        && C.dejaNotifie_('telegram', 'telegram') === true);
+
+  check('ajouter conserve ce qui est deja la',
+        C.ajouterCanal_('telegram', 'email') === 'email,telegram');
+  check('et l ordre ne depend pas de celui des envois',
+        C.ajouterCanal_('email', 'telegram') === 'email,telegram');
+  check('ajouter deux fois le meme canal ne change rien',
+        C.ajouterCanal_('email,telegram', 'email') === 'email,telegram');
+  check('une valeur illisible ne bloque pas un envoi legitime',
+        C.ajouterCanal_('n importe quoi', 'email') === 'email');
+}
+
+// ==========================================================================
+console.log('\n[ntfy] Un troisieme canal, avec ses propres regles');
+{
+  const url = 'https://exemple.test/flux-ntfy';
+  const entrees = [];
+  for (let i = 0; i < 5; i++) {
+    entrees.push({ titre: 'Avis push ' + i,
+      lien: 'https://exemple.test/np' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(5)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '2',
+              MAX_NTFY_PAR_EXECUTION: '0',
+              SEND_NTFY: 'true', NTFY_SUJET: 'tp-essai-9f2a' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('les cinq notifications push sont parties', m.pousses.length === 5,
+        m.pousses.length + ' notifications');
+  check('l email garde son propre plafond', m.boite.length === 2,
+        m.boite.length + ' emails');
+  check('la notification porte un titre lisible',
+        m.pousses[0].titre === 'Echeance dans 7 jours', m.pousses[0].titre);
+  check('et le lien de l avis, pour l ouvrir d un appui',
+        /^https:\/\/exemple\.test\/np/.test(m.pousses[0].lien),
+        m.pousses[0].lien);
+  check('le corps est du texte simple, sans balisage',
+        m.pousses[0].corps.indexOf('<') === -1, m.pousses[0].corps);
+
+  // La memoire vaut pour ntfy comme pour les autres.
+  m.pousses.length = 0;
+  m.ctx.executerTenderPilot();
+  check('rien n est pousse deux fois', m.pousses.length === 0,
+        m.pousses.length + ' notifications au second passage');
+}
+
+// ==========================================================================
+console.log('\n[ntfy] L adresse se compose sans surprise');
+{
+  const C = monde({}).ctx;
+  check('serveur par defaut',
+        C.adresseNtfy_({ NTFY_SUJET: 'sujet' }) === 'https://ntfy.sh/sujet');
+  check('serveur personnel, barre finale en trop',
+        C.adresseNtfy_({ NTFY_SERVEUR: 'https://push.moi.test/',
+                         NTFY_SUJET: 'sujet' })
+          === 'https://push.moi.test/sujet');
+  check('sans sujet, le canal n est pas actif',
+        C.ntfyActif_({ SEND_NTFY: 'true', NTFY_SUJET: '' }) === false);
+  check('et sans SEND_NTFY non plus',
+        C.ntfyActif_({ SEND_NTFY: 'false', NTFY_SUJET: 'sujet' }) === false);
+}
+
+// ==========================================================================
+console.log('\n[Agenda] Seules les echeances SUIVIES sont posees');
+{
+  // Le classeur ramene des centaines d avis. Les verser tous dans l agenda
+  // du client le rendrait inutilisable : seules entrent les lignes ou il a
+  // ecrit OUI dans la colonne Suivi.
+  const url = 'https://exemple.test/flux-agenda';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis suivi', lien: 'https://exemple.test/ag1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(20)) },
+      { titre: 'Avis ignore', lien: 'https://exemple.test/ag2',
+        description: 'Date limite : ' + enFrancais(jourRelatif(20)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_J7: 'false',
+              SEND_AGENDA: 'true', AGENDA_RAPPELS_JOURS: '7, 1' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('sans decision du client, l agenda reste vide',
+        m.agenda.length === 0, m.agenda.length + ' evenements');
+
+  // Le client coche UNE ligne.
+  const suivie = m.feuille.opps.filter(o => o.title === 'Avis suivi')[0];
+  suivie.suivi = 'OUI';
+
+  m.ctx.executerTenderPilot();
+  check('une seule echeance est posee', m.agenda.length === 1,
+        m.agenda.length + ' evenements');
+  check('c est bien celle que le client suit',
+        m.agenda[0].titre === 'Echeance : Avis suivi', m.agenda[0].titre);
+  check('les rappels demandes sont poses, en minutes',
+        m.agenda[0].rappels.join(',') === '10080,1440',
+        m.agenda[0].rappels.join(','));
+  check('la description porte le lien de l avis',
+        m.agenda[0].description.indexOf('https://exemple.test/ag1') !== -1,
+        m.agenda[0].description);
+  check('la ligne garde l identifiant de l evenement',
+        String(suivie.agenda).indexOf('evt-') === 0, String(suivie.agenda));
+
+  // Troisieme passage : rien ne doit etre repose.
+  m.ctx.executerTenderPilot();
+  check('une echeance posee ne l est jamais deux fois',
+        m.agenda.length === 1, m.agenda.length + ' evenements');
+
+  // Vider la colonne Agenda fait reposer l evenement : c est la porte de
+  // sortie quand le client a supprime l evenement a la main.
+  suivie.agenda = '';
+  m.ctx.executerTenderPilot();
+  check('vider la colonne Agenda repose l evenement',
+        m.agenda.length === 2, m.agenda.length + ' evenements');
+}
+
+// ==========================================================================
+console.log('\n[Agenda] Ce qui l empeche de poser, et qui ne casse rien');
+{
+  const C = monde({}).ctx;
+  check('rappels illisibles ignores, pas fatals',
+        C.rappelsAgenda_({ AGENDA_RAPPELS_JOURS: '7, abc, 1, 900' })
+          .join(',') === '7,1');
+  check('aucun rappel demande est une reponse valable',
+        C.rappelsAgenda_({ AGENDA_RAPPELS_JOURS: '' }).length === 0);
+  check('le canal est inerte tant que SEND_AGENDA est faux',
+        C.agendaActif_({ SEND_AGENDA: 'false' }) === false);
+
+  const url = 'https://exemple.test/flux-agenda-sansdate';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis sans echeance', lien: 'https://exemple.test/sd1',
+        description: 'Pas de date ici.' }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_AGENDA: 'true' }
+  });
+  m.ctx.executerTenderPilot();
+  m.feuille.opps.forEach(o => { o.suivi = 'OUI'; });
+  m.ctx.executerTenderPilot();
+  check('une annonce suivie mais sans date n entre pas dans l agenda',
+        m.agenda.length === 0, m.agenda.length + ' evenements');
+  check('et le passage aboutit quand meme',
+        m.feuille.logs.some(l => l.action === 'Execution'
+                                 && l.statut === 'SUCCESS'));
+}
+
+// ==========================================================================
+console.log('\n[Suivi] Les rappels peuvent se limiter aux offres suivies');
+{
+  const url = 'https://exemple.test/flux-suivi';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis suivi', lien: 'https://exemple.test/s1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) },
+      { titre: 'Avis ignore', lien: 'https://exemple.test/s2',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) }
+    ]) },
+    config: { RAPPELS_SUIVIS_SEULEMENT: 'true' }
+  });
+
+  // Premier passage : les NOUVEAUTES partent quand meme. C est le point
+  // qui compte - une annonce qui vient d entrer ne peut pas etre suivie.
+  m.ctx.executerTenderPilot();
+  const nouveautes = m.boite.filter(
+    e => e.sujet.indexOf('Nouvelle opportunite') !== -1);
+  check('les nouveautes partent, suivies ou non', nouveautes.length === 2,
+        nouveautes.length + ' annonces de nouveaute');
+  check('mais aucun rappel d echeance',
+        m.boite.filter(e => e.sujet.indexOf('J-7') !== -1
+                         || e.sujet.indexOf('7 jours') !== -1).length === 0,
+        m.boite.map(e => e.sujet).join(' | '));
+
+  // Rien n a ete marque : le client doit pouvoir cocher plus tard.
+  const ignoree = m.feuille.opps.filter(o => o.title === 'Avis ignore')[0];
+  check('un rappel non envoye n est pas marque',
+        m.ctx.dejaNotifie_(ignoree.notifJ7, 'email') === false,
+        String(ignoree.notifJ7));
+
+  // Le client coche une ligne : son rappel part au passage suivant.
+  const suivie = m.feuille.opps.filter(o => o.title === 'Avis suivi')[0];
+  suivie.suivi = 'OUI';
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('cocher Suivi libere le rappel', m.boite.length === 1,
+        m.boite.map(e => e.sujet).join(' | '));
+  check('et c est bien celle qui est suivie',
+        m.boite[0].sujet.indexOf('Avis suivi') !== -1, m.boite[0].sujet);
+
+  // L autre reste muette, indefiniment.
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('celle qui n est pas suivie ne rappelle jamais',
+        m.boite.length === 0, m.boite.length + ' emails');
+}
+
+// ==========================================================================
+console.log('\n[Suivi] Sans le reglage, rien ne change');
+{
+  const url = 'https://exemple.test/flux-suivi-defaut';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis non suivi', lien: 'https://exemple.test/d1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false' }
+  });
+  m.ctx.executerTenderPilot();
+  check('le rappel part sans qu on ait rien coche', m.boite.length === 1,
+        m.boite.map(e => e.sujet).join(' | '));
+
+  const C = m.ctx;
+  check('OUI, true, VRAI et 1 se valent tous',
+        ['OUI', 'true', 'VRAI', '1', 'yes'].every(
+          v => C.estSuivie_({ suivi: v })));
+  check('une case vide ne suit rien',
+        C.estSuivie_({ suivi: '' }) === false
+        && C.estSuivie_({}) === false);
 }
 
 // ==========================================================================

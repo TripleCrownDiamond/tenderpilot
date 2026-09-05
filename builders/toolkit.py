@@ -32,7 +32,7 @@ MAX_ROWS = 2000
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
-                "Telegram.gs", "Llm.gs",
+                "Telegram.gs", "Ntfy.gs", "Agenda.gs", "Llm.gs",
                 "Run.gs"]
 
 # Couleurs en ARGB opaque. Un code a 6 chiffres est complete par openpyxl
@@ -290,15 +290,29 @@ def feuille_demarrage(wb):
         ("color",    "DATE A VERIFIER      aucune deadline connue"),
         ("blank",    ""),
         ("section",  "Notifications"),
-        ("body",     "Par defaut, les alertes partent par email. Pour "
-                     "recevoir aussi sur Telegram, creez un bot via "
-                     "@BotFather puis renseignez TELEGRAM_TOKEN et "
-                     "TELEGRAM_CHAT_ID dans l onglet CONFIG."),
+        ("body",     "Par defaut, les alertes partent par email. Trois "
+                     "autres canaux existent, tous facultatifs : TELEGRAM "
+                     "(un bot cree via @BotFather), NTFY (une notification "
+                     "push - installez l application ntfy, abonnez-vous a "
+                     "un sujet, collez ce sujet dans NTFY_SUJET : aucun "
+                     "compte a creer), et l AGENDA."),
+        ("body",     "L AGENDA ne recoit PAS tout. Ecrivez OUI dans la "
+                     "colonne SUIVI des avis auxquels vous comptez "
+                     "repondre : ceux-la seulement sont poses dans votre "
+                     "Google Agenda, avec leurs rappels. C est la seule "
+                     "colonne que vous remplissez vous-meme, et elle "
+                     "commande votre agenda."),
         ("body",     "Le tout premier passage trouve beaucoup d echeances "
                      "proches d un coup. Deux reglages evitent l avalanche : "
                      "au-dela de DIGEST_THRESHOLD nouveautes, un seul email "
                      "recapitulatif ; et MAX_EMAILS_PAR_EXECUTION limite les "
                      "rappels envoyes par passage."),
+        ("body",     "Les deux canaux avancent CHACUN A SON RYTHME. "
+                     "MAX_EMAILS_PAR_EXECUTION plafonne les emails, "
+                     "MAX_TELEGRAM_PAR_EXECUTION les messages Telegram, et "
+                     "les deux se comptent a part : une alerte deja partie "
+                     "sur Telegram ne repart pas quand l email la rattrape "
+                     "au passage suivant."),
         ("body",     "Ce qui depasse le plafond n est pas perdu : les "
                      "alertes repartent au passage suivant, les plus "
                      "pertinentes et les plus urgentes d abord. Google "
@@ -526,6 +540,8 @@ ROLES_SCRIPTS = {
     "Sheet": "acces au classeur",
     "Sources": "mise a jour du catalogue de sources",
     "Telegram": "notifications sur Telegram",
+    "Ntfy": "notifications push, via ntfy.sh",
+    "Agenda": "echeances suivies dans Google Agenda",
     "Run": "collecte, deadlines, emails et menu",
 }
 
@@ -570,6 +586,8 @@ SOURCES -> COLLECTE -> DEDUPLICATION -> GOOGLE SHEETS
 | `Html.gs` | extraction des pages sans flux (gouv.bj, BAD, Enabel, ARMP) |
 | `Json.gs` | lecture des API publiques (Banque mondiale) |
 | `Telegram.gs` | notifications sur Telegram |
+| `Ntfy.gs` | notifications push, via ntfy.sh |
+| `Agenda.gs` | echeances suivies posees dans Google Agenda |
 | `Sources.gs` | synchronisation du catalogue de sources |
 | `Sheet.gs` | acces au classeur |
 | `Run.gs` | collecte, deadlines, emails, menu, declencheurs |
@@ -786,9 +804,21 @@ notification Telegram arrive sur le telephone.
 > **Le jeton permet d'ecrire a votre place.** Ne le partagez pas, et ne
 > laissez pas le classeur ouvert en modification a n'importe qui.
 
-Les deux canaux suivent les memes regles : une opportunite ne vous previent
-jamais deux fois par le meme canal. Mais ils sont independants - si Telegram
-tombe, les emails partent quand meme, et l'inverse est vrai aussi.
+Les deux canaux suivent les memes regles de declenchement : une opportunite
+ne vous previent jamais deux fois par le meme canal. Tout le reste leur est
+propre.
+
+- Si Telegram tombe, les emails partent quand meme, et l'inverse est vrai.
+- Chacun a son plafond : `MAX_EMAILS_PAR_EXECUTION` d'un cote,
+  `MAX_TELEGRAM_PAR_EXECUTION` de l'autre. Telegram n'a pas de quota
+  journalier, vous pouvez le laisser a 0 - sans plafond - tout en gardant
+  vos emails a 20.
+- Chacun a sa memoire. Les colonnes `Notif_*` portent la liste des canaux
+  deja servis : vide, `email`, `telegram`, ou `email,telegram`. C'est ce
+  qui permet a Telegram de tout recevoir aujourd'hui pendant que l'email
+  rattrape sur trois passages, sans jamais rien envoyer deux fois.
+
+Pour faire repartir une alerte, videz la cellule `Notif_*` concernee.
 
 Vous pouvez n'utiliser que Telegram : laissez `NOTIFICATION_EMAIL` vide.
 

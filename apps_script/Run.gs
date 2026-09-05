@@ -21,6 +21,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Synchroniser les sources', 'synchroniserSources')
     .addItem('Tester la notification Telegram', 'testerTelegram')
+    .addItem('Tester la notification push (ntfy)', 'testerNtfy')
+    .addItem('Tester l agenda', 'testerAgenda')
     .addItem('Tester le classement intelligent', 'testerLlm')
     .addItem('Afficher / masquer l onglet SOURCES', 'basculerOngletSources')
     .addSeparator()
@@ -798,12 +800,35 @@ function plafondEnvois_(config, destinataires) {
 }
 
 /**
+ * Le plafond de Telegram, qui n'obeit pas aux memes contraintes.
+ *
+ * Pas de quota journalier a menager ici : l'API Telegram tolere une
+ * trentaine de messages par seconde vers un meme salon. Le plafond n'est
+ * donc pas une protection technique, c'est un REGLAGE DE CONFORT - a
+ * quelle cadence le client accepte de voir son salon sonner.
+ *
+ * Vide ou 0 : aucun plafond, comme avant l'existence de ce reglage.
+ */
+function plafondTelegram_(config) {
+  var demande = Number(config.MAX_TELEGRAM_PAR_EXECUTION);
+  return isFinite(demande) && demande > 0 ? Math.floor(demande) : Infinity;
+}
+
+/** Meme raisonnement pour ntfy : un reglage de confort, pas un quota. */
+function plafondNtfy_(config) {
+  var demande = Number(config.MAX_NTFY_PAR_EXECUTION);
+  return isFinite(demande) && demande > 0 ? Math.floor(demande) : Infinity;
+}
+
+/**
  * Envoie ce qui doit l'etre, sur les canaux configures.
  *
- * Email et Telegram partagent les memes regles de declenchement - une
- * opportunite ne previent jamais deux fois par le meme canal - mais sont
- * envoyes independamment : si Telegram est en panne, les emails partent
- * quand meme, et l'inverse est vrai aussi.
+ * Email et Telegram partagent les memes regles de DECLENCHEMENT - une
+ * opportunite ne previent jamais deux fois par le meme canal - mais tout
+ * le reste leur est propre : leur plafond, leur compteur, leur memoire.
+ * Si Telegram est en panne les emails partent quand meme, si l'email est
+ * plafonne Telegram continue, et aucun des deux ne renvoie ce qu'il a
+ * deja envoye.
  *
  * Le compte retourne est le nombre de MESSAGES partis, tous canaux
  * confondus : une alerte envoyee par les deux compte pour deux.
@@ -812,10 +837,56 @@ function sendNotifications(lignes, config, nouvelles) {
   var destinataire = destinataires_(config.NOTIFICATION_EMAIL);
   var parEmail = Boolean(destinataire);
   var parTelegram = telegramActif_(config);
+  var parNtfy = ntfyActif_(config);
 
-  if (!parEmail && !parTelegram) {
+  if (!parEmail && !parTelegram && !parNtfy) {
     logEvent('', 'Notifications', 'SKIPPED', 'Aucun canal configure.');
     return 0;
+  }
+
+  // CHAQUE CANAL AVANCE A SON RYTHME. L'email est contraint par le quota
+  // Google et par une boite aux lettres qu'on noie vite ; Telegram n'a ni
+  // l'un ni l'autre. Les tenir au meme rythme obligeait a regler les deux
+  // sur le plus etroit - et un salon Telegram qui pourrait tout recevoir
+  // n'en recevait que vingt.
+  //
+  // Chaque canal a donc son plafond, son compteur, et SA MEMOIRE : une
+  // alerte partie sur Telegram mais pas encore par email laisse la case
+  // Notif_* a 'telegram', et l'email partira au passage suivant sans
+  // renvoyer Telegram. Voir canauxNotifies_ dans Core.gs.
+  var canaux = [];
+  if (parEmail) {
+    canaux.push({
+      nom: 'email',
+      plafond: plafondEnvois_(config, destinataire),
+      envoyes: 0,
+      reportees: 0,
+      envoyer: function (message) {
+        sendEmail(destinataire, message.sujet, message.corps);
+      }
+    });
+  }
+  if (parTelegram) {
+    canaux.push({
+      nom: 'telegram',
+      plafond: plafondTelegram_(config),
+      envoyes: 0,
+      reportees: 0,
+      envoyer: function (message) {
+        envoyerTelegram_(config, message.telegram);
+      }
+    });
+  }
+  if (parNtfy) {
+    canaux.push({
+      nom: 'ntfy',
+      plafond: plafondNtfy_(config),
+      envoyes: 0,
+      reportees: 0,
+      envoyer: function (message) {
+        envoyerNtfy_(config, message.ntfy);
+      }
+    });
   }
 
   // NOTIFIER_PERTINENCE coupe le bruit dans la boite, PAS dans le tableau.
@@ -831,37 +902,35 @@ function sendNotifications(lignes, config, nouvelles) {
     && estVrai(config.SEND_NEW_OPPORTUNITY);
   var envoyes = 0;
 
-  // Le plafond ne compte que les EMAILS. Telegram n'a pas de quota
-  // journalier et un salon ne se noie pas comme une boite aux lettres.
-  var plafond = parEmail ? plafondEnvois_(config, destinataire) : Infinity;
-  var emailsEnvoyes = 0;
-  var reportees = 0;
-
-  /** Diffuse sur les deux canaux ; l'echec de l'un n'arrete pas l'autre. */
-  function diffuser(source, action, sujet, corps, texteTelegram) {
-    if (parEmail) {
-      try {
-        sendEmail(destinataire, sujet, corps);
-        emailsEnvoyes++;
-        envoyes++;
-      } catch (e) {
-        logEvent(source, action + ' (email)', 'ERROR', e.message);
-      }
-    }
-    if (parTelegram) {
-      try {
-        envoyerTelegram_(config, texteTelegram);
-        envoyes++;
-      } catch (e) {
-        logEvent(source, action + ' (Telegram)', 'ERROR', e.message);
-      }
+  /** Un envoi sur un canal ; son echec n'arrete jamais l'autre canal. */
+  function emettre_(canal, source, action, message) {
+    try {
+      canal.envoyer(message);
+      canal.envoyes++;
+      envoyes++;
+      return true;
+    } catch (e) {
+      logEvent(source, action + ' (' + canal.nom + ')', 'ERROR', e.message);
+      // L'envoi a echoue : le canal n'a rien servi, et ne doit pas etre
+      // marque. La ligne repassera au prochain passage.
+      return false;
     }
   }
 
   if (envoiGroupe) {
     var digest = messageDigest(aNotifier);
-    diffuser('', 'Digest', digest.sujet, digest.corps,
-             messageTelegramDigest(aNotifier));
+    var messageDigest_ = {
+      sujet: digest.sujet, corps: digest.corps,
+      telegram: messageTelegramDigest(aNotifier),
+      ntfy: messageNtfyDigest(aNotifier)
+    };
+    canaux.forEach(function (canal) {
+      // Le digest compte pour un message sur chaque canal. Un plafond a 0
+      // n'existe pas - plafondEnvois_ rend Infinity - mais un quota Google
+      // epuise, si.
+      if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
+      emettre_(canal, '', 'Digest', messageDigest_);
+    });
     logEvent('', 'Notifications', 'SUCCESS',
              'Digest de ' + aNotifier.length + ' nouvelles opportunites.');
   }
@@ -871,38 +940,48 @@ function sendNotifications(lignes, config, nouvelles) {
   var ecartees = 0;
 
   parPertinence_(lignes).forEach(function (ligne) {
-    var plan = notificationsAEnvoyer(ligne, config);
-    if (!plan.marquer.length) return;
-
     // ON NE MARQUE RIEN. Le niveau de pertinence d'une ligne change quand
     // le client change ses pays ou ses secteurs : marquer ici lui
     // interdirait de recevoir plus tard une alerte qu'il vient tout juste
     // de demander.
-    if (!pertinenceNotifiable(ligne.pertinence, config)) {
-      ecartees++;
-      return;
-    }
+    var notifiable = pertinenceNotifiable(ligne.pertinence, config);
+    var comptee = false;
 
-    // Combien d'emails cette ligne demande-t-elle vraiment ? Ce qui est
-    // deja couvert par le digest ne coute rien.
-    var aEnvoyer = plan.envoyer.filter(function (type) {
-      return !(type === 'new' && envoiGroupe);
+    canaux.forEach(function (canal) {
+      var plan = notificationsAEnvoyer(ligne, config, canal.nom);
+      if (!plan.marquer.length) return;
+
+      if (!notifiable) {
+        // Une ligne ecartee ne l'est qu'une fois dans le journal, meme
+        // quand deux canaux la voient passer.
+        if (!comptee) { ecartees++; comptee = true; }
+        return;
+      }
+
+      // Ce qui est deja couvert par le digest ne coute pas un message.
+      var aEnvoyer = plan.envoyer.filter(function (type) {
+        return !(type === 'new' && envoiGroupe);
+      });
+
+      // Plafond atteint : ON NE MARQUE RIEN, sur ce canal. La ligne
+      // repassera identique au prochain passage, et son alerte partira
+      // alors. L'autre canal, lui, continue.
+      if (aEnvoyer.length && canal.envoyes + aEnvoyer.length > canal.plafond) {
+        canal.reportees++;
+        return;
+      }
+
+      var tousPartis = true;
+      aEnvoyer.forEach(function (type) {
+        var message = messageNotification(type, ligne);
+        message.telegram = messageTelegram(type, ligne);
+        message.ntfy = messageNtfy(type, ligne);
+        if (!emettre_(canal, ligne.source, 'Notification ' + type, message)) {
+          tousPartis = false;
+        }
+      });
+      if (tousPartis) marquerNotifications_(ligne, plan.marquer, canal.nom);
     });
-
-    // Plafond atteint : ON NE MARQUE RIEN. La ligne repassera identique au
-    // prochain passage, et son alerte partira alors.
-    if (parEmail && aEnvoyer.length
-        && emailsEnvoyes + aEnvoyer.length > plafond) {
-      reportees++;
-      return;
-    }
-
-    aEnvoyer.forEach(function (type) {
-      var message = messageNotification(type, ligne);
-      diffuser(ligne.source, 'Notification ' + type,
-               message.sujet, message.corps, messageTelegram(type, ligne));
-    });
-    marquerNotifications_(ligne, plan.marquer);
   });
 
   if (ecartees > 0) {
@@ -912,12 +991,13 @@ function sendNotifications(lignes, config, nouvelles) {
              + 'tableau.');
   }
 
-  if (reportees > 0) {
+  canaux.forEach(function (canal) {
+    if (!canal.reportees) return;
     logEvent('', 'Notifications', 'INFO',
-             reportees + ' alerte(s) reportee(s) au prochain passage : '
-             + 'plafond de ' + plafond + ' email(s) par execution atteint. '
-             + 'Rien n est perdu.');
-  }
+             canal.reportees + ' alerte(s) reportee(s) au prochain passage : '
+             + 'plafond de ' + canal.plafond + ' message(s) ' + canal.nom
+             + ' par execution atteint. Rien n est perdu.');
+  });
 
   return envoyes;
 }
@@ -1024,7 +1104,8 @@ function viderOpportunites() {
 function executerTenderPilot() {
   CONFIG_COURANTE = lireConfig();
   var config = CONFIG_COURANTE;
-  var resume = { nouvelles: 0, misesAJour: 0, emails: 0, suivies: 0 };
+  var resume = { nouvelles: 0, misesAJour: 0, emails: 0, suivies: 0,
+                 agenda: 0 };
 
   try {
     var existantes = lireOpportunites();
@@ -1044,6 +1125,11 @@ function executerTenderPilot() {
     var toutes = existantes.concat(bilan.nouvelles);
     resume.suivies = updateDeadlines(toutes, config);
     resume.emails = sendNotifications(toutes, config, bilan.nouvelles);
+
+    // L'agenda APRES le recalcul des jours restants : une echeance corrigee
+    // par la source doit etre posee a la bonne date. Et avant le tri, qui
+    // deplace les lignes - synchroniserAgenda_ ecrit par numero de ligne.
+    resume.agenda = synchroniserAgenda_(toutes, config);
 
     // L'inventaire vient APRES le recalcul de la pertinence : il montre
     // l'etat du jour, pas celui d'avant le passage.

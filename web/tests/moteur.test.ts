@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  ajouterCanal, Canal, canauxNotifies, dejaNotifie, estSuivie,
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
   construireIndex, inventaireProfil, listeConfig, parDelai,
   parPertinence, pertinence, pertinenceNotifiable, PROFIL_TYPE_PAYS,
@@ -23,7 +24,8 @@ import {
   SECTEUR_INCONNU,
 } from "../src/lib/domain/regles";
 import {
-  Depot, Envoyeur, OpportuniteStockee, Recuperateur, SourceCollecte,
+  Depot, Envoyeur, Messager, NotificationPush, OpportuniteStockee, Pousseur,
+  Recuperateur, SourceCollecte,
   enregistrerOuMettreAJour, executer, referenceSuivante,
 } from "../src/lib/run";
 import { analyserFlux, estFluxXml } from "../src/lib/domain/rss";
@@ -56,6 +58,12 @@ interface Monde {
   journal: { source: string | null; action: string; statut: string;
              message: string }[];
   boite: { sujet: string; corps: string }[];
+  /** Ce que Telegram a recu : le second canal, compte a part. */
+  salon: string[];
+  messager: Messager;
+  /** Ce que le canal push a recu, compte a part lui aussi. */
+  pousses: NotificationPush[];
+  pousseur: Pousseur;
   sources: SourceCollecte[];
   /** La configuration vivante : la modifier change le passage suivant. */
   config: Config;
@@ -71,6 +79,8 @@ function monde(options: {
   const opportunites: OpportuniteStockee[] = [...(options.opportunites ?? [])];
   const journal: Monde["journal"] = [];
   const boite: Monde["boite"] = [];
+  const salon: string[] = [];
+  const pousses: NotificationPush[] = [];
   const sources = options.sources ?? [];
   const flux = options.flux ?? {};
   const config: Config = {
@@ -116,11 +126,16 @@ function monde(options: {
         }
       }
     },
-    async marquerNotifications(id, cles: TypeNotification[]) {
+    // Le banc doit marquer COMME LA VRAIE BASE : par canal, en cumulant.
+    // Un faux qui ecrirait `true` masquerait exactement le defaut qu'on
+    // cherche a empecher - une alerte renvoyee sur un canal deja servi.
+    async marquerNotifications(id, cles: TypeNotification[], canal: Canal) {
       const cible = opportunites.find((o) => o.id === id);
-      if (!cible) return;
+      if (!cible) throw new Error(`marquerNotifications : ${id} inconnue`);
       for (const cle of cles) {
-        (cible as unknown as Record<string, unknown>)[champNotification(cle) as string] = true;
+        const champ = champNotification(cle) as string;
+        const dossier = cible as unknown as Record<string, unknown>;
+        dossier[champ] = ajouterCanal(dossier[champ], canal);
       }
     },
     async majSource(id, statut) {
@@ -143,8 +158,15 @@ function monde(options: {
     return { code: 200, texte: reponse };
   };
 
-  return { depot, envoyeur, recuperer, opportunites, journal, boite, sources,
-           config };
+  const messager: Messager = {
+    async publier(texte: string) { salon.push(texte); },
+  };
+  const pousseur: Pousseur = {
+    async pousser(n) { pousses.push(n); },
+  };
+
+  return { depot, envoyeur, recuperer, opportunites, journal, boite, salon,
+           messager, pousses, pousseur, sources, config };
 }
 
 function source(id: string, url: string, extra: Partial<SourceCollecte> = {}) {
@@ -320,7 +342,9 @@ test("digest : au-dela du seuil, un seul email recapitulatif", async () => {
   assert.equal(m.boite.length, 1, "un seul email au lieu de huit");
   assert.equal(m.boite[0].sujet,
                "[TenderPilot] 8 nouvelles opportunites detectees");
-  assert.ok(m.opportunites.every((o) => o.notifNouvelle === true));
+  assert.ok(m.opportunites.every(
+    (o) => canauxNotifies(o.notifNouvelle).includes("email")),
+    "le digest marque chaque ligne, sur le canal qui l a servie");
 });
 
 test("source MANUAL : ignoree sans erreur", async () => {
@@ -679,8 +703,8 @@ test("le filtre coupe les emails, jamais la liste", async () => {
   assert.equal(m.opportunites.length, 1, "l'annonce entre dans la liste");
   assert.equal(m.boite.length, 0, "aucun email");
   assert.ok(m.journal.some((l) => l.message.includes("notifierPertinence")));
-  assert.notEqual(m.opportunites[0].notifNouvelle, true,
-                  "rien n'est marque comme notifie");
+  assert.equal(canauxNotifies(m.opportunites[0].notifNouvelle).length, 0,
+               "rien n'est marque comme notifie, sur aucun canal");
 
   // Elargir le profil libere l'alerte, sans recollecter.
   m.config.paysSuivis = "Benin, Kenya";
@@ -881,4 +905,190 @@ test("Non precise plutot qu'une cellule vide", () => {
   // produit ? Une valeur explicite repond, et devient filtrable.
   assert.equal(SECTEUR_INCONNU, "Non precise");
   assert.notEqual(SECTEUR_INCONNU, "Autre");
+});
+
+// ==========================================================================
+// Deux canaux, deux rythmes.
+//
+// L'email est contraint par le quota du fournisseur et par une boite qu'on
+// noie vite ; un salon Telegram, non. Tant que les deux partageaient un
+// seul plafond et un seul temoin d'envoi, regler l'email a 3 imposait 3 a
+// Telegram - et l'inverse aurait fait des doublons.
+
+test("chaque canal a son plafond, et personne ne recoit deux fois", async () => {
+  const url = "https://example.org/f-deux-canaux";
+  const entrees = Array.from({ length: 8 }, (_, i) => ({
+    titre: `Echeance proche ${i}`,
+    lien: `https://example.org/dc${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss(entrees) },
+    config: {
+      envoiNouvelle: false,
+      maxEmailsParExecution: 3,
+      maxTelegramParExecution: 0,   // 0 = aucun plafond
+      envoiTelegram: true, telegramToken: "jeton", telegramChatId: "salon",
+    },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer, m.messager);
+
+  assert.equal(m.boite.length, 3, "l'email s'arrete a son plafond");
+  assert.equal(m.salon.length, 8,
+               "Telegram n'est plus retenu par le plafond de l'email");
+
+  // La memoire est par canal : huit lignes servies sur Telegram, trois
+  // seulement par email.
+  const parCanal = (canal: Canal) => m.opportunites.filter(
+    (o) => canauxNotifies(o.notifJ7).includes(canal)).length;
+  assert.equal(parCanal("telegram"), 8);
+  assert.equal(parCanal("email"), 3);
+
+  // AU PASSAGE SUIVANT : l'email rattrape, Telegram ne renvoie RIEN.
+  m.boite.length = 0;
+  m.salon.length = 0;
+  await executer(m.depot, m.envoyeur, m.recuperer, m.messager);
+
+  assert.equal(m.boite.length, 3, "l'email reprend ou il s'etait arrete");
+  assert.equal(m.salon.length, 0,
+               "Telegram a deja tout envoye : il ne doit rien redire");
+  assert.equal(parCanal("email"), 6);
+
+  await executer(m.depot, m.envoyeur, m.recuperer, m.messager);
+  assert.equal(parCanal("email"), 8, "au troisieme passage, tout est parti");
+  assert.equal(m.salon.length, 0);
+});
+
+test("un temoin ecrit par une version precedente vaut tous canaux", async () => {
+  // Une base en service porte des `true`. Les relire comme "aucun canal"
+  // renverrait au client des alertes qu'il a deja recues - c'est le seul
+  // choix qui n'est pas rattrapable.
+  assert.deepEqual(canauxNotifies(true), ["email", "telegram", "ntfy"]);
+  assert.equal(dejaNotifie(true, "telegram"), true);
+  assert.equal(dejaNotifie("", "email"), false);
+  assert.equal(dejaNotifie("telegram", "email"), false);
+
+  assert.equal(ajouterCanal("", "telegram"), "telegram");
+  assert.equal(ajouterCanal("telegram", "email"), "email,telegram");
+  assert.equal(ajouterCanal("email,telegram", "email"), "email,telegram",
+               "ajouter deux fois le meme canal ne change rien");
+  assert.equal(ajouterCanal("n importe quoi", "email"), "email",
+               "une valeur illisible ne bloque pas un envoi legitime");
+});
+
+test("Telegram plafonne de son cote sans retenir l'email", async () => {
+  const url = "https://example.org/f-plafond-telegram";
+  const entrees = Array.from({ length: 6 }, (_, i) => ({
+    titre: `Avis ${i}`,
+    lien: `https://example.org/pt${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss(entrees) },
+    config: {
+      envoiNouvelle: false,
+      maxEmailsParExecution: 0,     // aucun plafond email
+      maxTelegramParExecution: 2,
+      envoiTelegram: true, telegramToken: "jeton", telegramChatId: "salon",
+    },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer, m.messager);
+  assert.equal(m.boite.length, 6, "l'email n'est pas retenu par Telegram");
+  assert.equal(m.salon.length, 2, "Telegram tient son propre plafond");
+  assert.ok(m.journal.some((l) => l.message.includes("telegram par execution")),
+            "le report est journalise, canal nomme");
+});
+
+test("ntfy : un troisieme canal, avec son plafond et sa memoire", async () => {
+  const url = "https://example.org/f-ntfy";
+  const entrees = Array.from({ length: 5 }, (_, i) => ({
+    titre: `Avis push ${i}`,
+    lien: `https://example.org/np${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss(entrees) },
+    config: {
+      envoiNouvelle: false,
+      maxEmailsParExecution: 2,
+      maxNtfyParExecution: 0,
+      envoiNtfy: true, ntfySujet: "tp-essai-9f2a",
+    },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
+                 m.pousseur);
+
+  assert.equal(m.pousses.length, 5, "les cinq notifications partent");
+  assert.equal(m.boite.length, 2, "l'email garde son propre plafond");
+  assert.equal(m.pousses[0].titre, "Echeance dans 7 jours");
+  assert.ok(m.pousses[0].lien.startsWith("https://example.org/np"));
+  assert.ok(!m.pousses[0].corps.includes("<"),
+            "le corps est du texte simple, ntfy n'interprete pas de balisage");
+
+  m.pousses.length = 0;
+  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
+                 m.pousseur);
+  assert.equal(m.pousses.length, 0, "rien n'est pousse deux fois");
+});
+
+test("les rappels peuvent se limiter aux offres suivies", async () => {
+  const url = "https://example.org/f-suivi";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([
+      { titre: "Avis suivi", lien: "https://example.org/s1",
+        texte: `Date limite : ${enFrancais(jourRelatif(5))}` },
+      { titre: "Avis ignore", lien: "https://example.org/s2",
+        texte: `Date limite : ${enFrancais(jourRelatif(5))}` },
+    ]) },
+    config: { rappelsSuivisSeulement: true },
+  });
+
+  // Les NOUVEAUTES partent quand meme : une annonce qui vient d'entrer ne
+  // peut pas encore etre suivie. C'est tout l'interet de l'exception.
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  const nouveautes = m.boite.filter((e) => e.sujet.includes("Nouvelle"));
+  assert.equal(nouveautes.length, 2, "les nouveautes ne sont pas restreintes");
+  assert.equal(m.boite.filter((e) => e.sujet.includes("7 jours")).length, 0,
+               "aucun rappel d'echeance");
+
+  const ignoree = m.opportunites.find((o) => o.titre === "Avis ignore")!;
+  assert.equal(canauxNotifies(ignoree.notifJ7).length, 0,
+               "un rappel non envoye n'est pas marque");
+
+  // Le client coche une ligne : son rappel part au passage suivant.
+  const suivie = m.opportunites.find((o) => o.titre === "Avis suivi")!;
+  suivie.suivi = true;
+  m.boite.length = 0;
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 1, "cocher Suivi libere le rappel");
+  assert.ok(m.boite[0].sujet.includes("Avis suivi"));
+
+  m.boite.length = 0;
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 0,
+               "celle qui n'est pas suivie ne rappelle jamais");
+});
+
+test("sans le reglage, les rappels partent comme avant", async () => {
+  const url = "https://example.org/f-suivi-defaut";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([
+      { titre: "Avis non suivi", lien: "https://example.org/d1",
+        texte: `Date limite : ${enFrancais(jourRelatif(5))}` },
+    ]) },
+    config: { envoiNouvelle: false },
+  });
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  assert.equal(m.boite.length, 1, "le rappel part sans qu'on ait rien coche");
+
+  assert.ok(["oui", "true", "VRAI", "1"].every((v) => estSuivie({ titre: "x", suivi: v })));
+  assert.equal(estSuivie({ titre: "x" }), false);
 });
