@@ -245,12 +245,39 @@ est construit pour que ses erreurs ne coutent rien : une annonce qu'il n'a
 pas jugee est conservee, et il n'a pas le droit de toucher a une date. Dites
 qu'il **trie et resume**, pas qu'il decide.
 
-## 10. Ce qu'il vous reste a preparer
+## 10. Le prix
+
+**{prix_lancement} pour les {lancement_quantite} premiers, puis {prix}.**
+
+C'est une vente unique : le client copie le classeur, il est a lui, il
+tourne sur son compte Google et ne vous coute rien ensuite. Pas
+d'abonnement a facturer, pas de serveur a payer.
+
+**Pourquoi un prix de lancement, et pourquoi il s'arrete.** Les
+{lancement_quantite} premiers ne paient pas le meme produit que les
+suivants : ils achetent quelque chose que personne n'a encore utilise, et
+c'est eux qui vous diront ce qui manque. La moitie du prix est le juste
+echange. Annoncez le compteur, et **tenez-le** : un prix de lancement qui
+ne finit jamais est une remise permanente, et le prix normal devient une
+fiction que personne ne paie.
+
+**Ce que {prix} represente pour l'acheteur.** Un seul marche remporte
+couvre le prix des centaines de fois. Un seul marche **rate faute de
+l'avoir vu** coute infiniment plus. Vous ne vendez pas un tableur, vous
+vendez de ne plus ouvrir quinze portails a la main chaque matin.
+
+> **Ne bradez pas au-dessous de {prix_lancement}.** En dessous, l'acheteur
+> cesse de croire que le produit vaut quelque chose - et c'est le seul
+> argument que vous ne pouvez pas reconstruire apres coup.
+
+Le prix vit dans `data/livraison.json`, avec le lien de vente et vos
+contacts. Changez-le la, relancez `python builders/guides.py`, et les
+guides sont a jour.
+
+## 11. Ce qu'il vous reste a preparer
 
 Ces points ne sont pas techniques, mais rien ne se vend sans eux.
 
-- **Un prix.** Et une decision : vente unique ou abonnement. La maintenance
-  des onze extractions penche pour l'abonnement.
 - **Des mentions legales et des conditions de vente.** Vous collectez une
   adresse email et vous envoyez des notifications : c'est le minimum legal.
 - **Une phrase de limite**, visible avant l'achat :

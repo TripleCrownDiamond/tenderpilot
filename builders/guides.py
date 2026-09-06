@@ -701,7 +701,10 @@ def livraison():
     defauts = {"lien_copie": "[LIEN A RENSEIGNER]",
                "contact": "[CONTACT A RENSEIGNER]",
                "groupe_whatsapp": "",
-               "nom_vendeur": ""}
+               "nom_vendeur": "",
+               "prix": "[PRIX A RENSEIGNER]",
+               "prix_lancement": "",
+               "lancement_quantite": ""}
     if not chemin.exists():
         return defauts
     defauts.update(json.loads(chemin.read_text(encoding="utf-8")))
@@ -709,7 +712,8 @@ def livraison():
 
 
 def remplir(markdown, conf):
-    """Remplace les jetons {lien}, {contact}, {groupe} et {nb_sources}.
+    """Remplace les jetons {lien}, {contact}, {groupe}, {nb_sources} et
+    les trois du prix : {prix}, {prix_lancement}, {lancement_quantite}.
 
     Un jeton absent de la configuration devient une chaine vide, jamais un
     "{groupe}" imprime tel quel dans un PDF livre au client.
@@ -721,7 +725,11 @@ def remplir(markdown, conf):
             .replace("{lien}", conf["lien_copie"])
             .replace("{contact}", conf["contact"])
             .replace("{groupe}", conf.get("groupe_whatsapp") or "")
-            .replace("{nb_sources}", str(nb)))
+            .replace("{nb_sources}", str(nb))
+            .replace("{prix}", conf.get("prix") or "")
+            .replace("{prix_lancement}", conf.get("prix_lancement") or "")
+            .replace("{lancement_quantite}",
+                     str(conf.get("lancement_quantite") or "")))
 
 
 # ------------------------------------------------------------------ main --
