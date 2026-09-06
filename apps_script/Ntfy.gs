@@ -257,26 +257,58 @@ function testerNtfy() {
       'ntfy', 8);
     return;
   }
+
+  var sujet = sujetNtfy_(config);
+
+  // CE QUE LE SCRIPT VOIT, DIT AVANT D'ENVOYER. Un "quota atteint" alors
+  // qu'un jeton est colle dans CONFIG a presque toujours la meme cause :
+  // le script ne le voit pas. Cle absente de l'onglet, valeur dans la
+  // mauvaise colonne, espace ou saut de ligne colle avec. Le dire vaut
+  // mieux que de laisser deviner.
+  var jeton = String(config.NTFY_JETON || '').trim();
+  var etatJeton;
+  if (!jeton) {
+    etatJeton = 'AUCUN JETON LU. Le quota de ntfy.sh est compte par adresse '
+      + 'IP, et Apps Script sort par des adresses partagees : sans jeton '
+      + 'vous serez bloque des le deuxieme message. Verifiez que la cle '
+      + 'NTFY_JETON existe dans CONFIG et que le jeton est bien dans la '
+      + 'colonne Valeur.';
+  } else if (jeton.indexOf('tk_') !== 0) {
+    etatJeton = 'JETON LU MAIS SUSPECT : il devrait commencer par "tk_" et '
+      + 'commence par "' + jeton.slice(0, 3) + '". Un mot de passe de compte '
+      + 'n est pas un jeton - il faut Account > Access tokens > Create token.';
+  } else {
+    etatJeton = 'Jeton lu (' + jeton.length + ' caracteres).';
+  }
+
+  var resultat;
   try {
-    var sujet = sujetNtfy_(config);
     envoyerNtfy_(config, {
       titre: 'TenderPilot',
       corps: 'Test reussi : vos alertes arriveront ici.',
       lien: '',
       priorite: '3'
     });
-    // Le sujet est repete ICI parce que c'est le moment ou le client en a
-    // besoin : il vient de lancer le test, il attend la notification, et
-    // s'il ne l'a pas c'est qu'il n'est pas abonne au bon sujet.
-    SpreadsheetApp.getActive().toast(
-      'Notification envoyee sur le sujet : ' + sujet
-      + '  -  abonnez-vous a ce sujet dans l application ntfy.', 'ntfy', 15);
+    resultat = 'Notification ENVOYEE.';
     logEvent('', 'Test ntfy', 'SUCCESS',
-             'Notification de test envoyee sur ' + sujet + '.');
+             'Notification de test envoyee sur ' + sujet + '. ' + etatJeton);
   } catch (e) {
-    SpreadsheetApp.getActive().toast(e.message, 'ntfy', 10);
-    logEvent('', 'Test ntfy', 'ERROR', e.message);
+    resultat = 'ECHEC : ' + e.message;
+    logEvent('', 'Test ntfy', 'ERROR', e.message + ' | ' + etatJeton);
   }
+
+  // Le sujet est repete ICI parce que c'est le moment ou le client en a
+  // besoin : il attend la notification, et s'il ne l'a pas c'est souvent
+  // qu'il n'est pas abonne au bon sujet.
+  var rapport = resultat
+    + '\n\nSujet : ' + sujet
+    + '\n' + etatJeton
+    + '\n\nAbonnez-vous a ce sujet dans l application ntfy, avec le MEME '
+    + 'compte que celui du jeton.';
+  ecrireJournal_();
+  SpreadsheetApp.getActive().toast(rapport, 'ntfy', 30);
+  console.log(rapport);
+  return rapport;
 }
 
 if (typeof module !== 'undefined') {

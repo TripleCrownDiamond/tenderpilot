@@ -3089,6 +3089,45 @@ console.log('\n[ntfy] Le jeton part en en-tete, jamais dans le journal');
 }
 
 // ==========================================================================
+console.log('\n[ntfy] Le test dit ce que le script VOIT, pas ce qu on espere');
+{
+  // Un "quota atteint" alors qu un jeton est colle dans CONFIG a presque
+  // toujours la meme cause : le script ne le voit pas. Cle absente, valeur
+  // dans la mauvaise colonne, espace colle avec.
+  function rapportAvec(config) {
+    const m = monde({ config: Object.assign({ SEND_NTFY: 'true' }, config) });
+    m.ctx.UrlFetchApp.fetch = () => ({
+      getResponseCode: () => 200, getContentText: () => '{}'
+    });
+    return m.ctx.testerNtfy();
+  }
+
+  check('sans jeton, le test le dit avant de blamer ntfy',
+        rapportAvec({}).indexOf('AUCUN JETON LU') !== -1);
+  check('un mot de passe colle a la place du jeton est repere',
+        rapportAvec({ NTFY_JETON: 'monmotdepasse' })
+          .indexOf('SUSPECT') !== -1);
+  check('un vrai jeton est reconnu',
+        rapportAvec({ NTFY_JETON: 'tk_abcdefghijklmno' })
+          .indexOf('Jeton lu') !== -1);
+  check('et le sujet est toujours rappele',
+        rapportAvec({ NTFY_JETON: 'tk_abc' }).indexOf('tenderpilot-') !== -1);
+
+  // Un echec reseau ne fait pas tomber le test : il est rapporte.
+  const m = monde({ config: { SEND_NTFY: 'true', NTFY_JETON: 'tk_abc' } });
+  m.ctx.UrlFetchApp.fetch = () => ({
+    getResponseCode: () => 429, getContentText: () => 'limit reached'
+  });
+  const rapport = m.ctx.testerNtfy();
+  check('un refus est rapporte, pas jete',
+        rapport.indexOf('ECHEC') !== -1 && rapport.indexOf('quota') !== -1,
+        rapport);
+  check('et journalise avec l etat du jeton',
+        m.feuille.logs.some(l => l.action === 'Test ntfy'
+          && l.message.indexOf('Jeton lu') !== -1));
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');
