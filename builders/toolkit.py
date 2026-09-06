@@ -468,6 +468,9 @@ var SCHEMA = {{
   /** Cle technique -> nom de colonne de l'onglet SOURCES. */
   SRC: {js(S.SOURCE_KEYS)},
 
+  /** Les cles attendues dans l'onglet CONFIG. Sert au diagnostic. */
+  CONFIG_CLES: {js([c[0] for c in S.CONFIG])},
+
   /** Champs compares a chaque collecte pour detecter un changement. */
   UPDATABLE: {js(S.UPDATABLE)},
 

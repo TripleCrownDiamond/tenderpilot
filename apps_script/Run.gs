@@ -51,9 +51,85 @@ function construireMenu_() {
     .addItem('Tester l agenda', 'testerAgenda')
     .addItem('Tester le classement intelligent', 'testerLlm')
     .addItem('Afficher / masquer l onglet SOURCES', 'basculerOngletSources')
+    .addItem('Verifier l installation', 'verifierInstallation')
     .addSeparator()
     .addItem('Vider les opportunites et le journal', 'viderOpportunites')
     .addToUi();
+}
+
+/**
+ * Menu > Verifier l'installation.
+ *
+ * A QUOI CA SERT. Un classeur en service a ete cree a une date donnee, et
+ * le produit a bouge depuis. Recoller les fichiers .gs ne suffit pas
+ * toujours : une colonne ajoutee au schema n'apparait pas toute seule dans
+ * un onglet existant, et majLigne_ ignore EN SILENCE une colonne absente -
+ * ce qui est le bon comportement, mais rend le manque invisible.
+ *
+ * Cette fonction remplace le "j'espere que j'ai tout colle" par une
+ * reponse. Elle ne repare rien : elle dit ce qui manque, et ou.
+ */
+function verifierInstallation() {
+  var lignes = [];
+
+  // 1. Le code. On ne peut pas lister les fichiers du projet, mais une
+  //    fonction absente prouve qu'un fichier n'a pas ete colle.
+  var attendues = {
+    'Ntfy.gs': 'envoyerNtfy_',
+    'Agenda.gs': 'synchroniserAgenda_',
+    'Telegram.gs': 'envoyerTelegram_',
+    'Sources.gs': 'synchroniserSources',
+    'Llm.gs': 'testerLlm'
+  };
+  var fichiersManquants = Object.keys(attendues).filter(function (f) {
+    return typeof this[attendues[f]] !== 'function';
+  }, this);
+  lignes.push(fichiersManquants.length
+    ? 'CODE : fichier(s) a coller - ' + fichiersManquants.join(', ')
+    : 'CODE : les fichiers attendus sont la.');
+
+  // 2. Les colonnes. Le point qui coute le plus cher a rater.
+  var carte = entetes_(feuilleOpp_());
+  var colonnes = [];
+  Object.keys(SCHEMA.OPP).forEach(function (cle) {
+    if (!carte[SCHEMA.OPP[cle]]) colonnes.push(SCHEMA.OPP[cle]);
+  });
+  lignes.push(colonnes.length
+    ? 'COLONNES : a ajouter dans ' + SCHEMA.SHEETS.opportunities + ' - '
+      + colonnes.join(', ')
+    : 'COLONNES : completes.');
+
+  // 3. La configuration. Le script cree les cles manquantes quand il en a
+  //    besoin ; on les signale quand meme, pour que le client les VOIE.
+  var config = lireConfig();
+  var cles = (SCHEMA.CONFIG_CLES || []).filter(function (c) {
+    return !(c in config);
+  });
+  lignes.push(cles.length
+    ? 'CONFIG : cle(s) absente(s), elles seront creees au besoin - '
+      + cles.join(', ')
+    : 'CONFIG : complete.');
+
+  // 4. Le sujet ntfy. Un sujet saisi a la main avant la standardisation
+  //    reste en place - sujetNtfy_ ne remplace jamais - et c'est justement
+  //    lui qui risque la collision avec un autre client.
+  var sujet = String(config.NTFY_SUJET || '').trim();
+  if (sujet && !/^tenderpilot-[0-9a-f]{12}$/.test(sujet)) {
+    lignes.push('NTFY : le sujet "' + sujet + '" n est pas au format '
+      + 'standard. VIDEZ la case NTFY_SUJET : un sujet unique sera cree au '
+      + 'prochain passage. Un sujet choisi a la main peut etre utilise par '
+      + 'un autre classeur.');
+  } else {
+    lignes.push('NTFY : ' + (sujet ? 'sujet standard (' + sujet + ').'
+                                   : 'aucun sujet - il sera cree au besoin.'));
+  }
+
+  var rapport = lignes.join('\n');
+  logEvent('', 'Verification', 'INFO', lignes.join(' | '));
+  ecrireJournal_();
+  SpreadsheetApp.getActive().toast(rapport, 'Verification', 30);
+  console.log(rapport);
+  return rapport;
 }
 
 /**

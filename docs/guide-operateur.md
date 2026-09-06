@@ -163,6 +163,31 @@ jour vous obligerait a reinstaller chez tout le monde.
 > doivent recoller le fichier concerne. Prevenez-les, et envoyez le fichier
 > seul plutot que l'archive entiere.
 
+### Quand le SCHEMA change, recoller les .gs ne suffit pas
+
+C'est le piege des mises a jour, et il ne se voit pas.
+
+Une colonne ajoutee au schema **n'apparait pas toute seule** dans un onglet
+qui existe deja. Le script ignore alors la colonne absente en silence -
+c'est le bon comportement, il ne casse rien - mais un temoin d'ecriture qui
+ne s'ecrit jamais fait qu'une action reputee faite une fois **se refait a
+chaque passage**.
+
+Ne devinez pas : **Menu > Verifier l'installation**. Il repond en une
+phrase par point.
+
+    CODE      : les fichiers attendus sont la.
+    COLONNES  : a ajouter dans OPPORTUNITIES - Suivi, Agenda
+    CONFIG    : complete.
+    NTFY      : le sujet "tenderpilot" n est pas au format standard...
+
+Ajoutez les colonnes nommees **a la fin** de l'onglet OPPORTUNITIES, en
+respectant l'orthographe exacte. Les cles de CONFIG, elles, se creent
+toutes seules quand le script en a besoin.
+
+**Ne reimportez pas le `.xlsx`** dans un classeur en service : il ecraserait
+les opportunites et la configuration.
+
 ## 6. La zone livree, et comment en changer
 
 Le catalogue couvre 57 pays, mais **44 sources sur 90 sont livrees

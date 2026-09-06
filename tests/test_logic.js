@@ -187,6 +187,15 @@ function monde(options) {
     colonneExiste_: function (nom) {
       return feuille.colonnesAbsentes.indexOf(nom) === -1;
     },
+    feuilleOpp_: () => feuille,
+    entetes_: function () {
+      const carte = {};
+      Object.keys(ctx.SCHEMA.OPP).forEach((cle, i) => {
+        const nom = ctx.SCHEMA.OPP[cle];
+        if (feuille.colonnesAbsentes.indexOf(nom) === -1) carte[nom] = i + 1;
+      });
+      return carte;
+    },
     ecrireConfig_: function (cle, valeur) {
       feuille.config[cle] = valeur;
       if (ctx.CONFIG_COURANTE) ctx.CONFIG_COURANTE[cle] = valeur;
@@ -230,6 +239,7 @@ function monde(options) {
       }
     },
     SpreadsheetApp: { getActive: () => ({ toast: () => {} }) },
+    console: { log: () => {} },
     // Agenda simule. Le vrai CalendarApp rend un evenement porteur d un
     // identifiant : sans lui, la colonne Agenda resterait vide et la meme
     // echeance serait reposee a chaque passage.
@@ -2978,6 +2988,47 @@ console.log('\n[Agenda] Un classeur d avant la version ne spamme personne');
   check('la collecte, elle, aboutit normalement',
         m.feuille.logs.some(l => l.action === 'Execution'
                                  && l.statut === 'SUCCESS'));
+}
+
+// ==========================================================================
+console.log('\n[Verification] Un classeur en service sait dire ce qui manque');
+{
+  // Recoller les .gs ne suffit pas : une colonne ajoutee au schema
+  // n apparait pas toute seule dans un onglet existant, et l absence est
+  // invisible - majLigne_ l ignore en silence.
+  const complet = monde({});
+  const bon = complet.ctx.verifierInstallation();
+  check('un classeur a jour ne signale rien',
+        bon.indexOf('completes.') !== -1 && bon.indexOf('a ajouter') === -1,
+        bon);
+
+  const vieux = monde({ colonnesAbsentes: ['Suivi', 'Agenda'] });
+  const rapport = vieux.ctx.verifierInstallation();
+  check('les deux colonnes manquantes sont nommees',
+        rapport.indexOf('Suivi') !== -1 && rapport.indexOf('Agenda') !== -1,
+        rapport);
+  check('et l onglet ou les ajouter aussi',
+        rapport.indexOf('OPPORTUNITIES') !== -1, rapport);
+  check('le diagnostic est journalise',
+        vieux.feuille.logs.some(l => l.action === 'Verification'));
+}
+
+// ==========================================================================
+console.log('\n[Verification] Un sujet ntfy d avant la standardisation');
+{
+  // sujetNtfy_ ne remplace JAMAIS un sujet existant - c est voulu, pour ne
+  // pas desabonner quelqu un. Mais un sujet choisi a la main est justement
+  // celui qui risque la collision : il faut le dire.
+  const m = monde({ config: { NTFY_SUJET: 'tenderpilot' } });
+  const rapport = m.ctx.verifierInstallation();
+  check('un sujet non standard est signale',
+        rapport.indexOf('n est pas au format') !== -1, rapport);
+  check('et la marche a suivre est donnee',
+        rapport.indexOf('VIDEZ') !== -1, rapport);
+
+  const propre = monde({ config: { NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' } });
+  check('un sujet standard ne declenche rien',
+        propre.ctx.verifierInstallation().indexOf('n est pas au format') === -1);
 }
 
 // ==========================================================================
