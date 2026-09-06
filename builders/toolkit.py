@@ -672,13 +672,21 @@ L'ordre de creation n'a pas d'importance.
 Une fois `Run.gs` ouvert, la barre affiche
 `Executer` - `Deboguer` - un menu deroulant de fonctions.
 
-1. Dans le menu deroulant, choisissez **`onOpen`**.
+1. Dans le menu deroulant, choisissez **`autoriser`**.
 2. Cliquez **Executer**.
 3. **Examiner les autorisations**, puis choisissez votre compte Google.
 4. L'ecran "Google n'a pas valide cette application" apparait. C'est normal
    pour un script non publie : **Parametres avances** en bas a gauche, puis
    **Acceder a TenderPilot (non securise)**, puis **Autoriser**.
-5. Le journal affiche "Execution terminee".
+5. Le journal affiche "Execution terminee", et une ligne du genre
+   *"Autorisations accordees. 112 source(s) au registre, dont 54 active(s)."*
+
+> **Choisissez bien `autoriser`, et pas `onOpen`.** `onOpen` construit le
+> menu du classeur : lance depuis l'editeur, il n'a aucune barre de menus ou
+> s'accrocher et Google repond *"Cannot call SpreadsheetApp.getUi() from
+> this context"*. L'erreur est sans consequence - le script est autorise
+> quand meme - mais elle inquiete pour rien. `autoriser` ne touche a aucune
+> interface et vous dit ce qu'elle a lu.
 
 L'icone d'enregistrement grisee signifie que tout est deja enregistre : il
 n'y a rien a faire de plus.

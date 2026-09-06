@@ -2802,6 +2802,67 @@ console.log('\n[Suivi] Sans le reglage, rien ne change');
 }
 
 // ==========================================================================
+console.log('\n[Installation] onOpen ne tombe jamais, meme sans interface');
+{
+  // MESURE DU 2026-09-06, chez un client : notre propre guide faisait
+  // lancer onOpen depuis l editeur pour declencher l autorisation, et
+  // l editeur n a pas d interface. Resultat : "Cannot call
+  // SpreadsheetApp.getUi() from this context", en rouge, a la premiere
+  // minute d utilisation du produit.
+  const m = monde({});
+
+  // Contexte sans interface : c est exactement ce que fait l editeur.
+  m.ctx.SpreadsheetApp.getUi = function () {
+    throw new Error('Cannot call SpreadsheetApp.getUi() from this context.');
+  };
+  let tombe = false;
+  try { m.ctx.onOpen(); } catch (e) { tombe = true; }
+  check('sans interface, onOpen se tait au lieu de tomber', !tombe);
+
+  // Contexte normal : le menu se construit bel et bien.
+  const items = [];
+  m.ctx.SpreadsheetApp.getUi = function () {
+    const menu = {
+      addItem: (libelle, fonction) => { items.push([libelle, fonction]); return menu; },
+      addSeparator: () => menu,
+      addToUi: () => {}
+    };
+    return { createMenu: () => menu };
+  };
+  m.ctx.onOpen();
+  check('avec une interface, le menu est construit', items.length >= 9,
+        items.length + ' entrees');
+  // On cherche dans les FICHIERS, pas dans le banc : Sheet.gs et
+  // Sources.gs y sont simules, mais une entree de menu qui pointe vers une
+  // fonction supprimee reste un menu casse chez le client.
+  const sources = fs.readdirSync(path.join(__dirname, '..', 'apps_script'))
+    .filter(f => f.endsWith('.gs'))
+    .map(f => fs.readFileSync(
+      path.join(__dirname, '..', 'apps_script', f), 'utf8')).join('\n');
+  const absentes = items.filter(
+    ([, f]) => sources.indexOf('function ' + f + '(') === -1);
+  check('chaque entree vise une fonction qui existe',
+        absentes.length === 0, JSON.stringify(absentes));
+}
+
+// ==========================================================================
+console.log('\n[Installation] autoriser() marche sans interface');
+{
+  const m = monde({ sources: [source('SRC-001', 'https://exemple.test/f')] });
+  m.ctx.SpreadsheetApp.getUi = function () {
+    throw new Error('Cannot call SpreadsheetApp.getUi() from this context.');
+  };
+  m.ctx.console = { log: () => {} };
+
+  let message = '';
+  let tombe = false;
+  try { message = m.ctx.autoriser(); } catch (e) { tombe = true; }
+  check('la fonction d autorisation ne touche a aucune interface', !tombe);
+  check('et elle dit ce qu elle voit',
+        message.indexOf('1 source(s)') !== -1, message);
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

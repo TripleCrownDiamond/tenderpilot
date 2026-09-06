@@ -12,7 +12,33 @@
 var MENU = 'TenderPilot';
 var DECLENCHEUR = 'executerTenderPilot';
 
+/**
+ * Construit le menu a l'ouverture du classeur.
+ *
+ * NE LEVE JAMAIS D'ERREUR, ET C'EST LE POINT ENTIER DE CE try.
+ *
+ * SpreadsheetApp.getUi() n'existe que quand une INTERFACE est la. Lance
+ * depuis l'editeur Apps Script, depuis un declencheur horaire, ou pendant
+ * qu'un autre service ouvre le fichier, il jette "Cannot call
+ * SpreadsheetApp.getUi() from this context" - mesure du 2026-09-06, sur
+ * l'installation d'un client, en suivant notre propre guide qui faisait
+ * lancer onOpen pour declencher l'autorisation.
+ *
+ * Un menu qui ne se construit pas est sans consequence : il n'y a pas de
+ * barre de menus ou l'accrocher. Une exception, elle, s'affiche en rouge
+ * dans le journal d'un client qui vient d'installer le produit, et lui
+ * fait croire que rien ne marche.
+ */
 function onOpen() {
+  try {
+    construireMenu_();
+  } catch (e) {
+    // Pas d'interface : il n'y a rien a construire, et rien a signaler.
+  }
+}
+
+/** Voir onOpen. Separe pour rester testable et lisible. */
+function construireMenu_() {
   SpreadsheetApp.getUi().createMenu(MENU)
     .addItem('Executer maintenant', 'executerManuellement')
     .addSeparator()
@@ -28,6 +54,30 @@ function onOpen() {
     .addSeparator()
     .addItem('Vider les opportunites et le journal', 'viderOpportunites')
     .addToUi();
+}
+
+/**
+ * A LANCER UNE FOIS DEPUIS L'EDITEUR, pour accorder les autorisations.
+ *
+ * C'est la fonction que le guide d'installation designe. Elle existe pour
+ * une raison precise : Google n'affiche l'ecran de consentement que
+ * lorsqu'une fonction est executee a la main, et il faut donc en designer
+ * une. Le guide designait onOpen - qui echoue justement dans ce
+ * contexte-la, faute d'interface.
+ *
+ * Celle-ci ne touche a aucune interface, n'envoie rien, n'ecrit rien. Elle
+ * lit le classeur et dit ce qu'elle voit. Les autorisations demandees ne
+ * dependent pas d'elle : Google les deduit de TOUT le code du projet, quelle
+ * que soit la fonction lancee.
+ */
+function autoriser() {
+  var sources = lireSources();
+  var actives = sources.filter(function (s) { return estVrai(s.active); });
+  var message = 'Autorisations accordees. ' + sources.length
+    + ' source(s) au registre, dont ' + actives.length + ' active(s). '
+    + 'Rechargez le classeur : le menu ' + MENU + ' apparaitra.';
+  console.log(message);
+  return message;
 }
 
 // ---------------------------------------------------------------- COLLECTE

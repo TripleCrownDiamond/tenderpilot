@@ -916,6 +916,39 @@ programme. `AFDB-EOI` et `AFDB-NOTICES` sont désactivées dans le registre,
 avec la mesure en clair ; leurs analyseurs restent en place, il suffira d'un
 `OUI` le jour où le site rouvre.
 
+## `onOpen` n'a pas toujours d'interface
+
+**Mesure du 2026-09-06, chez un client, a la premiere minute d'utilisation
+du produit :**
+
+    01:43:07  Erreur
+    Exception: Cannot call SpreadsheetApp.getUi() from this context.
+    onOpen @ Run.gs:16
+
+`SpreadsheetApp.getUi()` n'existe que quand une **interface** est là. Lancé
+depuis l'éditeur Apps Script, depuis un déclencheur horaire, ou pendant
+qu'un autre service ouvre le fichier, il jette.
+
+**La cause était notre propre guide d'installation**, qui faisait lancer
+`onOpen` pour déclencher l'écran de consentement. C'est le pire endroit
+pour une erreur : le client vient d'installer, il ne sait pas encore ce qui
+est normal, et il voit du rouge.
+
+Deux corrections, et les deux comptent :
+
+1. **`onOpen` ne lève plus jamais.** Un menu qui ne se construit pas est
+   sans conséquence — il n'y a pas de barre où l'accrocher. Une exception,
+   elle, alarme pour rien.
+2. **Le guide désigne `autoriser`**, une fonction qui ne touche à aucune
+   interface, n'envoie rien, n'écrit rien : elle lit le registre et dit ce
+   qu'elle voit. Les autorisations demandées ne dépendent pas d'elle —
+   Google les déduit de **tout** le code du projet, quelle que soit la
+   fonction lancée. N'importe laquelle fait l'affaire ; autant en désigner
+   une qui réussit.
+
+La règle générale : **une fonction lancée à la main depuis l'éditeur ne doit
+supposer ni interface, ni événement, ni déclencheur.**
+
 ## Auditer le registre
 
 ### Types et secteurs renseignés
