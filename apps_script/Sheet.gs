@@ -83,6 +83,19 @@ function ecrireConfig_(cle, valeur) {
   if (CONFIG_COURANTE) CONFIG_COURANTE[cle] = valeur;
 }
 
+/**
+ * Cette colonne existe-t-elle dans l'onglet OPPORTUNITIES ?
+ *
+ * Sert aux fonctionnalites qui ARRIVENT dans un classeur deja en service.
+ * majLigne_ ignore en silence une colonne absente - c'est ce qu'il faut
+ * pour ne rien casser, mais cela veut dire qu'un temoin d'ecriture peut ne
+ * jamais s'ecrire, et qu'une action reputee faite une fois se refait a
+ * chaque passage.
+ */
+function colonneExiste_(nom) {
+  return Boolean(entetes_(feuilleOpp_())[nom]);
+}
+
 // ----------------------------------------------------------------- SOURCES
 
 /** Sources declarees, converties en objets a cles techniques. */

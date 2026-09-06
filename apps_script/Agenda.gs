@@ -76,6 +76,21 @@ function descriptionAgenda_(ligne) {
 function synchroniserAgenda_(lignes, config) {
   if (!agendaActif_(config)) return 0;
 
+  // GARDE-FOU POUR UN CLASSEUR DEJA EN SERVICE. La colonne Agenda est le
+  // seul endroit ou l'on sait qu'une echeance a deja ete posee. Si elle
+  // manque - classeur cree avant cette version - majLigne_ ignore
+  // l'ecriture en silence, et le MEME evenement serait recree a chaque
+  // passage. Trois passages par jour : l'agenda du client serait inutilisable
+  // en une semaine, exactement ce que ce canal cherche a eviter.
+  if (!colonneExiste_(SCHEMA.OPP.agenda)) {
+    logEvent('', 'Agenda', 'ERROR',
+             'La colonne ' + SCHEMA.OPP.agenda + ' manque dans l onglet '
+             + SCHEMA.SHEETS.opportunities + '. Rien n a ete pose : sans '
+             + 'elle, la meme echeance serait recreee a chaque passage. '
+             + 'Ajoutez la colonne, ou repartez du classeur a jour.');
+    return 0;
+  }
+
   var aPoser = (lignes || []).filter(function (l) {
     // Trois conditions, et les trois comptent : le client l'a choisie,
     // elle a une date, et elle n'est pas deja posee.

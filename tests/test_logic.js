@@ -69,6 +69,8 @@ function monde(options) {
     // Opportunites deja presentes avant la collecte : indispensable pour
     // tester ce qui expire APRES etre entre en base.
     opps: (opt.opps || []).map((o, i) => Object.assign({ _row: i + 2 }, o)),
+    // Colonnes retirees pour rejouer un classeur d'avant une version.
+    colonnesAbsentes: opt.colonnesAbsentes || [],
     logs: [],
     profil: [],
     sources: opt.sources || [],
@@ -180,6 +182,11 @@ function monde(options) {
     // Le script se configure lui-meme pour le sujet ntfy : le banc doit
     // garder ce qu'il ecrit, sinon un sujet neuf serait fabrique a chaque
     // passage et personne ne resterait abonne.
+    // Par defaut le classeur du banc a toutes les colonnes du schema. Un
+    // test peut en retirer une pour rejouer un classeur d'avant la version.
+    colonneExiste_: function (nom) {
+      return feuille.colonnesAbsentes.indexOf(nom) === -1;
+    },
     ecrireConfig_: function (cle, valeur) {
       feuille.config[cle] = valeur;
       if (ctx.CONFIG_COURANTE) ctx.CONFIG_COURANTE[cle] = valeur;
@@ -2935,6 +2942,42 @@ console.log('\n[ntfy] Le sujet est fabrique, jamais invente');
   check('l adresse se compose avec le sujet fabrique',
         C.adresseNtfy_({ NTFY_SUJET: sujet })
           === 'https://ntfy.sh/' + sujet);
+}
+
+// ==========================================================================
+console.log('\n[Agenda] Un classeur d avant la version ne spamme personne');
+{
+  // La colonne Agenda est le seul endroit ou l on sait qu une echeance a
+  // deja ete posee. Si elle manque - classeur cree avant cette version -
+  // majLigne_ ignore l ecriture EN SILENCE, et le meme evenement serait
+  // recree a chaque passage. Trois passages par jour.
+  const url = 'https://exemple.test/flux-agenda-vieux';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis suivi', lien: 'https://exemple.test/av1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(20)) }
+    ]) },
+    colonnesAbsentes: ['Agenda'],
+    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_AGENDA: 'true' }
+  });
+
+  m.ctx.executerTenderPilot();
+  m.feuille.opps.forEach(o => { o.suivi = 'OUI'; });
+
+  m.ctx.executerTenderPilot();
+  m.ctx.executerTenderPilot();
+  m.ctx.executerTenderPilot();
+  check('rien n est pose tant que la colonne manque',
+        m.agenda.length === 0, m.agenda.length + ' evenements');
+  check('et le client sait pourquoi',
+        m.feuille.logs.some(l => l.action === 'Agenda' && l.statut === 'ERROR'
+          && l.message.indexOf('Agenda') !== -1),
+        JSON.stringify(m.feuille.logs.filter(l => l.action === 'Agenda')
+          .map(l => l.message)));
+  check('la collecte, elle, aboutit normalement',
+        m.feuille.logs.some(l => l.action === 'Execution'
+                                 && l.statut === 'SUCCESS'));
 }
 
 // ==========================================================================
