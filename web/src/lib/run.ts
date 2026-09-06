@@ -303,6 +303,23 @@ export const PAGES_MAX = 20;
  * on ne lit que les fiches MANQUANTES, jamais celles deja au classeur, et
  * jamais plus que le plafond du passage.
  */
+/**
+ * Cette entree est-elle deja en base ?
+ *
+ * Par son lien quand elle en a un, et par son IDENTITE sinon - titre,
+ * organisation, echeance, les memes cles que la deduplication d'ecriture.
+ * Une annonce dont la liste ne donne pas encore le lien n'a que cela.
+ */
+function dejaConnue(entree: EntreeFlux, connus: ReadonlySet<string>): boolean {
+  if (entree.lien && connus.has(normaliser(entree.lien))) return true;
+  return clesDedup({
+    titre: entree.titre,
+    lien: entree.lien,
+    organisation: entree.organisation ?? null,
+    deadline: entree.deadline,
+  } as Opportunite).some((cle) => connus.has(cle));
+}
+
 async function completerParFiches(
   entrees: EntreeFlux[], analyseur: AnalyseurFiche, source: SourceCollecte,
   config: Config, recuperer: Recuperateur, connus: ReadonlySet<string>,
@@ -314,22 +331,27 @@ async function completerParFiches(
   let reportees = 0;
 
   for (const entree of entrees) {
-    // La liste a date cette annonce : sa fiche ne nous apprendrait rien.
-    if (entree.deadline) { sortie.push(entree); continue; }
-    // Deja au classeur : elle y porte deja ce qu'une fiche lui avait donne.
-    if (connus.has(normaliser(entree.lien))) { sortie.push(entree); continue; }
+    // LA FICHE APPORTE CE QUE LA LISTE TAIT : une echeance (JobRelais) ou le
+    // vrai lien de l'annonce (Fundpilote, dont la liste ne donne qu'un
+    // identifiant d'API). Il ne manque rien : pas de requete.
+    if (entree.deadline && entree.lien) { sortie.push(entree); continue; }
+    // Deja en base : elle y porte deja ce qu'une fiche lui avait donne.
+    if (dejaConnue(entree, connus)) { sortie.push(entree); continue; }
 
-    if (lues >= plafond || !entree.lien) { reportees++; continue; }
+    // L'adresse a INTERROGER n'est pas toujours celle de l'annonce.
+    const adresse = entree.ficheUrl || entree.lien;
+    if (lues >= plafond || !adresse) { reportees++; continue; }
 
     lues++;
     try {
-      const { code, texte } = await recuperer(entree.lien);
+      const { code, texte } = await recuperer(adresse);
       if (code !== 200) { reportees++; continue; }
       const complete = fusionnerFiche(entree, analyseur(texte));
-      // Fiche lue mais toujours sans date : pour une source qui declare un
-      // analyseur de fiche, cela veut dire "pas reussi a dater", pas "sans
-      // echeance". On ne fait pas entrer une ligne morte.
-      if (complete.deadline) sortie.push(complete);
+      // Fiche lue mais toujours incomplete : pour une source qui declare un
+      // analyseur de fiche, cela veut dire "pas reussi a lire", pas "sans
+      // echeance" ni "sans lien". On ne fait pas entrer une ligne morte, ni
+      // une ligne dont le lien menerait a un mur d'inscription.
+      if (complete.deadline && complete.lien) sortie.push(complete);
       else reportees++;
     } catch {
       reportees++;
@@ -1130,8 +1152,18 @@ export async function executer(
     const existantes = await depot.lireOpportunites();
     // Le second temps de collecte ne relit pas la fiche d'une annonce deja
     // enregistree : chaque passage enrichit du NOUVEAU.
-    const connus = new Set(existantes.map((o) => normaliser(o.lien ?? ""))
-                                     .filter(Boolean));
+    // CE QUI EST DEJA EN BASE, PAR IDENTITE ET PAS SEULEMENT PAR LIEN.
+    // Une source dont la liste ne porte pas le vrai lien - Fundpilote, dont
+    // le lien du bailleur n'existe que sur la fiche - ne peut pas etre
+    // reconnue par son adresse. Sans les cles d'identite, sa fiche serait
+    // relue a CHAQUE passage, indefiniment. On reutilise clesDedup : la
+    // meme notion d'identite sert deja a ne pas enregistrer deux fois.
+    const connus = new Set<string>();
+    for (const o of existantes) {
+      const lien = normaliser(o.lien ?? "");
+      if (lien) connus.add(lien);
+      for (const cle of clesDedup(o)) connus.add(cle);
+    }
     const brutes = await collecterToutesSources(depot, config, recuperer, connus);
     // Le classement s intercale ici : apres la collecte, avant l ecriture.
     // Une annonce ecartee ne doit jamais atteindre le classeur du client.

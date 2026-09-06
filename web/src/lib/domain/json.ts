@@ -203,14 +203,20 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
     const titre = String(a.title ?? "").trim();
     if (!titre) return null;
 
-    // Les deux premieres n'existent que pour une session connectee ; l'id
-    // est toujours la. On garde les deux au cas ou l'API changerait.
+    // LE VRAI LIEN N'EST PAS DANS LA LISTE, ET LE FABRIQUER ETAIT UNE
+    // ERREUR. L'analyseur batissait /opportunities/<id> : cette page rend
+    // 200, mais affiche "Creez un compte gratuit pour acceder au catalogue".
+    // Le client recevait des annonces dont le lien menait a un mur
+    // d'inscription - pire qu'une annonce absente, parce qu'elle promet.
+    //
+    // MESURE DU 2026-09-07 : la FICHE de l'API est publique et porte le
+    // vrai lien - /api/v1/opportunities/<id>/ rend application_url et
+    // source_url, qui pointent chez le bailleur. Dix vrais liens sur dix.
     const lien = nettoyerLien(
       String(a.application_url ?? "").trim()
-      || String(a.source_url ?? "").trim()
-      || (a.id ? `https://fundpilote.com/opportunities/${String(a.id)}` : ""),
+      || String(a.source_url ?? "").trim(),
     );
-    if (!lien) return null;
+    if (!a.id) return null;
 
     // Un minimum a zero n est pas une information : l API le pose par
     // defaut sur la moitie des annonces - budgetFourchette l ecarte.
@@ -235,6 +241,9 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
     return {
       titre,
       lien,
+      // L'adresse a INTERROGER au second temps : la fiche de l'API, seule a
+      // porter le vrai lien du bailleur.
+      ficheUrl: `https://fundpilote.com/api/v1/opportunities/${String(a.id)}/`,
       publie: null,
       resume,
       deadline: enIso(a.deadline),
@@ -243,6 +252,43 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
       budget: montant || null,
     };
   }).filter((e): e is EntreeFlux => e !== null);
+}
+
+/**
+ * Analyseur de la FICHE Fundpilote : c'est elle qui porte le vrai lien.
+ *
+ * La reponse anonyme de la fiche - contrairement a celle de la liste -
+ * contient application_url, source_url, description, eligibility et
+ * how_to_apply. application_url mene chez le bailleur, source_url vers le
+ * relais qui l'a publiee ; on prefere le premier.
+ *
+ * On ne rend QUE ce que la liste ne savait pas.
+ */
+export function analyserFicheFundpilote(corps: string): Partial<EntreeFlux> {
+  let d: Record<string, unknown>;
+  try {
+    d = JSON.parse(corps) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+  if (!d || typeof d !== "object") return {};
+
+  const lien = nettoyerLien(
+    String(d.application_url ?? "").trim()
+    || String(d.source_url ?? "").trim(),
+  );
+  const fiche: Partial<EntreeFlux> = {};
+  if (lien) fiche.lien = lien;
+
+  const description = String(d.description ?? "").trim();
+  const comment = String(d.how_to_apply ?? "").trim();
+  const morceaux = [
+    description && description.slice(0, 300),
+    comment && `Candidature : ${comment.slice(0, 150)}`,
+  ].filter(Boolean);
+  if (morceaux.length) fiche.resume = morceaux.join(" - ").slice(0, 500);
+
+  return fiche;
 }
 
 

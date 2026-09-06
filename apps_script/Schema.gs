@@ -1470,7 +1470,7 @@ var SCHEMA = {
     "Subvention",
     "OUI",
     "",
-    "Verifie le 2026-09-02 : API publique SANS authentification (200, count=283, 20 par page). 15 ouvertes sur 20 en page 1, aucune expiree. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. La reponse anonyme ne porte NI application_url NI source_url : le lien est bati depuis l id (/opportunities/<id>)."
+    "Verifie le 2026-09-07 : la liste de l'API est publique (200, count=284, 20 par page) mais ne porte NI application_url NI source_url. Le lien /opportunities/<id> bati depuis l'id rend 200 et affiche un MUR D'INSCRIPTION - defaut corrige. La FICHE de l'API, /api/v1/opportunities/<id>/, est publique et porte le vrai lien du bailleur : 10 vrais liens sur 10 mesures. Collecte en deux temps, comme JobRelais. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire."
   ],
   [
     "EU-PORTAL",

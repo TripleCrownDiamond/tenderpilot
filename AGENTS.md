@@ -554,6 +554,12 @@ le quota est compté sur le *compte* et non sur l'IP. `NTFY_JETON` cesse donc
 d'être « utile seulement pour un serveur personnel » et devient **requis en
 pratique**.
 
+**Et les deux côtés ne se mélangent pas.** L'application du téléphone ne
+fait que *s'abonner* — sur `ntfy.sh` les sujets sont publics, elle n'a
+besoin d'aucun compte. Le compte et le jeton ne concernent que l'**envoi**,
+côté script. Dire au client de se connecter dans l'application était un
+conseil inutile, et il détourne du seul réglage qui compte.
+
 Et le message d'erreur le dit : un `429` ne rend plus « ntfy HTTP 429 » mais
 la cause et la sortie. Un client qui lit « quota atteint » sans savoir que le
 quota n'est pas le sien conclut que le produit est cassé.
@@ -880,6 +886,52 @@ aucun n'est plus récent que l'autre : on prend l'union de ce qui a été lu,
 jamais un arbitrage entre deux échéances.
 
 ---
+
+## Un lien qui mène à un mur d'inscription est pire qu'une absence
+
+**Mesuré le 2026-09-07**, signalé par le client. L'analyseur Fundpilote
+construisait le lien depuis l'identifiant : `/opportunities/<id>`. Cette
+page rend `200` — donc rien ne signalait de problème — mais elle affiche
+« Créez un compte gratuit pour accéder au catalogue d'opportunités ».
+
+Le client recevait donc des annonces **dont le lien ne mène nulle part**.
+C'est plus grave qu'une annonce absente : une annonce absente ne promet
+rien, celle-ci promet et déçoit. Et `200` ne veut pas dire « la page
+contient ce qu'on cherche » — c'est la même leçon qu'Enabel, dans l'autre
+sens.
+
+**Ce que la mesure a trouvé.** La *liste* de l'API est publique mais ne
+porte ni `application_url` ni `source_url`. La **fiche**, elle, les porte :
+`/api/v1/opportunities/<id>/` répond `200` sans authentification et donne le
+vrai lien, chez le bailleur. Vérifié sur dix annonces tirées de la première
+page : **dix vrais liens sur dix**.
+
+Fundpilote devient donc une source **en deux temps**, comme JobRelais — et
+ce cas a généralisé le mécanisme sur trois points :
+
+1. **Une fiche est lue quand *quelque chose* manque**, pas seulement
+   l'échéance : JobRelais manque de date, Fundpilote manque de lien.
+2. **L'adresse à interroger n'est pas toujours celle de l'annonce.** Le
+   champ `ficheUrl` les distingue : ici la fiche est une URL d'API, le lien
+   final est celui du bailleur.
+3. **« Déjà au classeur » se juge par identité, pas par lien.** Le lien
+   enregistré est celui du bailleur, celui de la liste est un identifiant
+   d'API : ils ne se ressemblent pas. Sans les clés de `clesDedup`, la fiche
+   serait relue à *chaque* passage, indéfiniment — exactement ce que le
+   second temps interdit.
+
+Et la règle de sortie s'étend : **ce qu'on n'a pas su compléter n'entre
+pas.** Une annonce sans date ne rentrait déjà pas ; une annonce sans lien
+réel non plus.
+
+### Un piège d'Apps Script trouvé au passage
+
+`ANALYSEURS_FICHE` était une table posée au niveau du fichier `Html.gs`.
+Y référencer une fonction de `Json.gs` lève **`ReferenceError` au
+chargement, sur toutes les exécutions** : Apps Script évalue les fichiers
+l'un après l'autre, et `Html.gs` passe avant `Json.gs`. La table est donc
+construite **à l'appel**, quand tout est chargé. À retenir pour toute
+donnée de niveau fichier qui référence une fonction d'un autre fichier.
 
 ## Un lien ne suffit pas à identifier un avis
 

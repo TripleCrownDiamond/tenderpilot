@@ -3179,6 +3179,118 @@ console.log('\n[Notifications] Une ligne infaisable ne tue pas le passage');
 }
 
 // ==========================================================================
+console.log('\n[Fundpilote] La liste ne promet plus un lien qui n existe pas');
+{
+  // MESURE DU 2026-09-07 : /opportunities/<id> rend 200 mais affiche
+  // "Creez un compte gratuit pour acceder au catalogue". L analyseur
+  // batissait ce lien : le client recevait des annonces dont le lien menait
+  // a un mur d inscription - pire qu une annonce absente, parce qu elle
+  // promet. La fiche de l API, elle, est publique et porte le vrai lien.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const liste = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const fiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
+  const C = monde({}).ctx;
+
+  const lus = C.analyserApiFundpilote(liste,
+    Object.assign(source('FUNDPILOTE-API', 'https://fundpilote.com/api/'),
+                  { country: 'International', type: 'Subvention' }));
+  check('la liste rend les trois annonces', lus.length === 3,
+        lus.length + ' annonces');
+  check('AUCUNE ne porte de lien fabrique',
+        lus.every(o => !o.url), JSON.stringify(lus.map(o => o.url)));
+  check('aucune ne pointe vers fundpilote.com',
+        lus.every(o => String(o.url || '').indexOf('fundpilote.com') === -1));
+  check('mais chacune sait ou aller chercher sa fiche',
+        lus.every(o => /\/api\/v1\/opportunities\/\d+\/$/.test(o.ficheUrl)),
+        JSON.stringify(lus.map(o => o.ficheUrl)));
+  check('la liste date, elle', lus.every(o => o.deadline));
+
+  const detail = C.analyserFicheFundpilote(fiche);
+  check('la fiche porte le vrai lien, chez le bailleur',
+        detail.url === 'https://afsafrica.org/blog/call-for-applications-'
+          + 'african-food-baskets-country-researchers/', detail.url);
+  check('et un resume lisible', String(detail.summary).length > 80);
+  check('une fiche illisible ne fait rien tomber',
+        JSON.stringify(C.analyserFicheFundpilote('pas du json')) === '{}');
+  check('l analyseur de fiche se trouve aussi pour une methode JSON',
+        typeof C.analyseurFiche_('JSON:fundpilote.com') === 'function'
+        && C.analyseurFiche_('JSON:worldbank.org') === null);
+}
+
+// ==========================================================================
+console.log('\n[Fundpilote] Le second temps va chercher le lien, une fois');
+{
+  const liste = 'https://exemple.test/fp-liste';
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const corpsFiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
+
+  const m = monde({
+    sources: [Object.assign(source('FUNDPILOTE-API', liste),
+                            { method: 'JSON:fundpilote.com' })],
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_FICHES_PAR_PASSAGE: '5' }
+  });
+  let requetes = 0;
+  m.ctx.UrlFetchApp.fetch = function (url) {
+    requetes++;
+    const estFiche = String(url).indexOf('/api/v1/opportunities/') !== -1
+      && /\d+\/$/.test(String(url));
+    return {
+      getResponseCode: () => 200,
+      getAllHeaders: () => ({ 'Content-Type': 'application/json' }),
+      getContentText: () => (estFiche ? corpsFiche : corpsListe)
+    };
+  };
+
+  m.ctx.executerTenderPilot();
+  check('les annonces sont entrees', m.feuille.opps.length === 3,
+        m.feuille.opps.length + ' annonces');
+  check('et toutes avec un vrai lien, hors de fundpilote',
+        m.feuille.opps.every(o => o.url
+          && String(o.url).indexOf('fundpilote.com') === -1),
+        JSON.stringify(m.feuille.opps.map(o => o.url)));
+  check('une liste et trois fiches', requetes === 4, requetes + ' requetes');
+
+  // LE POINT QUI COMPTE : au passage suivant, les fiches ne sont PAS
+  // relues. Le lien enregistre est celui du bailleur, jamais celui de la
+  // liste : sans les cles d identite, on tournerait en rond pour toujours.
+  requetes = 0;
+  m.ctx.executerTenderPilot();
+  check('aucune fiche n est relue', requetes === 1,
+        requetes + ' requetes au second passage');
+  check('et rien n est entre deux fois', m.feuille.opps.length === 3,
+        m.feuille.opps.length + ' annonces');
+}
+
+// ==========================================================================
+console.log('\n[Fundpilote] Sans lien apres la fiche, l annonce n entre pas');
+{
+  const liste = 'https://exemple.test/fp-muet';
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const m = monde({
+    sources: [Object.assign(source('FUNDPILOTE-API', liste),
+                            { method: 'JSON:fundpilote.com' })],
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_FICHES_PAR_PASSAGE: '5' }
+  });
+  m.ctx.UrlFetchApp.fetch = function (url) {
+    const estFiche = String(url).indexOf('/api/v1/') !== -1;
+    return {
+      getResponseCode: () => 200,
+      getAllHeaders: () => ({ 'Content-Type': 'application/json' }),
+      // La fiche repond, mais sans aucun lien exploitable.
+      getContentText: () => (estFiche ? '{"id":1,"title":"x"}' : corpsListe)
+    };
+  };
+  m.ctx.executerTenderPilot();
+  check('une annonce sans lien reel n entre pas dans le tableau',
+        m.feuille.opps.length === 0, m.feuille.opps.length + ' annonces');
+  check('et le passage aboutit quand meme',
+        m.feuille.logs.some(l => l.action === 'Execution'
+                                 && l.statut === 'SUCCESS'));
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

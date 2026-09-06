@@ -26,7 +26,8 @@ import {
   dateAllemande, dateUngm,
 } from "../src/lib/domain/html";
 import {
-  analyserEuropa, analyserFundpilote, analyserNigerMarches, analyserWorldBank,
+  analyserEuropa, analyserFicheFundpilote, analyserFundpilote,
+  analyserNigerMarches, analyserWorldBank,
   analyseurJson, budgetFourchette, budgetSimple, formeRequete,
 } from "../src/lib/domain/json";
 import {
@@ -1044,4 +1045,44 @@ test("UNGM : le moteur enchaine les pages d'un POST", async () => {
   assert.equal(JSON.parse(corps[0]).PageIndex, 0);
   assert.equal(JSON.parse(corps[1]).PageIndex, 1, "la page 2 suit la page 1");
   assert.equal(annonces.length, 15, "et rien n'entre deux fois");
+});
+
+// ==========================================================================
+// Fundpilote : la liste ne promet plus un lien qui n'existe pas.
+//
+// MESURE DU 2026-09-07 : /opportunities/<id> rend 200 mais affiche "Creez
+// un compte gratuit pour acceder au catalogue". L'analyseur batissait ce
+// lien : le client recevait des annonces dont le lien menait a un mur
+// d'inscription - pire qu'une annonce absente, parce qu'elle promet.
+
+test("Fundpilote : la liste ne fabrique aucun lien", () => {
+  const liste = lire("fundpilote-liste.json");
+  const entrees = analyserFundpilote(liste);
+
+  assert.equal(entrees.length, 3);
+  assert.ok(entrees.every((e) => !e.lien),
+            "aucun lien fabrique depuis l'identifiant");
+  assert.ok(entrees.every((e) => !String(e.lien).includes("fundpilote.com")));
+  assert.ok(entrees.every(
+    (e) => /\/api\/v1\/opportunities\/\d+\/$/.test(e.ficheUrl ?? "")),
+    "chacune sait ou aller chercher sa fiche");
+  assert.ok(entrees.every((e) => e.deadline), "la liste date, elle");
+});
+
+test("Fundpilote : la fiche porte le vrai lien du bailleur", () => {
+  const fiche = lire("fundpilote-fiche.json");
+  const detail = analyserFicheFundpilote(fiche);
+
+  assert.equal(detail.lien,
+    "https://afsafrica.org/blog/call-for-applications-african-food-baskets-"
+    + "country-researchers/");
+  assert.ok((detail.resume ?? "").length > 80);
+  assert.deepEqual(analyserFicheFundpilote("pas du json"), {},
+                   "une fiche illisible ne fait rien tomber");
+});
+
+test("un analyseur de fiche existe aussi pour une methode JSON", () => {
+  assert.equal(typeof analyseurFiche("JSON:fundpilote.com"), "function");
+  assert.equal(analyseurFiche("JSON:worldbank.org"), null);
+  assert.equal(typeof analyseurFiche("HTML:jobrelais.com"), "function");
 });

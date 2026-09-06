@@ -223,13 +223,23 @@ function analyserApiFundpilote(corps, source) {
     var titre = String(a.title || '').trim();
     if (!titre) return;
 
-    // Les deux premieres n'existent que pour une session connectee ; l'id
-    // est toujours la. On garde les deux au cas ou l'API changerait.
-    var lien = nettoyerLien(
-      String(a.application_url || '').trim()
-      || String(a.source_url || '').trim()
-      || (a.id ? 'https://fundpilote.com/opportunities/' + String(a.id) : ''));
-    if (!lien) return;
+    // LE VRAI LIEN N'EST PAS DANS LA LISTE, ET LE FABRIQUER ETAIT UNE
+    // ERREUR. L'analyseur batissait /opportunities/<id> : cette page rend
+    // 200, mais affiche "Creez un compte gratuit pour acceder au catalogue".
+    // Le client recevait donc des annonces dont le lien menait a un mur
+    // d'inscription - pire qu'une annonce absente, parce qu'elle promet.
+    //
+    // MESURE DU 2026-09-07 : la FICHE de l'API, elle, est publique et porte
+    // le vrai lien - /api/v1/opportunities/<id>/ rend application_url et
+    // source_url, qui pointent chez le bailleur. Verifie sur dix annonces
+    // tirees de la premiere page : dix vrais liens sur dix.
+    //
+    // La liste ne pose donc AUCUN lien d'annonce, et pose l'adresse de la
+    // fiche a interroger. Le second temps fait le reste ; sans lien apres
+    // la fiche, l'annonce n'entre pas.
+    var lien = nettoyerLien(String(a.application_url || '').trim()
+                            || String(a.source_url || '').trim());
+    if (!a.id) return;
 
     // Un minimum a zero n est pas une information : l API le pose par
     // defaut sur la moitie des annonces - budgetFourchette l ecarte.
@@ -251,7 +261,7 @@ function analyserApiFundpilote(corps, source) {
 
     var typeBrut = String(a.funding_type || '').trim();
 
-    sortie.push(normalizeOpportunity({
+    var annonce = normalizeOpportunity({
       title: titre,
       url: lien,
       summary: morceaux.join(' - ').slice(0, 500),
@@ -260,10 +270,49 @@ function analyserApiFundpilote(corps, source) {
       org: String(a.sponsor_name || '').trim(),
       type: TYPE_MAP[typeBrut] || typeBrut,
       budget: montant
-    }, source));
+    }, source);
+    annonce.ficheUrl = 'https://fundpilote.com/api/v1/opportunities/'
+      + String(a.id) + '/';
+    sortie.push(annonce);
   });
 
   return sortie.filter(function (o) { return o.title; });
+}
+
+
+/**
+ * Analyseur de la FICHE Fundpilote : c'est elle qui porte le vrai lien.
+ *
+ * La reponse anonyme de la fiche - contrairement a celle de la liste -
+ * contient application_url, source_url, description, eligibility et
+ * how_to_apply. application_url mene chez le bailleur, source_url vers le
+ * relais qui l'a publiee ; on prefere le premier.
+ *
+ * On ne rend QUE ce que la liste ne savait pas. Le reste - titre, montant,
+ * echeance - fait deja foi.
+ */
+function analyserFicheFundpilote(corps) {
+  var d;
+  try {
+    d = JSON.parse(corps);
+  } catch (e) {
+    return {};
+  }
+  if (!d || typeof d !== 'object') return {};
+
+  var lien = nettoyerLien(String(d.application_url || '').trim()
+                          || String(d.source_url || '').trim());
+  var fiche = {};
+  if (lien) fiche.url = lien;
+
+  var description = String(d.description || '').trim();
+  var comment = String(d.how_to_apply || '').trim();
+  var morceaux = [];
+  if (description) morceaux.push(description.slice(0, 300));
+  if (comment) morceaux.push('Candidature : ' + comment.slice(0, 150));
+  if (morceaux.length) fiche.summary = morceaux.join(' - ').slice(0, 500);
+
+  return fiche;
 }
 
 

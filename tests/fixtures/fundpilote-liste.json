@@ -1,0 +1,153 @@
+{
+ "count": 284,
+ "next": "https://fundpilote.com/api/v1/opportunities/?page=2",
+ "previous": null,
+ "results": [
+  {
+   "id": 2296,
+   "title": "African Food Baskets 2026 · recrutement de dix chercheurs nationaux pour documenter le patrimoine alimentaire africain",
+   "slug": "african-food-baskets-2026-recrutement-de-dix-chercheurs-nationaux",
+   "funding_type": "grant",
+   "amount_min": "1000.00",
+   "amount_max": "1000.00",
+   "currency": "USD",
+   "deadline": "2026-09-06",
+   "geo_zones": [],
+   "language": "en",
+   "sponsor_name": "Alliance for Food Sovereignty in Africa (AFSA)",
+   "sponsor_id": 1273,
+   "sectors": [],
+   "relevance_score": null,
+   "status": "published",
+   "your_score": null,
+   "sectors_v4": [
+    "AGR",
+    "CUL"
+   ],
+   "subsectors": [
+    "AGR-15",
+    "AGR-16",
+    "AGR-09",
+    "AGR-10",
+    "CUL-13",
+    "CUL-12",
+    "CUL-08"
+   ],
+   "eligible_org_types": [
+    "ORG-ETU",
+    "ORG-CSI"
+   ],
+   "zone_category": "ZON-PAYS",
+   "eligible_countries": [
+    "BFA",
+    "TGO",
+    "GIN",
+    "MLI",
+    "NER",
+    "CIV",
+    "SEN",
+    "BEN"
+   ],
+   "natures": [
+    "NAT-14"
+   ],
+   "procedure": "PRO-03",
+   "langues": [
+    "FR",
+    "EN"
+   ],
+   "cofinancement_exige": "non",
+   "nature_principale": "NAT-14",
+   "recurrence": "REC-01"
+  },
+  {
+   "id": 1836,
+   "title": "Numun Fund SGS 3.0 · financement pluriannuel souple de l'activisme technologique féministe · collectifs et organisations du Sud global",
+   "slug": "numun-fund-sgs-30-financement-pluriannuel-souple-de-lactivisme",
+   "funding_type": "investment",
+   "amount_min": "10000.00",
+   "amount_max": "100000.00",
+   "currency": "USD",
+   "deadline": "2026-09-06",
+   "geo_zones": [],
+   "language": "en",
+   "sponsor_name": "Numun Fund",
+   "sponsor_id": 832,
+   "sectors": [
+    {
+     "slug": "genre",
+     "name": "Genre & inclusion"
+    },
+    {
+     "slug": "infrastructures",
+     "name": "Infrastructures & développement local"
+    },
+    {
+     "slug": "numerique",
+     "name": "Numérique & technologie"
+    }
+   ],
+   "relevance_score": null,
+   "status": "published",
+   "your_score": null,
+   "sectors_v4": [
+    "NUM",
+    "GEN"
+   ],
+   "subsectors": [
+    "NUM-01",
+    "GEN-05"
+   ],
+   "eligible_org_types": [],
+   "zone_category": "ZON-MOND",
+   "eligible_countries": [],
+   "natures": [
+    "NAT-01"
+   ],
+   "procedure": "PRO-04",
+   "langues": [],
+   "cofinancement_exige": "",
+   "nature_principale": "NAT-01",
+   "recurrence": ""
+  },
+  {
+   "id": 1213,
+   "title": "FrancoTech 2026 · appel à candidatures pour jeunes entrepreneurs francophones du Sud, avec prise en charge complète du séjour au salon de l'innovation francophone au Cambodge",
+   "slug": "francotech-2026-appel-a-candidatures-pour-jeunes-entrepreneurs",
+   "funding_type": "prize",
+   "amount_min": "2500.00",
+   "amount_max": "3500.00",
+   "currency": "EUR",
+   "deadline": "2026-09-06",
+   "geo_zones": [],
+   "language": "en",
+   "sponsor_name": "OFQJ · Office franco-québécois pour la Jeunesse",
+   "sponsor_id": 590,
+   "sectors": [],
+   "relevance_score": null,
+   "status": "published",
+   "your_score": null,
+   "sectors_v4": [
+    "ECO",
+    "NUM",
+    "FIN"
+   ],
+   "subsectors": [
+    "ECO-01",
+    "NUM-01",
+    "FIN-02"
+   ],
+   "eligible_org_types": [],
+   "zone_category": "",
+   "eligible_countries": [],
+   "natures": [
+    "NAT-07"
+   ],
+   "procedure": "PRO-03",
+   "langues": [],
+   "cofinancement_exige": "",
+   "nature_principale": "NAT-07",
+   "recurrence": ""
+  }
+ ]
+}

@@ -12,6 +12,7 @@
  */
 
 import { EntreeFlux, extraireDeadline, lireDateFlux, reparerCaracteres, decoderEntites, nettoyerLien, retirerBalises } from "./rss";
+import { analyserFicheFundpilote } from "./json";
 
 /** Nettoie un fragment HTML en texte lisible. */
 export function nettoyerHtml(fragment: string): string {
@@ -1268,12 +1269,16 @@ export function analyseurHtml(methode: string): ((html: string) => EntreeFlux[])
 export type AnalyseurFiche = (html: string) => Partial<EntreeFlux>;
 
 export const ANALYSEURS_FICHE: Record<string, AnalyseurFiche> = {
+  // Ce n'est pas reserve au HTML : la fiche de Fundpilote est du JSON, et
+  // c'est elle qui porte le vrai lien du bailleur. Voir json.ts.
+  "fundpilote.com": analyserFicheFundpilote,
   "jobrelais.com": analyserFicheJobrelais,
 };
 
 /** Retourne l'analyseur de fiche d'une methode, ou null. */
 export function analyseurFiche(methode: string): AnalyseurFiche | null {
-  const m = /^HTML:(.+)$/i.exec(methode.trim());
+  // Le prefixe dit comment LIRE la reponse, pas si la source a des fiches.
+  const m = /^(?:HTML|JSON):(.+)$/i.exec(methode.trim());
   return m ? (ANALYSEURS_FICHE[m[1].trim()] ?? null) : null;
 }
 

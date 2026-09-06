@@ -29,6 +29,16 @@ export interface EntreeFlux {
   organisation?: string | null;
   type?: string | null;
   /**
+   * L'adresse a INTERROGER au second temps, quand elle differe de celle de
+   * l'annonce.
+   *
+   * Fundpilote est le cas type : sa liste ne donne qu'un identifiant d'API,
+   * et la page batie depuis cet identifiant affiche un mur d'inscription.
+   * Le vrai lien du bailleur n'existe que sur la fiche de l'API, qui n'est
+   * pas l'adresse de l'annonce. Voir ANALYSEURS_FICHE.
+   */
+  ficheUrl?: string | null;
+  /**
    * Le pays de l'annonce, quand la source le donne annonce par annonce.
    *
    * Expertise France couvre cinquante pays depuis une seule page : sans ce

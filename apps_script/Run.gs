@@ -203,6 +203,18 @@ var AGENT_UTILISATEUR =
  * sont ici : on ne lit que les fiches MANQUANTES, jamais celles deja au
  * classeur, et jamais plus que le plafond du passage.
  */
+/**
+ * Cette annonce est-elle deja au classeur ?
+ *
+ * Par son lien quand elle en a un, et par son IDENTITE sinon - titre,
+ * organisation, echeance, les memes cles que la deduplication d'ecriture.
+ * Une annonce dont la liste ne donne pas encore le lien n'a que cela.
+ */
+function dejaConnue_(annonce, connus) {
+  if (annonce.url && connus[normalizeText(annonce.url)]) return true;
+  return clesDedup(annonce).some(function (cle) { return connus[cle]; });
+}
+
 function completerParFiches_(annonces, analyseur, source, config, options,
                              connus) {
   var plafond = Number(config.MAX_FICHES_PAR_PASSAGE);
@@ -213,22 +225,29 @@ function completerParFiches_(annonces, analyseur, source, config, options,
   var reportees = 0;
 
   annonces.forEach(function (annonce) {
-    // La liste a date cette annonce : sa fiche ne nous apprendrait rien.
-    if (annonce.deadline) { sortie.push(annonce); return; }
-    // Deja au classeur : elle y porte ce qu'une fiche lui avait donne.
-    if (connus[normalizeText(annonce.url || '')]) { sortie.push(annonce); return; }
+    // LA FICHE APPORTE CE QUE LA LISTE TAIT : une echeance (JobRelais) ou
+    // le vrai lien de l'annonce (Fundpilote, dont la liste ne donne qu'un
+    // identifiant d'API). Il ne manque rien : on ne depense pas de requete.
+    if (annonce.deadline && annonce.url) { sortie.push(annonce); return; }
 
-    if (lues >= plafond || !annonce.url) { reportees++; return; }
+    // Deja au classeur : elle y porte ce qu'une fiche lui avait donne.
+    if (dejaConnue_(annonce, connus)) { sortie.push(annonce); return; }
+
+    // L'adresse a INTERROGER n'est pas toujours celle de l'annonce : voir
+    // ficheUrl, pose par les analyseurs de liste qui les distinguent.
+    var adresse = annonce.ficheUrl || annonce.url;
+    if (lues >= plafond || !adresse) { reportees++; return; }
 
     lues++;
     try {
-      var reponse = UrlFetchApp.fetch(annonce.url, options);
+      var reponse = UrlFetchApp.fetch(adresse, options);
       if (reponse.getResponseCode() !== 200) { reportees++; return; }
       fusionnerFiche_(annonce, analyseur(corpsReponse_(reponse)));
-      // Fiche lue mais toujours sans date : pour une source qui declare un
-      // analyseur de fiche, cela veut dire "pas reussi a dater". On ne fait
-      // pas entrer une ligne morte.
-      if (annonce.deadline) sortie.push(annonce);
+      // Fiche lue mais toujours incomplete : pour une source qui declare un
+      // analyseur de fiche, cela veut dire "pas reussi a lire", pas "avis
+      // sans date" ni "avis sans lien". On ne fait pas entrer une ligne
+      // morte, ni une ligne dont le lien menerait a un mur d'inscription.
+      if (annonce.deadline && annonce.url) sortie.push(annonce);
       else reportees++;
     } catch (e) {
       reportees++;
@@ -1263,10 +1282,20 @@ function executerTenderPilot() {
     var existantes = lireOpportunites();
     // Le second temps de collecte ne relit pas la fiche d'une annonce deja
     // enregistree : chaque passage enrichit du NOUVEAU.
+    // CE QUI EST DEJA AU CLASSEUR, PAR IDENTITE ET PAS SEULEMENT PAR LIEN.
+    // Une source dont la liste ne porte pas le vrai lien - Fundpilote, dont
+    // le lien du bailleur n'existe que sur la fiche - ne peut pas etre
+    // reconnue par son adresse : celle du classeur est celle du bailleur,
+    // celle de la liste est un identifiant d'API. Sans les cles d'identite,
+    // sa fiche serait relue a CHAQUE passage, indefiniment.
+    //
+    // On reutilise clesDedup : la meme notion d'identite sert deja a ne pas
+    // enregistrer deux fois la meme annonce.
     var connus = {};
     existantes.forEach(function (o) {
-      var cle = normalizeText(o.url || '');
-      if (cle) connus[cle] = true;
+      clesDedup(o).forEach(function (cle) { connus[cle] = true; });
+      var lien = normalizeText(o.url || '');
+      if (lien) connus[lien] = true;
     });
     var annonces = classerNouvelles_(collectAllSources(config, connus),
                                      existantes, config);

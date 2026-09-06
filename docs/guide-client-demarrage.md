@@ -72,9 +72,14 @@ vide si vous ne voulez pas d'emails du tout.
    fabrique alors **votre** sujet - de la forme
    `tenderpilot-a1b2c3d4e5f6` - et vous l'affiche.
 4. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
-   navigateur), connectez-vous au compte que vous venez de creer, et
-   **abonnez-vous a ce sujet**. Vous le retrouverez a tout moment dans la
-   case `NTFY_SUJET` de l'onglet CONFIG.
+   navigateur), appuyez sur **+**, et collez ce sujet. Vous le retrouverez a
+   tout moment dans la case `NTFY_SUJET` de l'onglet CONFIG.
+
+> **Vous n'avez pas a vous connecter dans l'application.** Sur ntfy.sh les
+> sujets sont publics : s'abonner suffit pour recevoir. Le compte et le
+> jeton ne servent qu'a l'ENVOI, cote TenderPilot. Si l'application vous
+> propose "Gerer les utilisateurs", c'est pour les serveurs proteges - ca
+> ne change rien ici.
 
 > **Le jeton n'est pas facultatif.** ntfy.sh compte son quota de 250
 > messages par jour et par **adresse IP**, et Google fait sortir tous les
@@ -82,6 +87,14 @@ vide si vous ne voulez pas d'emails du tout.
 > jeton, votre deuxieme message se heurte a *"daily quota reached"* - un
 > quota que d'autres ont consomme. Avec le jeton, le quota est compte sur
 > votre compte, et il est a vous.
+>
+> **Un jeton n'est pas un mot de passe.** Il commence par `tk_` et
+> s'obtient dans *Account > Access tokens > Create token*. Coller votre mot
+> de passe a la place ne marchera pas - le test vous le dira.
+
+**Si quelque chose ne marche pas**, Menu **TenderPilot > Tester la
+notification push (ntfy)** vous repond precisement : le sujet utilise, si
+un jeton a ete lu, et ce que ntfy a repondu.
 
 > **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Le
 > sujet est tire au hasard pour deux raisons : sur le serveur public il est

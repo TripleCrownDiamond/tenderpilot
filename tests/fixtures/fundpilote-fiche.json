@@ -1,0 +1,87 @@
+{
+ "id": 2296,
+ "title": "African Food Baskets 2026 · recrutement de dix chercheurs nationaux pour documenter le patrimoine alimentaire africain",
+ "slug": "african-food-baskets-2026-recrutement-de-dix-chercheurs-nationaux",
+ "description": "Dans le cadre de sa campagne « My Food Is African », AFSA recrute dix chercheurs nationaux chargés de documenter le patrimoine alimentaire de leur pays : aliments, plats, boissons, recettes, sources d'approvisionnement, menus, récits, proverbes et savoirs culturels associés. Chaque chercheur produit un panier alimentaire national comprenant un à trois profils de communauté ou de territoire alimentaire, et trente à cinquante fiches de produits, plats et boissons, accompagnées de recettes, de menus, d'histoires, de photographies et des pièces de validation communautaire. Le travail de terrain dure environ un mois et s'inscrit entre une phase de formation et une phase de validation. La collecte s'appuie sur des entretiens communautaires et un outil numérique de saisie.",
+ "funding_type": "grant",
+ "amount_min": "1000.00",
+ "amount_max": "1000.00",
+ "currency": "USD",
+ "deadline": "2026-09-06",
+ "geo_zones": [],
+ "language": "en",
+ "sponsor_name": "Alliance for Food Sovereignty in Africa (AFSA)",
+ "sponsor_id": 1273,
+ "sponsor_url": "",
+ "sponsor_type": "Autre",
+ "sponsor_description": "",
+ "source_name": null,
+ "source_url": "https://www.siani.se/opportunity/call-for-applications-african-food-baskets-country-researchers/",
+ "relevance_score": null,
+ "status": "published",
+ "eligibility": "Formation en systèmes alimentaires, agriculture, agroécologie, nutrition, anthropologie, sociologie, études du développement, études environnementales ou patrimoine culturel · expérience pratique du terrain qualitatif et des entretiens communautaires · maîtrise de l'anglais, du français ou du portugais, plus une capacité en langue locale · disposer d'un smartphone, d'une tablette ou d'un ordinateur, l'expérience de KoboToolbox étant un plus · savoir photographier ou pouvoir travailler avec un photographe · être ressortissant ou résident actif du pays visé",
+ "how_to_apply": "Envoyer un seul courriel à afsa@afsafrica.org contenant quatre pièces : un CV de deux pages maximum, une note de concept pays de trois pages maximum, un échantillon de travail pertinent, et le détail de votre affiliation ou de vos liens avec AFSA",
+ "contact_email": "afsa@afsafrica.org",
+ "duration": "1",
+ "zone_category": "ZON-PAYS",
+ "eligible_countries": [
+  "BFA",
+  "TGO",
+  "GIN",
+  "MLI",
+  "NER",
+  "CIV",
+  "SEN",
+  "BEN"
+ ],
+ "eligible_org_types": [
+  "ORG-ETU",
+  "ORG-CSI"
+ ],
+ "application_url": "https://afsafrica.org/blog/call-for-applications-african-food-baskets-country-researchers/",
+ "editorial_note": "Huit jours, un contrat individuel de 1 000 dollars, et une particularité à saisir : les dix pays ne sont pas encore choisis, c'est votre dossier qui peut y faire entrer le vôtre. Le français est accepté, ce qui lève l'obstacle habituel. Le barème donne 35 % à l'ancrage local et communautaire : votre avantage n'est pas votre diplôme mais votre capacité à nommer les communautés précises où vous travaillerez et les personnes qui vous ouvriront leurs cuisines. Écrivez votre note de concept autour de cela, pas autour de la méthodologie. Prévoyez aussi un photographe si vous ne l'êtes pas. Un seul courriel, quatre pièces, à afsa@afsafrica.org.\n\nSources : SIANI · appel African Food Baskets · ApplyNOW · détails et barème",
+ "co_sponsors": [
+  {
+   "id": 1273,
+   "name": "Alliance for Food Sovereignty in Africa (AFSA)"
+  }
+ ],
+ "natures": [
+  "NAT-14"
+ ],
+ "nature_principale": "NAT-14",
+ "budget_total": null,
+ "detail_financement": "En une fois, après acceptation du paquet de données livré",
+ "procedure": "PRO-03",
+ "langues": [
+  "FR",
+  "EN"
+ ],
+ "contreparties": [
+  "CON-09"
+ ],
+ "cofinancement_exige": "non",
+ "obligations": "La livraison et l'acceptation du paquet de données complet, condition du versement",
+ "recurrence": "REC-01",
+ "sectors_v4": [
+  "AGR",
+  "CUL"
+ ],
+ "subsectors": [
+  "AGR-15",
+  "AGR-16",
+  "AGR-09",
+  "AGR-10",
+  "CUL-13",
+  "CUL-12",
+  "CUL-08"
+ ],
+ "annees_experience": null,
+ "criteres_selection": "Notation pondérée : expérience de recherche 30 %, faisabilité 25 %, connaissance du terrain local 20 %, ancrage communautaire 15 %, compétences techniques 10 %",
+ "processus_selection": "Examen des candidatures · sélection des dix chercheurs et détermination concomitante des pays retenus · formation · travail de terrain · validation",
+ "laureats": "10",
+ "sectors": [],
+ "is_followed": false,
+ "sponsor_is_followed": false,
+ "created_at": "2026-09-02T09:30:04.108543Z"
+}

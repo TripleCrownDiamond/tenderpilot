@@ -1028,7 +1028,11 @@ function analyserPagePlanInternational(html, source) {
  *
  * TROIS BORNES, parce que ce n'est pas gratuit.
  *
- * 1. Une fiche n'est lue que si l'echeance MANQUE.
+ * 1. Une fiche n'est lue que si quelque chose MANQUE - l'echeance, ou le
+ *    lien de l'annonce. Fundpilote est l'autre cas type : sa liste ne
+ *    donne qu'un identifiant d'API, et la page batie depuis cet identifiant
+ *    affiche un mur d'inscription. Le vrai lien du bailleur n'existe que
+ *    sur la fiche.
  * 2. Une annonce deja au classeur n'est jamais relue : chaque passage
  *    enrichit du NOUVEAU, et le rattrapage avance au lieu de tourner en
  *    rond.
@@ -1039,14 +1043,30 @@ function analyserPagePlanInternational(html, source) {
  * declare un analyseur de fiche, l'absence de date veut dire "fiche non
  * lue", pas "avis sans echeance".
  */
-var ANALYSEURS_FICHE = {
-  'jobrelais.com': analyserFicheJobrelais
-};
+/** Les hotes qui declarent un analyseur de fiche. Sert a l'audit. */
+var ANALYSEURS_FICHE = ['jobrelais.com', 'fundpilote.com'];
 
-/** Retourne l'analyseur de fiche d'une methode, ou null. */
+/**
+ * Retourne l'analyseur de fiche d'une methode, ou null.
+ *
+ * Le prefixe dit comment LIRE la reponse, pas si la source a des fiches :
+ * la fiche de Fundpilote est du JSON, celle de JobRelais du HTML.
+ *
+ * LA TABLE EST CONSTRUITE ICI, PAS AU CHARGEMENT. Apps Script evalue les
+ * fichiers l'un apres l'autre : une table posee au niveau du fichier ne
+ * voit que les fonctions des fichiers DEJA charges. Html.gs est evalue
+ * avant Json.gs, donc analyserFicheFundpilote n'existait pas encore -
+ * "ReferenceError" au chargement, sur TOUTES les executions. La construire
+ * a l'appel la resout quand tout est charge.
+ */
 function analyseurFiche_(methode) {
-  var m = /^HTML:(.+)$/i.exec(String(methode || '').trim());
-  return m ? (ANALYSEURS_FICHE[m[1].trim()] || null) : null;
+  var m = /^(?:HTML|JSON):(.+)$/i.exec(String(methode || '').trim());
+  if (!m) return null;
+  var table = {
+    'jobrelais.com': analyserFicheJobrelais,
+    'fundpilote.com': analyserFicheFundpilote
+  };
+  return table[m[1].trim()] || null;
 }
 
 /** Complete une annonce avec ce que sa fiche apporte, sans rien ecraser. */
