@@ -181,15 +181,21 @@ vingt-quatre heures cela change tout.
 
 ### Et la notification push, qui ne demande rien
 
-Un troisieme canal : **ntfy**. Aucun compte a creer. Installez
-l'application ntfy, abonnez-vous a un sujet - **long et difficile a
-deviner**, sur le serveur public un sujet n'est pas un secret - puis
-ajoutez deux variables :
+Un troisieme canal : **ntfy**. Aucun compte a creer, et **aucun nom a
+inventer**.
 
 | Variable | Valeur |
 |----------|--------|
 | `SEND_NTFY` | `true` |
-| `NTFY_SUJET` | le sujet choisi, par exemple `tenderpilot-benin-4f2a9c` |
+
+C'est la seule a poser. TenderPilot fabrique votre sujet - de la forme
+`tenderpilot-a1b2c3d4e5f6` - et l'ecrit dans `NTFY_SUJET` : abonnez-vous a
+ce sujet dans l'application ntfy.
+
+Le sujet est tire au hasard, et ce n'est pas un detail : sur le serveur
+public un sujet est **global**, donc deux installations qui porteraient le
+meme nom se croiseraient. Et un sujet lisible est devinable, alors que le
+connaitre suffit pour lire et pour ecrire. Ne le partagez pas.
 
 `NTFY_SERVEUR` n'est utile que si vous hebergez votre propre ntfy.
 

@@ -540,11 +540,34 @@ Deux différences avec Telegram, qui sont dans le code :
 - **le digest montre cinq lignes, pas dix.** Une notification push se lit
   d'un coup d'œil sur un écran verrouillé.
 
-Et ce qui doit être dit au client, écrit dans `CONFIG` : sur le serveur
-public, **un sujet n'est pas un secret**. Quiconque le devine lit les alertes
-et peut en envoyer. Les avis de marchés sont publics — c'est son confort qui
-est en jeu, pas sa confidentialité — mais il doit le savoir, d'où la consigne
-de choisir un sujet long.
+**Le sujet est fabriqué, jamais inventé.** La première version demandait au
+client de choisir son sujet, avec la consigne d'en prendre un long. C'était
+une mauvaise conception, pour trois raisons qui se voient dès le deuxième
+client :
+
+1. **Les collisions.** Sur le serveur public, un sujet est *global*. Deux
+   clients qui tapent `tenderpilot` — et ils le taperont — reçoivent les
+   alertes l'un de l'autre.
+2. **La devinabilité.** Un sujet lisible est un sujet devinable, et sur
+   `ntfy.sh` connaître le sujet suffit pour lire **et pour écrire**.
+3. **L'incohérence.** Chaque installation aurait sa forme, et plus rien ne
+   serait diagnosticable à distance.
+
+La forme est donc fixe partout : `tenderpilot-<douze caractères au hasard>`.
+Le préfixe rend l'installation reconnaissable, le tirage la rend unique et
+non devinable. `SEND_NTFY` à `true` est la **seule** chose que le client
+écrit ; le script remplit `NTFY_SUJET` au premier besoin et le lui affiche.
+
+Le tirage vient de `Utilities.getUuid()`, **pas** d'un dérivé de
+l'identifiant du classeur : celui-ci figure dans l'URL, et un sujet qu'on
+peut recalculer depuis un lien partagé n'est pas un sujet.
+
+Un sujet déjà renseigné n'est **jamais** remplacé — un client qui héberge son
+propre ntfy garde sa convention.
+
+La règle générale, qui dépasse ntfy : **ce que le produit peut fabriquer
+lui-même, il ne le demande pas.** Une valeur saisie à la main est une valeur
+mal saisie, non unique, et impossible à diagnostiquer.
 
 ## Suivre une offre : la seule colonne que le client remplit
 

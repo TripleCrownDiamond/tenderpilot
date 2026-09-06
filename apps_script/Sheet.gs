@@ -59,6 +59,30 @@ function lireConfig() {
   return config;
 }
 
+/**
+ * Ecrit UNE valeur de configuration, en creant la cle si elle manque.
+ *
+ * Sert a ce que le script se configure lui-meme la ou demander au client de
+ * saisir quelque chose serait une source d'erreur - le sujet ntfy, par
+ * exemple. Le client relit, il ne compose pas.
+ */
+function ecrireConfig_(cle, valeur) {
+  var feuille = getSheet_(SCHEMA.SHEETS.config);
+  var dernier = feuille.getLastRow();
+  if (dernier >= 2) {
+    var cles = feuille.getRange(2, 1, dernier - 1, 1).getValues();
+    for (var i = 0; i < cles.length; i++) {
+      if (String(cles[i][0]).trim() === cle) {
+        feuille.getRange(i + 2, 2).setValue(valeur);
+        if (CONFIG_COURANTE) CONFIG_COURANTE[cle] = valeur;
+        return;
+      }
+    }
+  }
+  feuille.appendRow([cle, valeur]);
+  if (CONFIG_COURANTE) CONFIG_COURANTE[cle] = valeur;
+}
+
 // ----------------------------------------------------------------- SOURCES
 
 /** Sources declarees, converties en objets a cles techniques. */

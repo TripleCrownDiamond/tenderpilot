@@ -929,8 +929,9 @@ export async function envoyerNotifications(
   const parTelegram = Boolean(
     messager && config.envoiTelegram
     && config.telegramToken.trim() && config.telegramChatId.trim());
-  const parNtfy = Boolean(
-    pousseur && config.envoiNtfy && (config.ntfySujet ?? "").trim());
+  // Le sujet n'entre pas dans la condition : il est fabrique, pas saisi.
+  // La seule decision qui revient au client est envoiNtfy.
+  const parNtfy = Boolean(pousseur && config.envoiNtfy);
 
   if (!parEmail && !parTelegram && !parNtfy) {
     await depot.journaliser(null, "Notifications", "SKIPPED",

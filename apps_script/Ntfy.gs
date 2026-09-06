@@ -99,16 +99,74 @@ function messageNtfyDigest(nouvelles) {
   };
 }
 
-/** Le canal est-il utilisable ? */
+/**
+ * LE SUJET N'EST PAS INVENTE PAR LE CLIENT, IL EST FABRIQUE.
+ *
+ * Demander a chacun de choisir son sujet posait trois problemes, et les
+ * trois se voient des le deuxieme client :
+ *
+ * 1. LES COLLISIONS. Sur le serveur public, un sujet est global. Deux
+ *    clients qui tapent "tenderpilot" - et ils le taperont - recoivent les
+ *    alertes l'un de l'autre.
+ * 2. LA DEVINABILITE. Un sujet lisible est un sujet devinable, et sur
+ *    ntfy.sh connaitre le sujet suffit pour lire et pour ecrire.
+ * 3. L'INCOHERENCE. Chaque installation aurait une forme differente, et
+ *    plus rien ne serait diagnosticable a distance.
+ *
+ * La forme est donc FIXE, et la meme partout :
+ *
+ *     tenderpilot-<douze caracteres tires au hasard>
+ *
+ * Le prefixe rend l'installation reconnaissable ; les douze caracteres la
+ * rendent unique et non devinable. Le tirage vient de Utilities.getUuid(),
+ * pas d'un derive de l'identifiant du classeur : ce dernier figure dans
+ * l'URL, et un sujet qu'on peut recalculer depuis un lien partage n'est
+ * pas un sujet.
+ *
+ * Le client ne compose rien. Il LIT le sujet dans CONFIG - ou dans le
+ * message du menu - et le recopie dans son application.
+ */
+var NTFY_PREFIXE = 'tenderpilot-';
+
+function fabriquerSujetNtfy_() {
+  var brut = Utilities.getUuid().replace(/-/g, '').toLowerCase();
+  return NTFY_PREFIXE + brut.slice(0, 12);
+}
+
+/**
+ * Le sujet de cette installation, fabrique au premier besoin.
+ *
+ * Ecrit dans CONFIG des qu'il est cree : le client doit pouvoir le lire, et
+ * un sujet qui changerait a chaque passage n'abonnerait personne.
+ */
+function sujetNtfy_(config) {
+  var existant = String(config.NTFY_SUJET || '').trim();
+  if (existant) return existant;
+
+  var sujet = fabriquerSujetNtfy_();
+  ecrireConfig_('NTFY_SUJET', sujet);
+  config.NTFY_SUJET = sujet;
+  logEvent('', 'ntfy', 'SUCCESS',
+           'Sujet cree : ' + sujet + '. Abonnez-vous a ce sujet dans '
+           + 'l application ntfy pour recevoir les alertes.');
+  return sujet;
+}
+
+/**
+ * Le canal est-il utilisable ?
+ *
+ * Le sujet n'entre PAS dans cette condition : il n'a pas a etre renseigne
+ * pour que le canal marche, puisque le script le fabrique. Mettre
+ * SEND_NTFY a true suffit - c'est la seule decision qui revient au client.
+ */
 function ntfyActif_(config) {
-  return estVrai(config.SEND_NTFY) && !estVide(config.NTFY_SUJET);
+  return estVrai(config.SEND_NTFY);
 }
 
 /** L'adresse du sujet, serveur par defaut compris. */
 function adresseNtfy_(config) {
   var serveur = String(config.NTFY_SERVEUR || '').trim() || 'https://ntfy.sh';
-  return serveur.replace(/\/+$/, '') + '/'
-    + String(config.NTFY_SUJET).trim();
+  return serveur.replace(/\/+$/, '') + '/' + sujetNtfy_(config);
 }
 
 /** Coupe plutot que de laisser le serveur tronquer n'importe ou. */
@@ -166,18 +224,26 @@ function testerNtfy() {
   var config = lireConfig();
   if (!ntfyActif_(config)) {
     SpreadsheetApp.getActive().toast(
-      'Renseignez SEND_NTFY et NTFY_SUJET dans CONFIG.', 'ntfy', 8);
+      'Mettez SEND_NTFY a true dans CONFIG. Le sujet sera cree tout seul.',
+      'ntfy', 8);
     return;
   }
   try {
+    var sujet = sujetNtfy_(config);
     envoyerNtfy_(config, {
       titre: 'TenderPilot',
       corps: 'Test reussi : vos alertes arriveront ici.',
       lien: '',
       priorite: '3'
     });
-    SpreadsheetApp.getActive().toast('Notification envoyee.', 'ntfy', 5);
-    logEvent('', 'Test ntfy', 'SUCCESS', 'Notification de test envoyee.');
+    // Le sujet est repete ICI parce que c'est le moment ou le client en a
+    // besoin : il vient de lancer le test, il attend la notification, et
+    // s'il ne l'a pas c'est qu'il n'est pas abonne au bon sujet.
+    SpreadsheetApp.getActive().toast(
+      'Notification envoyee sur le sujet : ' + sujet
+      + '  -  abonnez-vous a ce sujet dans l application ntfy.', 'ntfy', 15);
+    logEvent('', 'Test ntfy', 'SUCCESS',
+             'Notification de test envoyee sur ' + sujet + '.');
   } catch (e) {
     SpreadsheetApp.getActive().toast(e.message, 'ntfy', 10);
     logEvent('', 'Test ntfy', 'ERROR', e.message);
@@ -188,6 +254,8 @@ if (typeof module !== 'undefined') {
   module.exports = {
     messageNtfy: messageNtfy, messageNtfyDigest: messageNtfyDigest,
     ntfyActif_: ntfyActif_, envoyerNtfy_: envoyerNtfy_,
+    sujetNtfy_: sujetNtfy_, fabriquerSujetNtfy_: fabriquerSujetNtfy_,
+    NTFY_PREFIXE: NTFY_PREFIXE,
     adresseNtfy_: adresseNtfy_, tronquerNtfy_: tronquerNtfy_
   };
 }

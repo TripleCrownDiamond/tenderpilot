@@ -354,10 +354,11 @@ CONFIG = [
      "compte a creer : installez l'application ntfy sur votre telephone, "
      "abonnez-vous a un sujet, et mettez ce sujet ci-dessous."),
     ("NTFY_SUJET", "",
-     "Le sujet auquel votre telephone est abonne, par exemple "
-     "tenderpilot-benin-4f2a. CHOISISSEZ-EN UN DIFFICILE A DEVINER : sur "
-     "le serveur public, quiconque connait le sujet peut lire vos alertes "
-     "et vous en envoyer."),
+     "NE REMPLISSEZ PAS CETTE CASE : TenderPilot y ecrit tout seul un "
+     "sujet unique, de la forme tenderpilot-a1b2c3d4e5f6, la premiere fois "
+     "que SEND_NTFY est actif. Lisez-le ici, puis abonnez-vous a ce sujet "
+     "dans l'application ntfy. Ne le partagez pas : sur le serveur public, "
+     "qui connait le sujet peut lire vos alertes et vous en envoyer."),
     ("NTFY_SERVEUR", "https://ntfy.sh",
      "Serveur ntfy. Laissez tel quel pour le service public gratuit, ou "
      "mettez l'adresse de votre propre serveur."),

@@ -915,6 +915,32 @@ export const NOTIFICATIONS: RegleNotification[] = [
 ];
 
 /**
+ * LE SUJET NTFY N'EST PAS INVENTE PAR LE CLIENT, IL EST FABRIQUE.
+ *
+ * Sur le serveur public, un sujet est global : deux clients qui choisissent
+ * "tenderpilot" - et ils le choisiront - recoivent les alertes l'un de
+ * l'autre. Un sujet lisible est en outre un sujet devinable, et connaitre
+ * le sujet suffit pour lire ET pour ecrire.
+ *
+ * La forme est donc fixe partout : tenderpilot-<douze caracteres au
+ * hasard>. Le prefixe rend l'installation reconnaissable, le tirage la rend
+ * unique et non devinable.
+ *
+ * Jumeau de fabriquerSujetNtfy_() dans Ntfy.gs.
+ */
+export const NTFY_PREFIXE = "tenderpilot-";
+
+export function fabriquerSujetNtfy(): string {
+  let brut = "";
+  // Douze caracteres hexadecimaux : 48 bits, assez pour qu'une collision
+  // entre installations reste theorique.
+  for (let i = 0; i < 12; i++) {
+    brut += "0123456789abcdef"[Math.floor(Math.random() * 16)];
+  }
+  return NTFY_PREFIXE + brut;
+}
+
+/**
  * Cette opportunite est-elle suivie par le client ?
  *
  * Jumeau d'estSuivie_() dans Core.gs. Deux mecanismes s'en servent :

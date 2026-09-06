@@ -63,19 +63,20 @@ vide si vous ne voulez pas d'emails du tout.
 
 **Le plus simple : la notification push (ntfy).** Aucun compte a creer.
 
-1. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
-   navigateur).
-2. Abonnez-vous a un sujet de votre choix. **Prenez-en un long et difficile
-   a deviner** - par exemple `tenderpilot-benin-4f2a9c`. Sur le serveur
-   public, qui connait le sujet lit vos alertes.
-3. Onglet CONFIG :
+1. Onglet CONFIG : mettez `SEND_NTFY` a **`true`**. C'est tout ce que vous
+   avez a ecrire.
+2. Menu **TenderPilot > Tester la notification push (ntfy)**. TenderPilot
+   fabrique alors **votre** sujet - de la forme
+   `tenderpilot-a1b2c3d4e5f6` - et vous l'affiche.
+3. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
+   navigateur) et **abonnez-vous a ce sujet**. Vous le retrouverez a tout
+   moment dans la case `NTFY_SUJET` de l'onglet CONFIG.
 
-| Cle | Valeur |
-|-----|--------|
-| `SEND_NTFY` | `true` |
-| `NTFY_SUJET` | le sujet choisi |
-
-4. Menu **TenderPilot > Tester la notification push (ntfy)**.
+> **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Le
+> sujet est tire au hasard pour deux raisons : sur le serveur public il est
+> global - deux clients qui choisiraient le meme nom recevraient les
+> alertes l'un de l'autre - et un sujet lisible est un sujet devinable.
+> **Ne le partagez pas** : qui le connait lit vos alertes.
 
 **Telegram**, si vous y etes deja.
 

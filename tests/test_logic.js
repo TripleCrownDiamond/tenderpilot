@@ -177,6 +177,13 @@ function monde(options) {
     // ecrirait `true` dirait "tous canaux servis" et masquerait exactement
     // ce qu'on cherche a empecher - une alerte renvoyee sur un canal qui
     // l'a deja recue, ou un email perdu parce que Telegram est passe.
+    // Le script se configure lui-meme pour le sujet ntfy : le banc doit
+    // garder ce qu'il ecrit, sinon un sujet neuf serait fabrique a chaque
+    // passage et personne ne resterait abonne.
+    ecrireConfig_: function (cle, valeur) {
+      feuille.config[cle] = valeur;
+      if (ctx.CONFIG_COURANTE) ctx.CONFIG_COURANTE[cle] = valeur;
+    },
     marquerNotifications_: function (ligne, cles, canal) {
       exigeNumeroDeLigne(ligne, 'marquerNotifications_');
       cles.forEach(cle => {
@@ -237,7 +244,20 @@ function monde(options) {
         return this.getDefaultCalendar();
       }
     },
-    Utilities: { formatDate: () => AUJOURDHUI },
+    Utilities: {
+      formatDate: () => AUJOURDHUI,
+      // Le vrai getUuid rend un identifiant different a chaque appel : le
+      // faux doit en faire autant, sinon deux installations partageraient
+      // le meme sujet et le test ne le verrait pas.
+      getUuid: () => {
+        let u = '';
+        for (let i = 0; i < 32; i++) {
+          u += '0123456789abcdef'[Math.floor(Math.random() * 16)];
+        }
+        return u.slice(0, 8) + '-' + u.slice(8, 12) + '-' + u.slice(12, 16)
+          + '-' + u.slice(16, 20) + '-' + u.slice(20);
+      }
+    },
     ScriptApp: { getProjectTriggers: () => [] },
     // La reprise apres budget depasse s ecrit dans les proprietes du
     // script : le banc d essai les tient en memoire.
@@ -2635,9 +2655,11 @@ console.log('\n[ntfy] L adresse se compose sans surprise');
         C.adresseNtfy_({ NTFY_SERVEUR: 'https://push.moi.test/',
                          NTFY_SUJET: 'sujet' })
           === 'https://push.moi.test/sujet');
-  check('sans sujet, le canal n est pas actif',
-        C.ntfyActif_({ SEND_NTFY: 'true', NTFY_SUJET: '' }) === false);
-  check('et sans SEND_NTFY non plus',
+  // Le sujet n entre PAS dans la condition : le script le fabrique. La
+  // seule decision qui revient au client est SEND_NTFY.
+  check('sans sujet, le canal marche quand meme',
+        C.ntfyActif_({ SEND_NTFY: 'true', NTFY_SUJET: '' }) === true);
+  check('mais sans SEND_NTFY, rien ne part',
         C.ntfyActif_({ SEND_NTFY: 'false', NTFY_SUJET: 'sujet' }) === false);
 }
 
@@ -2860,6 +2882,59 @@ console.log('\n[Installation] autoriser() marche sans interface');
   check('la fonction d autorisation ne touche a aucune interface', !tombe);
   check('et elle dit ce qu elle voit',
         message.indexOf('1 source(s)') !== -1, message);
+}
+
+// ==========================================================================
+console.log('\n[ntfy] Le sujet est fabrique, jamais invente');
+{
+  // Demander a chacun de choisir son sujet donnait des collisions - sur le
+  // serveur public un sujet est global, et deux clients qui tapent
+  // "tenderpilot" recoivent les alertes l un de l autre.
+  const url = 'https://exemple.test/flux-sujet';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis', lien: 'https://exemple.test/su1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) }
+    ]) },
+    // SEND_NTFY seul : aucun sujet renseigne.
+    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_NTFY: 'true' }
+  });
+
+  m.ctx.executerTenderPilot();
+  const sujet = m.feuille.config.NTFY_SUJET;
+  check('un sujet est ecrit dans CONFIG tout seul',
+        typeof sujet === 'string' && sujet.length > 0, String(sujet));
+  check('il porte le prefixe du produit',
+        sujet.indexOf('tenderpilot-') === 0, sujet);
+  check('et douze caracteres tires au hasard',
+        /^tenderpilot-[0-9a-f]{12}$/.test(sujet), sujet);
+  check('la notification est bien partie', m.pousses.length === 1,
+        m.pousses.length + ' notifications');
+  check('le sujet est journalise, pour que le client le lise',
+        m.feuille.logs.some(l => l.message.indexOf(sujet) !== -1));
+
+  // IL NE CHANGE PLUS. Un sujet qui bougerait a chaque passage
+  // n abonnerait personne.
+  m.ctx.executerTenderPilot();
+  check('le sujet ne change pas au passage suivant',
+        m.feuille.config.NTFY_SUJET === sujet, m.feuille.config.NTFY_SUJET);
+
+  // ET IL EST UNIQUE : deux installations ne doivent pas se croiser.
+  const autre = monde({ config: { SEND_NTFY: 'true' } });
+  autre.ctx.executerTenderPilot();
+  check('deux installations ont deux sujets differents',
+        autre.feuille.config.NTFY_SUJET !== sujet,
+        autre.feuille.config.NTFY_SUJET + ' vs ' + sujet);
+
+  // Un sujet deja choisi est RESPECTE : le client qui a son propre serveur
+  // et sa propre convention n est pas ecrase.
+  const C = m.ctx;
+  check('un sujet deja renseigne n est jamais remplace',
+        C.sujetNtfy_({ NTFY_SUJET: 'le-mien' }) === 'le-mien');
+  check('l adresse se compose avec le sujet fabrique',
+        C.adresseNtfy_({ NTFY_SUJET: sujet })
+          === 'https://ntfy.sh/' + sujet);
 }
 
 // ==========================================================================

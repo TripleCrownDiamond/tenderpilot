@@ -13,6 +13,7 @@ import { test } from "node:test";
 
 import {
   ajouterCanal, Canal, canauxNotifies, dejaNotifie, estSuivie,
+  fabriquerSujetNtfy,
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
   construireIndex, inventaireProfil, listeConfig, parDelai,
   parPertinence, pertinence, pertinenceNotifiable, PROFIL_TYPE_PAYS,
@@ -1091,4 +1092,30 @@ test("sans le reglage, les rappels partent comme avant", async () => {
 
   assert.ok(["oui", "true", "VRAI", "1"].every((v) => estSuivie({ titre: "x", suivi: v })));
   assert.equal(estSuivie({ titre: "x" }), false);
+});
+
+test("le sujet ntfy est fabrique, jamais invente", async () => {
+  // Sur le serveur public un sujet est global : deux clients qui
+  // choisissent "tenderpilot" recoivent les alertes l'un de l'autre.
+  const a = fabriquerSujetNtfy();
+  const b = fabriquerSujetNtfy();
+
+  assert.match(a, /^tenderpilot-[0-9a-f]{12}$/,
+               "forme fixe : prefixe du produit puis douze caracteres");
+  assert.notEqual(a, b, "deux installations ne partagent pas un sujet");
+
+  // Et le canal marche sans qu'aucun sujet ait ete saisi.
+  const url = "https://example.org/f-sujet";
+  const m = monde({
+    sources: [source("s1", url)],
+    flux: { [url]: fluxRss([
+      { titre: "Avis", lien: "https://example.org/su1",
+        texte: `Date limite : ${enFrancais(jourRelatif(5))}` },
+    ]) },
+    config: { envoiNouvelle: false, envoiNtfy: true, ntfySujet: "" },
+  });
+  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
+                 m.pousseur);
+  assert.equal(m.pousses.length, 1,
+               "SEND_NTFY seul suffit : le sujet ne se saisit pas");
 });
