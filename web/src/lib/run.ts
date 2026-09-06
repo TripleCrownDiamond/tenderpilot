@@ -1058,11 +1058,26 @@ export async function envoyerNotifications(
 
       let tousPartis = true;
       for (const type of aEnvoyer) {
-        const message = messageNotification(type, ligne);
+        // LA FABRICATION DU MESSAGE EST DANS LE try, PAS SEULEMENT L'ENVOI.
+        // Une ligne mal formee faisait tomber tout le passage au moment de
+        // composer son texte. Elle doit couter une ligne de journal.
+        let compose: MessageDiffuse;
+        try {
+          const message = messageNotification(type, ligne);
+          compose = {
+            sujet: message.sujet, corps: message.corps,
+            telegram: messageTelegram(type, ligne),
+            ntfy: messageNtfy(type, ligne),
+          };
+        } catch (e) {
+          await depot.journaliser(ligne.source ?? null, `Notification ${type}`,
+            "ERROR", `Message non compose pour ${ligne.id} : `
+            + (e instanceof Error ? e.message : String(e)));
+          tousPartis = false;
+          continue;
+        }
         if (!await emettre(voie, ligne.source ?? null, `Notification ${type}`,
-                           { sujet: message.sujet, corps: message.corps,
-                             telegram: messageTelegram(type, ligne),
-                             ntfy: messageNtfy(type, ligne) })) {
+                           compose)) {
           tousPartis = false;
         }
       }

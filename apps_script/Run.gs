@@ -1044,21 +1044,31 @@ function sendNotifications(lignes, config, nouvelles) {
   }
 
   if (envoiGroupe) {
-    var digest = messageDigest(aNotifier);
-    var messageDigest_ = {
-      sujet: digest.sujet, corps: digest.corps,
-      telegram: messageTelegramDigest(aNotifier),
-      ntfy: messageNtfyDigest(aNotifier)
-    };
-    canaux.forEach(function (canal) {
-      // Le digest compte pour un message sur chaque canal. Un plafond a 0
-      // n'existe pas - plafondEnvois_ rend Infinity - mais un quota Google
-      // epuise, si.
-      if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
-      emettre_(canal, '', 'Digest', messageDigest_);
-    });
-    logEvent('', 'Notifications', 'SUCCESS',
-             'Digest de ' + aNotifier.length + ' nouvelles opportunites.');
+    // Meme raison qu'au cas par cas : un digest qu'on ne sait pas composer
+    // ne doit pas emporter l'execution avec lui.
+    var messageDigest_ = null;
+    try {
+      var digest = messageDigest(aNotifier);
+      messageDigest_ = {
+        sujet: digest.sujet, corps: digest.corps,
+        telegram: messageTelegramDigest(aNotifier),
+        ntfy: messageNtfyDigest(aNotifier)
+      };
+    } catch (e) {
+      logEvent('', 'Digest', 'ERROR', 'Digest non compose : ' + e.message);
+      envoiGroupe = false;
+    }
+    if (messageDigest_) {
+      canaux.forEach(function (canal) {
+        // Le digest compte pour un message sur chaque canal. Un plafond a 0
+        // n'existe pas - plafondEnvois_ rend Infinity - mais un quota Google
+        // epuise, si.
+        if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
+        emettre_(canal, '', 'Digest', messageDigest_);
+      });
+      logEvent('', 'Notifications', 'SUCCESS',
+               'Digest de ' + aNotifier.length + ' nouvelles opportunites.');
+    }
   }
 
   // LE PLUS PERTINENT ET LE PLUS URGENT D'ABORD. Quand le plafond coupe,
@@ -1099,9 +1109,25 @@ function sendNotifications(lignes, config, nouvelles) {
 
       var tousPartis = true;
       aEnvoyer.forEach(function (type) {
-        var message = messageNotification(type, ligne);
-        message.telegram = messageTelegram(type, ligne);
-        message.ntfy = messageNtfy(type, ligne);
+        // LA FABRICATION DU MESSAGE EST DANS LE try, PAS SEULEMENT L'ENVOI.
+        // Seul emettre_ etait protege : une ligne mal formee - un champ
+        // absent, une valeur inattendue - faisait tomber TOUTE l'execution
+        // au moment de composer son texte, et avec elle les alertes des
+        // lignes suivantes, le tri, et l'inventaire. Une annonce qu'on ne
+        // sait pas mettre en forme doit couter une ligne de journal, pas
+        // un passage.
+        var message;
+        try {
+          message = messageNotification(type, ligne);
+          message.telegram = messageTelegram(type, ligne);
+          message.ntfy = messageNtfy(type, ligne);
+        } catch (e) {
+          logEvent(ligne.source, 'Notification ' + type, 'ERROR',
+                   'Message non compose pour ' + (ligne.id || 'sans id')
+                   + ' : ' + e.message);
+          tousPartis = false;
+          return;
+        }
         if (!emettre_(canal, ligne.source, 'Notification ' + type, message)) {
           tousPartis = false;
         }

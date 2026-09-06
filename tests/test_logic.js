@@ -3128,6 +3128,57 @@ console.log('\n[ntfy] Le test dit ce que le script VOIT, pas ce qu on espere');
 }
 
 // ==========================================================================
+console.log('\n[Notifications] Une ligne infaisable ne tue pas le passage');
+{
+  // Seul l ENVOI etait protege ; la fabrication du message ne l etait pas.
+  // Une ligne mal formee faisait tomber toute l execution au moment de
+  // composer son texte - et avec elle les alertes suivantes, le tri, et
+  // l inventaire.
+  const url = 'https://exemple.test/flux-message-casse';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis un', lien: 'https://exemple.test/mc1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) },
+      { titre: 'Avis deux', lien: 'https://exemple.test/mc2',
+        description: 'Date limite : ' + enFrancais(jourRelatif(5)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false' }
+  });
+
+  // La premiere annonce rencontree fait echouer la mise en forme.
+  const vrai = m.ctx.messageNotification;
+  let premiere = true;
+  m.ctx.messageNotification = function (type, ligne) {
+    if (premiere) {
+      premiere = false;
+      throw new TypeError("Cannot read properties of undefined (reading 'title')");
+    }
+    return vrai(type, ligne);
+  };
+
+  let tombe = false;
+  try { m.ctx.executerTenderPilot(); } catch (e) { tombe = true; }
+  check('l execution ne tombe pas', !tombe);
+  check('l autre alerte part quand meme', m.boite.length === 1,
+        m.boite.length + ' emails');
+  check('l echec est journalise, avec l annonce en cause',
+        m.feuille.logs.some(l => l.statut === 'ERROR'
+          && l.message.indexOf('Message non compose') !== -1),
+        JSON.stringify(m.feuille.logs.filter(l => l.statut === 'ERROR')
+          .map(l => l.message)));
+  check('et le passage aboutit',
+        m.feuille.logs.some(l => l.action === 'Execution'
+                                 && l.statut === 'SUCCESS'));
+
+  // ON NE MARQUE PAS ce qu on n a pas su envoyer : la ligne repassera.
+  const ratee = m.feuille.opps.filter(
+    o => !m.ctx.dejaNotifie_(o.notifJ7, 'email'));
+  check('la ligne ratee n est pas marquee', ratee.length === 1,
+        ratee.length + ' lignes non marquees');
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

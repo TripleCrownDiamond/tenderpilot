@@ -621,6 +621,27 @@ vide. Cette dernière garde l'identifiant de l'événement : **une échéance
 posée ne l'est jamais deux fois**, et vider la cellule la fait reposer — la
 porte de sortie quand le client a supprimé l'événement à la main.
 
+### Composer un message est aussi risqué que l'envoyer
+
+**Mesure du 2026-09-06, chez un client :**
+
+    TypeError: Cannot read properties of undefined (reading 'title')
+    messageNtfy @ Ntfy.gs:66
+
+Seul `emettre_` était protégé. La **fabrication** du message ne l'était pas :
+une ligne mal formée — un champ absent, une valeur inattendue, deux fichiers
+`.gs` désynchronisés — faisait tomber toute l'exécution au moment de composer
+son texte. Et avec elle : les alertes des lignes suivantes, le tri du
+tableau, l'inventaire du profil.
+
+Une annonce qu'on ne sait pas mettre en forme doit coûter **une ligne de
+journal**, pas un passage. Le `try` couvre donc désormais la composition
+autant que l'envoi, des deux côtés, et le journal nomme l'annonce en cause —
+c'est ce qui permet de diagnostiquer au lieu de deviner.
+
+Et la règle du marquage tient : ce qu'on n'a pas su composer n'est pas
+marqué, donc la ligne repassera.
+
 ### `RAPPELS_SUIVIS_SEULEMENT`, et l'exception qui le sauve
 
 Le même choix peut gouverner les rappels : avec ce réglage à `true`, les
