@@ -3032,6 +3032,63 @@ console.log('\n[Verification] Un sujet ntfy d avant la standardisation');
 }
 
 // ==========================================================================
+console.log('\n[ntfy] Le 429 dit quoi faire, pas seulement que ca a rate');
+{
+  // MESURE DU 2026-09-06 : quota de 250 messages par jour et par VISITEUR,
+  // et un visiteur anonyme est une ADRESSE IP. Apps Script sort par les
+  // adresses partagees de Google. Le quota n est jamais le notre.
+  const m = monde({ config: { SEND_NTFY: 'true',
+                              NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' } });
+  m.ctx.UrlFetchApp.fetch = () => ({
+    getResponseCode: () => 429,
+    getContentText: () => '{"code":42908,"error":"limit reached"}'
+  });
+
+  let message = '';
+  try {
+    m.ctx.envoyerNtfy_(m.feuille.config,
+                       { titre: 'T', corps: 'c', lien: '', priorite: '3' });
+  } catch (e) { message = e.message; }
+
+  check('le refus est explique, pas juste signale',
+        message.indexOf('quota') !== -1 && message.indexOf('IP') !== -1,
+        message);
+  check('et la sortie est donnee',
+        message.indexOf('NTFY_JETON') !== -1, message);
+  check('le code brut ne remplace pas l explication',
+        message.indexOf('HTTP 429') === -1, message);
+}
+
+// ==========================================================================
+console.log('\n[ntfy] Le jeton part en en-tete, jamais dans le journal');
+{
+  const m = monde({});
+  let entetes = null;
+  m.ctx.UrlFetchApp.fetch = (url, options) => {
+    entetes = options.headers;
+    return { getResponseCode: () => 200, getContentText: () => '{}' };
+  };
+  m.ctx.envoyerNtfy_(
+    { NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6', NTFY_JETON: 'tk_secret' },
+    { titre: 'T', corps: 'c', lien: 'https://exemple.test/a', priorite: '5' });
+
+  check('le jeton voyage en Authorization',
+        entetes.Authorization === 'Bearer tk_secret', entetes.Authorization);
+  check('sans jeton, aucun en-tete d autorisation', (() => {
+    let e2 = null;
+    m.ctx.UrlFetchApp.fetch = (url, options) => {
+      e2 = options.headers;
+      return { getResponseCode: () => 200, getContentText: () => '{}' };
+    };
+    m.ctx.envoyerNtfy_({ NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' },
+                       { titre: 'T', corps: 'c', lien: '', priorite: '3' });
+    return !('Authorization' in e2);
+  })());
+  check('la priorite et le lien partent bien',
+        entetes.Priority === '5' && entetes.Click === 'https://exemple.test/a');
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

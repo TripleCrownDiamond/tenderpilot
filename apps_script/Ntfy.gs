@@ -2,9 +2,24 @@
  * Troisieme canal : ntfy.
  *
  * POURQUOI CELUI-LA. L'email demande une boite qu'on releve ; Telegram
- * demande un bot, un jeton, un salon. ntfy demande UN MOT. Le client
- * installe l'application, s'abonne a un sujet, colle ce sujet dans CONFIG,
- * et son telephone sonne. Aucun compte, aucune inscription, gratuit.
+ * demande un bot, un jeton, un salon. ntfy demande une application et un
+ * interrupteur : le client installe ntfy, s'abonne au sujet que le script
+ * a fabrique, et son telephone sonne.
+ *
+ * MAIS IL FAUT UN JETON, ET C'EST UNE CORRECTION. Ce commentaire a
+ * affirme "aucun compte, aucune inscription". C'etait faux DEPUIS APPS
+ * SCRIPT, et mesure le 2026-09-06 chez un client : le premier message
+ * passe, le second rend 429 "daily quota reached".
+ *
+ * La raison est structurelle. Le quota de ntfy.sh est de 250 messages par
+ * jour et par VISITEUR ; pour un anonyme, un visiteur est une ADRESSE IP.
+ * Apps Script sort par les adresses partagees de Google, que des milliers
+ * de scripts se partagent : le quota n'est jamais le notre, il est deja
+ * consomme quand on arrive. Aucune astuce de code n'y change rien.
+ *
+ * Avec un jeton d'acces - compte gratuit, deux minutes - le quota est
+ * compte sur le COMPTE et non sur l'IP. NTFY_JETON devient donc requis
+ * pour un usage reel, et pas seulement pour un serveur personnel.
  *
  * VERIFIE LE 2026-09-04, par un aller-retour reel sur ntfy.sh : un POST
  * avec le texte en corps et les en-tetes Title / Priority / Tags / Click
@@ -207,6 +222,20 @@ function envoyerNtfy_(config, message) {
   });
 
   var code = reponse.getResponseCode();
+  if (code === 429) {
+    // MESURE DU 2026-09-06 : le quota de ntfy.sh est de 250 messages par
+    // jour et par VISITEUR, et un visiteur anonyme est une ADRESSE IP.
+    // Apps Script sort par les adresses partagees de Google : le quota
+    // n'est pas le votre, il est deja consomme par tout le monde. Un jeton
+    // de compte gratuit fait compter le quota sur le COMPTE.
+    throw new Error(
+      'ntfy a refuse : quota journalier atteint. Sur ntfy.sh le quota est '
+      + 'compte par adresse IP, et Google Apps Script sort par des adresses '
+      + 'partagees par des milliers de scripts - le quota est epuise avant '
+      + 'vous. Creez un compte gratuit sur ntfy.sh, generez un jeton '
+      + 'd acces, et collez-le dans NTFY_JETON : le quota sera alors le '
+      + 'votre.');
+  }
   if (code !== 200) {
     // Le jeton ne doit jamais atterrir dans le journal.
     throw new Error('ntfy HTTP ' + code + ' : '

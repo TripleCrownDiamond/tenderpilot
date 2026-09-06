@@ -181,14 +181,18 @@ vingt-quatre heures cela change tout.
 
 ### Et la notification push, qui ne demande rien
 
-Un troisieme canal : **ntfy**. Aucun compte a creer, et **aucun nom a
-inventer**.
+Un troisieme canal : **ntfy**. **Aucun nom a inventer** - mais un compte
+gratuit a creer, et un jeton d'acces.
 
 | Variable | Valeur |
 |----------|--------|
 | `SEND_NTFY` | `true` |
+| `NTFY_JETON` | le jeton `tk_...` de votre compte ntfy.sh |
 
-C'est la seule a poser. TenderPilot fabrique votre sujet - de la forme
+Le jeton n'est pas facultatif : ntfy.sh compte son quota par **adresse
+IP**, et un serveur partage - Vercel comme Apps Script - se heurte a un
+quota deja consomme par d'autres. Avec le jeton, le quota est compte sur
+le compte. TenderPilot fabrique votre sujet - de la forme
 `tenderpilot-a1b2c3d4e5f6` - et l'ecrit dans `NTFY_SUJET` : abonnez-vous a
 ce sujet dans l'application ntfy.
 

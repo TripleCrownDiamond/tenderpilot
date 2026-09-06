@@ -293,10 +293,10 @@ def feuille_demarrage(wb):
         ("body",     "Par defaut, les alertes partent par email. Trois "
                      "autres canaux existent, tous facultatifs : TELEGRAM "
                      "(un bot cree via @BotFather), NTFY (une notification "
-                     "push : mettez SEND_NTFY a true, TenderPilot fabrique "
-                     "votre sujet et l ecrit dans NTFY_SUJET, abonnez-vous "
-                     "a ce sujet dans l application ntfy - aucun compte a "
-                     "creer, aucun nom a inventer), et l AGENDA."),
+                     "push : compte gratuit sur ntfy.sh, jeton d acces dans "
+                     "NTFY_JETON, SEND_NTFY a true - TenderPilot fabrique "
+                     "votre sujet et l ecrit dans NTFY_SUJET, vous vous y "
+                     "abonnez dans l application), et l AGENDA."),
         ("body",     "L AGENDA ne recoit PAS tout. Ecrivez OUI dans la "
                      "colonne SUIVI des avis auxquels vous comptez "
                      "repondre : ceux-la seulement sont poses dans votre "

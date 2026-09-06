@@ -533,6 +533,36 @@ Contrat **mesuré le 2026-09-04**, par un aller-retour réel sur `ntfy.sh` :
 un POST avec le texte en corps et les en-têtes `Title`, `Priority`, `Tags`,
 `Click` rend `200`, et le message se relit tel quel sur le sujet.
 
+### « Aucun compte à créer » était faux, et voici pourquoi
+
+Ce guide a porté cette phrase pendant deux jours. **Démenti le 2026-09-06
+chez un client** : le premier message passe, le second rend `429 daily quota
+reached`.
+
+La cause est structurelle, pas accidentelle. La documentation de ntfy le dit
+en toutes lettres : le quota de `ntfy.sh` est de **250 messages par jour et
+par *visiteur*** — et pour un anonyme, **un visiteur est une adresse IP**.
+Or Apps Script sort par les adresses partagées de Google, que des milliers
+de scripts utilisent en même temps. Le quota n'est jamais le nôtre : il est
+déjà consommé quand on arrive.
+
+**Aucune astuce de code n'y change rien.** Espacer les envois, réduire le
+volume, réessayer plus tard : le bucket appartient à quelqu'un d'autre.
+
+La sortie est un **jeton d'accès** — compte gratuit, deux minutes. Avec lui,
+le quota est compté sur le *compte* et non sur l'IP. `NTFY_JETON` cesse donc
+d'être « utile seulement pour un serveur personnel » et devient **requis en
+pratique**.
+
+Et le message d'erreur le dit : un `429` ne rend plus « ntfy HTTP 429 » mais
+la cause et la sortie. Un client qui lit « quota atteint » sans savoir que le
+quota n'est pas le sien conclut que le produit est cassé.
+
+**La leçon générale.** Une limite « par visiteur » sur un service public
+n'est presque jamais par utilisateur : elle est par IP, et un runtime
+hébergé partage son IP avec des milliers d'autres. À vérifier avant
+d'annoncer qu'un canal ne demande rien.
+
 Deux différences avec Telegram, qui sont dans le code :
 
 - **le corps est du texte simple.** ntfy affiche ce qu'on lui donne ; y

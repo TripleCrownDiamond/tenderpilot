@@ -63,14 +63,25 @@ vide si vous ne voulez pas d'emails du tout.
 
 **Le plus simple : la notification push (ntfy).** Aucun compte a creer.
 
-1. Onglet CONFIG : mettez `SEND_NTFY` a **`true`**. C'est tout ce que vous
-   avez a ecrire.
-2. Menu **TenderPilot > Tester la notification push (ntfy)**. TenderPilot
+1. Creez un compte gratuit sur **ntfy.sh** (deux minutes), puis
+   **Account > Access tokens > Create token**. Copiez le jeton, qui
+   commence par `tk_`.
+2. Onglet CONFIG : `SEND_NTFY` a **`true`**, et collez le jeton dans
+   **`NTFY_JETON`**. Ce sont les deux seules cases que vous remplissez.
+3. Menu **TenderPilot > Tester la notification push (ntfy)**. TenderPilot
    fabrique alors **votre** sujet - de la forme
    `tenderpilot-a1b2c3d4e5f6` - et vous l'affiche.
-3. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
-   navigateur) et **abonnez-vous a ce sujet**. Vous le retrouverez a tout
-   moment dans la case `NTFY_SUJET` de l'onglet CONFIG.
+4. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
+   navigateur), connectez-vous au compte que vous venez de creer, et
+   **abonnez-vous a ce sujet**. Vous le retrouverez a tout moment dans la
+   case `NTFY_SUJET` de l'onglet CONFIG.
+
+> **Le jeton n'est pas facultatif.** ntfy.sh compte son quota de 250
+> messages par jour et par **adresse IP**, et Google fait sortir tous les
+> scripts par des adresses partagees par des milliers d'utilisateurs : sans
+> jeton, votre deuxieme message se heurte a *"daily quota reached"* - un
+> quota que d'autres ont consomme. Avec le jeton, le quota est compte sur
+> votre compte, et il est a vous.
 
 > **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Le
 > sujet est tire au hasard pour deux raisons : sur le serveur public il est
