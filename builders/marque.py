@@ -40,6 +40,12 @@ LOGO = MARQUE / "tenderpilot-logo.png"
 ICONE = MARQUE / "tenderpilot-icon.png"
 
 LARGEURS_LOGO = [1200, 600]
+
+# La taille du logo dans un EMAIL. Volontairement petite : elle voyage en
+# base64 dans Marque.gs, donc dans chaque message envoye. 320 px suffit a
+# une en-tete d'email et tient en quelques kilo-octets, la ou le logo 600
+# en pese quarante-sept.
+LARGEUR_EMAIL = 320
 TAILLES_ICONE = [512, 256, 192, 180, 128, 64, 32, 16]
 TAILLES_ICO = [16, 32, 48, 64, 128, 256]
 
@@ -89,6 +95,61 @@ def redimensionner(source, sortie, largeur, hauteur=None, icone=False):
     return sortie
 
 
+GS = RACINE / "apps_script" / "Marque.gs"
+
+
+def ecrire_marque_gs(logo):
+    """Ecrit le logo d'email dans un fichier Apps Script, en base64.
+
+    POURQUOI EMBARQUER PLUTOT QUE POINTER VERS UNE URL. Un `<img src>` vers
+    une image hebergee suppose un hebergement a maintenir, et Gmail passe
+    les images distantes par son mandataire - beaucoup de messageries les
+    bloquent tant que le lecteur n'a pas clique "afficher les images". Une
+    image jointe en ligne s'affiche toujours, et le produit ne depend de
+    rien.
+
+    Le fichier est GENERE : ne pas l'editer a la main.
+    """
+    import base64
+
+    donnees = base64.b64encode(logo.read_bytes()).decode("ascii")
+    # Des lignes courtes : un fichier .gs d'une seule ligne de 8000
+    # caracteres est illisible dans l'editeur Apps Script, et impossible a
+    # diffuser proprement.
+    lignes = "\n".join("  '" + donnees[i:i + 76] + "',"
+                       for i in range(0, len(donnees), 76))
+    GS.write_text(
+        "/**\n"
+        " * Le logo, embarque pour les emails.\n"
+        " *\n"
+        " * FICHIER GENERE par builders/marque.py depuis\n"
+        " * data/marque/tenderpilot-logo.png. Ne pas editer a la main.\n"
+        " *\n"
+        " * Il voyage en piece jointe INLINE dans chaque alerte : une image\n"
+        " * distante serait bloquee par la plupart des messageries tant que\n"
+        " * le lecteur n'a pas clique \"afficher les images\", et supposerait\n"
+        " * un hebergement a maintenir.\n"
+        " */\n"
+        "var LOGO_EMAIL_BASE64 = [\n" + lignes + "\n].join('');\n\n"
+        "/** Le logo en Blob, ou null hors de Google. */\n"
+        "function logoEmail_() {\n"
+        "  try {\n"
+        "    return Utilities.newBlob(\n"
+        "      Utilities.base64Decode(LOGO_EMAIL_BASE64), 'image/png',\n"
+        "      'tenderpilot.png').setName('tenderpilot.png');\n"
+        "  } catch (e) {\n"
+        "    // Utilities n'existe pas hors d'Apps Script : un email sans\n"
+        "    // logo reste un email complet.\n"
+        "    return null;\n"
+        "  }\n"
+        "}\n\n"
+        "if (typeof module !== 'undefined') {\n"
+        "  module.exports = { LOGO_EMAIL_BASE64: LOGO_EMAIL_BASE64,\n"
+        "                     logoEmail_: logoEmail_ };\n"
+        "}\n", encoding="utf-8")
+    return GS
+
+
 def main():
     try:
         from PIL import Image  # noqa: F401
@@ -102,12 +163,27 @@ def main():
         print("Voir data/marque/LISEZ_MOI.md pour les noms attendus.")
         return 1
 
+    from PIL import Image
+
     RENDU.mkdir(parents=True, exist_ok=True)
     faits = []
 
     for largeur in LARGEURS_LOGO:
         faits.append(redimensionner(
             LOGO, RENDU / f"tenderpilot-logo-{largeur}.png", largeur))
+
+    logo_email = redimensionner(
+        LOGO, RENDU / "tenderpilot-logo-email.png", LARGEUR_EMAIL)
+    # QUANTIFIE A 64 COULEURS. Le logo est un aplat : 64 couleurs ne se
+    # distinguent pas de 16 millions a l'oeil, et le fichier passe de 19 ko
+    # a 4 ko. Comme il voyage dans CHAQUE email, c'est la difference entre
+    # une piece jointe qu'on remarque et une qu'on ne remarque pas.
+    with Image.open(logo_email) as brut:
+        brut.convert("RGBA").quantize(
+            colors=64, method=Image.Quantize.FASTOCTREE
+        ).save(logo_email, optimize=True)
+    faits.append(logo_email)
+    faits.append(ecrire_marque_gs(logo_email))
 
     for taille in TAILLES_ICONE:
         faits.append(redimensionner(

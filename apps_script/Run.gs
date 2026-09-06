@@ -124,6 +124,25 @@ function verifierInstallation() {
                                    : 'aucun sujet - il sera cree au besoin.'));
   }
 
+  // 5. Les sources que le catalogue ne connait plus. La synchronisation
+  //    AJOUTE et met a jour, elle ne supprime jamais - une source ajoutee
+  //    par le client ne doit pas disparaitre. Mais une source RENOMMEE au
+  //    catalogue laisse donc son ancienne ligne en place, active, sous son
+  //    ancien nom. On la signale ; c'est au proprietaire de trancher.
+  var duCatalogue = {};
+  (SCHEMA.SOURCES_LIVREES || []).forEach(function (s) {
+    var id = String(s[0] || '').trim();
+    if (id) duCatalogue[id] = true;
+  });
+  var orphelines = lireSources()
+    .map(function (s) { return String(s.id || '').trim(); })
+    .filter(function (id) { return id && !duCatalogue[id]; });
+  lignes.push(orphelines.length
+    ? 'SOURCES : ' + orphelines.join(', ') + ' - absente(s) du catalogue '
+      + 'livre. Soit vous les avez ajoutees, soit elles ont ete renommees : '
+      + 'dans le second cas, supprimez la ligne.'
+    : 'SOURCES : toutes connues du catalogue.');
+
   var rapport = lignes.join('\n');
   logEvent('', 'Verification', 'INFO', lignes.join(' | '));
   ecrireJournal_();
@@ -253,6 +272,12 @@ function completerParFiches_(annonces, analyseur, source, config, options,
       reportees++;
     }
   });
+
+  // ficheUrl est un OUTIL DE COLLECTE, pas une donnee de l'annonce : il ne
+  // doit pas voyager plus loin. Le classeur n'a pas de colonne pour lui,
+  // mais une notification ou un export le trainerait - et il porte le nom
+  // du service qui a trouve l'avis, que le client n'a pas a lire.
+  sortie.forEach(function (a) { delete a.ficheUrl; });
 
   if (reportees) {
     logEvent(source.id, 'Collecte', 'INFO',
@@ -795,8 +820,148 @@ function updateDeadlines(lignes, config) {
 
 // ------------------------------------------------------------------ EMAILS
 
-function sendEmail(destinataire, sujet, corps) {
-  MailApp.sendEmail(destinataire, sujet, corps);
+/**
+ * Envoie un email, en HTML avec repli en texte brut.
+ *
+ * POURQUOI DU HTML. Un rappel d'echeance se lit en trois secondes, souvent
+ * sur un telephone, entre deux autres choses. Un pave de "Cle : valeur" sur
+ * quinze lignes oblige a TOUT lire pour trouver la seule information qui
+ * decide : combien de jours reste-t-il. Une pastille de couleur repond
+ * avant la premiere ligne.
+ *
+ * Les couleurs sont CELLES DU TABLEAU - SCHEMA.COULEURS. Un email orange et
+ * une ligne orange doivent vouloir dire la meme chose, sinon la couleur
+ * n'apprend rien.
+ *
+ * LE TEXTE BRUT RESTE. Certains clients de messagerie n'affichent pas le
+ * HTML, certains lecteurs le desactivent : `body` porte exactement la meme
+ * information. Un email illisible est un email perdu.
+ */
+function sendEmail(destinataire, sujet, corps, html) {
+  var options = { to: destinataire, subject: sujet, body: corps };
+  if (html) {
+    options.htmlBody = html;
+    // Le logo voyage AVEC le message, pas depuis une adresse distante :
+    // la plupart des messageries bloquent les images externes tant que le
+    // lecteur n'a pas clique "afficher les images", et un email dont
+    // l'en-tete est vide a l'ouverture ne ressemble a rien.
+    var logo = logoEmail_();
+    if (logo) options.inlineImages = { logoTenderPilot: logo };
+  }
+  MailApp.sendEmail(options);
+}
+
+/** Encadre le texte pour qu'un titre d'annonce ne casse pas la mise en page. */
+function echapperHtml_(texte) {
+  return String(texte === null || texte === undefined ? '' : texte)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * L'en-tete de marque, commun a tous les emails.
+ *
+ * L'image est referencee par cid: - l'identifiant de la piece jointe posee
+ * par sendEmail. Un alt reste : si le lecteur refuse toutes les images, il
+ * lit le nom du produit au lieu d'un carre vide.
+ */
+function enteteMarque_() {
+  return '<div style="padding-bottom:14px;margin-bottom:16px;'
+    + 'border-bottom:1px solid #D5DBE3">'
+    + '<img src="cid:logoTenderPilot" alt="TenderPilot" width="160" '
+    + 'style="display:block;border:0;height:auto;width:160px" /></div>';
+}
+
+/** Encre lisible sur une pastille de statut. Les fonds sont clairs. */
+var ENCRE_EMAIL = '#16202D';
+var MARINE_EMAIL = '#1F3A5F';
+var LIEN_EMAIL = '#0050F0';
+
+/**
+ * Le corps HTML d'une alerte.
+ *
+ * Trois blocs, dans l'ordre ou on les lit : ce qui presse (la pastille et
+ * le compte a rebours), de quoi il s'agit (titre, resume), et ou aller
+ * (les liens). Le reste - type, secteur, budget - vient apres, en tableau,
+ * pour qui veut verifier.
+ *
+ * Tout est en style INLINE : les clients de messagerie ignorent les
+ * feuilles de style, et Gmail retire les balises <style>.
+ */
+function corpsHtml_(entete, ligne) {
+  var statut = ligne.status || SCHEMA.STATUT_INCONNU;
+  var fond = SCHEMA.COULEURS[statut] || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
+  var jours = ligne.days;
+  var reste = (jours === null || jours === undefined || jours === '')
+    ? 'echeance a verifier'
+    : (Number(jours) < 0 ? 'echeance passee'
+       : Number(jours) === 0 ? "dernier jour"
+       : 'dans ' + jours + ' jour' + (Number(jours) > 1 ? 's' : ''));
+
+  // LES INTITULES VIENNENT DU SCHEMA, PAS D'UNE LISTE ECRITE ICI. L'email
+  // et le tableau doivent nommer une donnee de la meme facon : si la
+  // colonne est renommee, l'email suit. Le tiret bas devient une espace :
+  // un nom de colonne n'est pas un intitule de lecture.
+  var champs = [
+    ['org', ligne.org],
+    ['country', ligne.country],
+    ['type', ligne.type],
+    ['sector', ligne.sector],
+    ['budget', ligne.budget],
+    ['pertinence', ligne.pertinence],
+    ['deadline', ligne.deadline || 'a verifier'],
+    ['published', ligne.published],
+    ['source', ligne.source]
+  ].filter(function (p) { return p[1]; })
+   .map(function (p) {
+     return [String(SCHEMA.OPP[p[0]] || p[0]).replace(/_/g, ' '), p[1]];
+   });
+
+  var rangs = champs.map(function (p) {
+    return '<tr>'
+      + '<td style="padding:6px 12px 6px 0;color:#4A5665;font-size:13px;'
+      + 'vertical-align:top;white-space:nowrap">' + echapperHtml_(p[0])
+      + '</td>'
+      + '<td style="padding:6px 0;color:' + ENCRE_EMAIL + ';font-size:13px">'
+      + echapperHtml_(p[1]) + '</td></tr>';
+  }).join('');
+
+  var boutons = '';
+  if (ligne.url) {
+    boutons += '<a href="' + echapperHtml_(ligne.url) + '" '
+      + 'style="display:inline-block;background:' + MARINE_EMAIL + ';'
+      + 'color:#FFFFFF;text-decoration:none;padding:11px 18px;'
+      + 'border-radius:6px;font-size:14px;font-weight:bold;margin:0 8px 8px 0">'
+      + "Ouvrir l'avis officiel</a>";
+  }
+  if (ligne.pdf) {
+    boutons += '<a href="' + echapperHtml_(ligne.pdf) + '" '
+      + 'style="display:inline-block;border:1px solid ' + MARINE_EMAIL + ';'
+      + 'color:' + MARINE_EMAIL + ';text-decoration:none;padding:10px 18px;'
+      + 'border-radius:6px;font-size:14px;margin:0 8px 8px 0">'
+      + 'Telecharger le dossier</a>';
+  }
+
+  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
+    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
+    + enteteMarque_()
+    + '<div style="background:' + fond + ';border-radius:8px;'
+    + 'padding:14px 18px;margin-bottom:18px">'
+    + '<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;'
+    + 'color:#4A5665">' + echapperHtml_(entete) + '</div>'
+    + '<div style="font-size:20px;font-weight:bold;margin-top:4px">'
+    + echapperHtml_(statut) + ' &middot; ' + echapperHtml_(reste) + '</div>'
+    + '</div>'
+    + '<h2 style="font-size:17px;margin:0 0 10px;color:' + MARINE_EMAIL + '">'
+    + echapperHtml_(ligne.title) + '</h2>'
+    + (ligne.summary
+        ? '<p style="font-size:14px;margin:0 0 16px;color:#4A5665">'
+          + echapperHtml_(ligne.summary) + '</p>' : '')
+    + (boutons ? '<div style="margin:0 0 18px">' + boutons + '</div>' : '')
+    + '<table style="border-collapse:collapse;margin-bottom:18px">'
+    + rangs + '</table>'
+    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
+    + 'padding-top:12px;margin:0">' + echapperHtml_(RAPPEL) + '</p></div>';
 }
 
 var RAPPEL = 'Consultez toujours la source officielle avant de candidater.';
@@ -825,43 +990,56 @@ function detail_(ligne) {
 }
 
 /** Sujet et corps d'une notification - sections 11 et 13 a 16. */
+var ENTETES_EMAIL = {
+  new: 'Nouvelle opportunite',
+  j7: 'Echeance dans 7 jours',
+  j3: 'Echeance proche',
+  j1: 'Dernier rappel',
+  expired: 'Echeance depassee'
+};
+
 function messageNotification(type, ligne) {
   var t = ligne.title;
+  var message;
+
   if (type === 'new') {
-    return {
+    message = {
       sujet: '[TenderPilot] Nouvelle opportunite - '
         + (ligne.org || 'source') + ' - ' + t,
       corps: 'Nouvelle opportunite detectee.\n\n' + detail_(ligne)
         + '\n\n' + RAPPEL
     };
-  }
-  if (type === 'j7') {
-    return {
+  } else if (type === 'j7') {
+    message = {
       sujet: '[TenderPilot] Deadline dans 7 jours - ' + t,
       corps: 'Cette opportunite arrive bientot a echeance.\n\n'
         + detail_(ligne) + '\n\n' + RAPPEL
     };
-  }
-  if (type === 'j3') {
-    return {
+  } else if (type === 'j3') {
+    message = {
       sujet: '[TenderPilot] URGENT - ' + ligne.days + ' jours restants - ' + t,
       corps: 'Il ne reste que ' + ligne.days + ' jour(s).\n\n'
         + detail_(ligne) + '\n\n' + RAPPEL
     };
-  }
-  if (type === 'j1') {
-    return {
+  } else if (type === 'j1') {
+    message = {
       sujet: '[TenderPilot] DERNIER RAPPEL - Deadline demain - ' + t,
       corps: 'Dernier rappel avant echeance.\n\n' + detail_(ligne)
         + '\n\n' + RAPPEL
     };
+  } else {
+    message = {
+      sujet: '[TenderPilot] Opportunite expiree - ' + t,
+      corps: 'La deadline est passee.\n\nTitre : ' + t
+        + (ligne.org ? '\nOrganisation : ' + ligne.org : '')
+        + '\nDeadline : ' + ligne.deadline
+    };
   }
-  return {
-    sujet: '[TenderPilot] Opportunite expiree - ' + t,
-    corps: 'La deadline est passee.\n\nTitre : ' + t
-      + (ligne.org ? '\nOrganisation : ' + ligne.org : '')
-      + '\nDeadline : ' + ligne.deadline
-  };
+
+  // Le texte brut reste la reference ; le HTML est la mise en forme du
+  // MEME contenu. Voir corpsHtml_.
+  message.html = corpsHtml_(ENTETES_EMAIL[type] || type, ligne);
+  return message;
 }
 
 /** Email recapitulatif quand la collecte rapporte beaucoup - section 19. */
@@ -882,8 +1060,48 @@ function messageDigest(nouvelles) {
   return {
     sujet: '[TenderPilot] ' + nouvelles.length
       + ' nouvelles opportunites detectees',
-    corps: lignes.join('\n')
+    corps: lignes.join('\n'),
+    html: digestHtml_(nouvelles)
   };
+}
+
+/**
+ * Le recapitulatif, en HTML.
+ *
+ * Une carte par annonce, avec sa pastille de pertinence : le client doit
+ * pouvoir sauter d'un coup d'oeil aux deux ou trois qui le concernent.
+ * C'est le seul email qui peut contenir trente annonces - s'il n'est pas
+ * scannable, il n'est pas lu.
+ */
+function digestHtml_(nouvelles) {
+  var cartes = parPertinence_(nouvelles).map(function (o) {
+    var statut = o.status || SCHEMA.STATUT_INCONNU;
+    var fond = SCHEMA.COULEURS[statut]
+      || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
+    var infos = [o.org, o.country, o.deadline ? 'Deadline ' + o.deadline : '']
+      .filter(function (v) { return v; }).map(echapperHtml_).join(' &middot; ');
+    var titre = o.url
+      ? '<a href="' + echapperHtml_(o.url) + '" style="color:' + MARINE_EMAIL
+        + ';text-decoration:none">' + echapperHtml_(o.title) + '</a>'
+      : echapperHtml_(o.title);
+    return '<tr><td style="padding:0 0 10px">'
+      + '<div style="border-left:4px solid ' + fond + ';padding:2px 0 2px 12px">'
+      + '<div style="font-size:15px;font-weight:bold">' + titre + '</div>'
+      + '<div style="font-size:13px;color:#4A5665;margin-top:2px">'
+      + infos + (o.pertinence
+          ? ' &middot; <b>' + echapperHtml_(o.pertinence) + '</b>' : '')
+      + '</div></div></td></tr>';
+  }).join('');
+
+  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
+    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
+    + enteteMarque_()
+    + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
+    + nouvelles.length + ' nouvelles opportunites</h2>'
+    + '<table style="border-collapse:collapse;width:100%">' + cartes
+    + '</table>'
+    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
+    + 'padding-top:12px;margin:16px 0 0">' + echapperHtml_(RAPPEL) + '</p></div>';
 }
 
 /**
@@ -1007,7 +1225,7 @@ function sendNotifications(lignes, config, nouvelles) {
       envoyes: 0,
       reportees: 0,
       envoyer: function (message) {
-        sendEmail(destinataire, message.sujet, message.corps);
+        sendEmail(destinataire, message.sujet, message.corps, message.html);
       }
     });
   }
@@ -1069,7 +1287,7 @@ function sendNotifications(lignes, config, nouvelles) {
     try {
       var digest = messageDigest(aNotifier);
       messageDigest_ = {
-        sujet: digest.sujet, corps: digest.corps,
+        sujet: digest.sujet, corps: digest.corps, html: digest.html,
         telegram: messageTelegramDigest(aNotifier),
         ntfy: messageNtfyDigest(aNotifier)
       };

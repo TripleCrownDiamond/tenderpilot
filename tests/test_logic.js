@@ -211,7 +211,17 @@ function monde(options) {
 
     // --- services Google simules ---------------------------------------
     MailApp: {
-      sendEmail: (to, sujet, corps) => boite.push({ to, sujet, corps })
+      // Le vrai MailApp accepte les DEUX formes : trois arguments, ou un
+      // objet. Le banc doit accepter les deux aussi, sinon il ne teste plus
+      // ce que le code appelle vraiment.
+      sendEmail: function (a, sujet, corps) {
+        if (a && typeof a === 'object') {
+          boite.push({ to: a.to, sujet: a.subject, corps: a.body,
+                       html: a.htmlBody });
+        } else {
+          boite.push({ to: a, sujet: sujet, corps: corps });
+        }
+      }
     },
     UrlFetchApp: {
       fetch: function (url, options) {
@@ -288,7 +298,7 @@ function monde(options) {
 
   vm.createContext(ctx);
   ['Schema.gs', 'Core.gs', 'Rss.gs', 'Html.gs', 'Json.gs', 'Telegram.gs',
-   'Ntfy.gs', 'Agenda.gs',
+   'Ntfy.gs', 'Agenda.gs', 'Marque.gs',
    'Llm.gs', 'Run.gs'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(SCRIPT, f), 'utf8'), ctx, f);
   });
@@ -3192,7 +3202,7 @@ console.log('\n[Fundpilote] La liste ne promet plus un lien qui n existe pas');
   const C = monde({}).ctx;
 
   const lus = C.analyserApiFundpilote(liste,
-    Object.assign(source('FUNDPILOTE-API', 'https://fundpilote.com/api/'),
+    Object.assign(source('SUBVENTIONS-INTL', 'https://fundpilote.com/api/'),
                   { country: 'International', type: 'Subvention' }));
   check('la liste rend les trois annonces', lus.length === 3,
         lus.length + ' annonces');
@@ -3226,7 +3236,7 @@ console.log('\n[Fundpilote] Le second temps va chercher le lien, une fois');
   const corpsFiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
 
   const m = monde({
-    sources: [Object.assign(source('FUNDPILOTE-API', liste),
+    sources: [Object.assign(source('SUBVENTIONS-INTL', liste),
                             { method: 'JSON:fundpilote.com' })],
     config: { SEND_NEW_OPPORTUNITY: 'false', MAX_FICHES_PAR_PASSAGE: '5' }
   });
@@ -3269,7 +3279,7 @@ console.log('\n[Fundpilote] Sans lien apres la fiche, l annonce n entre pas');
   const R = path.join(path.resolve(__dirname), 'fixtures');
   const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
   const m = monde({
-    sources: [Object.assign(source('FUNDPILOTE-API', liste),
+    sources: [Object.assign(source('SUBVENTIONS-INTL', liste),
                             { method: 'JSON:fundpilote.com' })],
     config: { SEND_NEW_OPPORTUNITY: 'false', MAX_FICHES_PAR_PASSAGE: '5' }
   });
@@ -3288,6 +3298,138 @@ console.log('\n[Fundpilote] Sans lien apres la fiche, l annonce n entre pas');
   check('et le passage aboutit quand meme',
         m.feuille.logs.some(l => l.action === 'Execution'
                                  && l.statut === 'SUCCESS'));
+}
+
+// ==========================================================================
+console.log('\n[Fundpilote] Le client ne lit jamais le nom de l agregateur');
+{
+  const liste = 'https://exemple.test/fp-nom';
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const corpsFiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
+
+  const m = monde({
+    sources: [Object.assign(source('SUBVENTIONS-INTL', liste),
+                            { method: 'JSON:fundpilote.com' })],
+    config: { MAX_FICHES_PAR_PASSAGE: '5' }
+  });
+  m.ctx.UrlFetchApp.fetch = function (url) {
+    const estFiche = /\/api\/v1\/opportunities\/\d+\/$/.test(String(url));
+    return {
+      getResponseCode: () => 200,
+      getAllHeaders: () => ({ 'Content-Type': 'application/json' }),
+      getContentText: () => (estFiche ? corpsFiche : corpsListe)
+    };
+  };
+  m.ctx.executerTenderPilot();
+
+  check('la colonne Source porte le domaine du bailleur',
+        m.feuille.opps.every(o => o.source === 'afsafrica.org'),
+        JSON.stringify(m.feuille.opps.map(o => o.source)));
+  check('et jamais l identifiant du registre',
+        m.feuille.opps.every(o => o.source !== 'SUBVENTIONS-INTL'));
+
+  // NI DANS LE TABLEAU, NI DANS LES EMAILS.
+  const tout = JSON.stringify(m.feuille.opps) + JSON.stringify(m.boite);
+  const ou = tout.toLowerCase().indexOf('fundpilote');
+  check('le mot fundpilote n apparait nulle part', ou === -1,
+        ou === -1 ? '' : tout.slice(Math.max(0, ou - 150), ou + 80));
+}
+
+// ==========================================================================
+console.log('\n[Emails] Une alerte se lit en trois secondes');
+{
+  const url = 'https://exemple.test/flux-html';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis a mettre en forme', lien: 'https://exemple.test/h1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(2)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false' }
+  });
+  m.ctx.executerTenderPilot();
+
+  check('un email est parti', m.boite.length === 1);
+  const e = m.boite[0];
+  check('il porte une version HTML', typeof e.html === 'string' && e.html);
+  check('et garde le texte brut, pour qui n affiche pas le HTML',
+        typeof e.corps === 'string' && e.corps.indexOf('Titre :') !== -1);
+  check('la couleur est CELLE DU TABLEAU, pas une autre',
+        e.html.indexOf(m.ctx.SCHEMA.COULEURS['URGENT']) !== -1,
+        m.ctx.SCHEMA.COULEURS['URGENT']);
+  check('le compte a rebours est en tete',
+        e.html.indexOf('dans 2 jours') !== -1);
+  check('le lien de l avis est un bouton',
+        e.html.indexOf('https://exemple.test/h1') !== -1
+        && e.html.indexOf("Ouvrir l'avis officiel") !== -1);
+  check('tout le style est en ligne : Gmail retire les balises style',
+        e.html.indexOf('<style') === -1);
+  check('le logo est en tete',
+        e.html.indexOf('cid:logoTenderPilot') !== -1);
+  check('avec un texte de repli, si les images sont refusees',
+        e.html.indexOf('alt="TenderPilot"') !== -1);
+  check('et il voyage AVEC le message, pas depuis une adresse distante',
+        e.html.indexOf('<img src="http') === -1);
+  check('les intitules viennent du schema',
+        e.html.indexOf(m.ctx.SCHEMA.OPP.org) !== -1,
+        m.ctx.SCHEMA.OPP.org);
+
+  // Un titre avec un chevron ne doit pas casser la mise en page.
+  const html = m.ctx.corpsHtml_('Test', {
+    title: 'Marche <urgent> & "special"', status: 'URGENT', days: 1
+  });
+  check('le titre est echappe',
+        html.indexOf('&lt;urgent&gt;') !== -1 && html.indexOf('&amp;') !== -1);
+}
+
+// ==========================================================================
+console.log('\n[Emails] Le recapitulatif se scanne');
+{
+  const url = 'https://exemple.test/flux-digest-html';
+  const entrees = [];
+  for (let i = 0; i < 8; i++) {
+    entrees.push({ titre: 'Avis ' + i, lien: 'https://exemple.test/d' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(20)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { DIGEST_THRESHOLD: '5' }
+  });
+  m.ctx.executerTenderPilot();
+
+  const digest = m.boite.filter(e => e.sujet.indexOf('nouvelles') !== -1)[0];
+  check('le digest est parti', Boolean(digest));
+  check('il est en HTML aussi', typeof digest.html === 'string');
+  check('chaque annonce a sa carte',
+        (digest.html.match(/border-left:4px solid/g) || []).length === 8,
+        String((digest.html.match(/border-left:4px solid/g) || []).length));
+  check('les titres sont cliquables',
+        digest.html.indexOf('https://exemple.test/d0') !== -1);
+}
+
+// ==========================================================================
+console.log('\n[Marque] Le logo embarque est valide et leger');
+{
+  const C = monde({}).ctx;
+  check('le logo est present dans le code',
+        typeof C.LOGO_EMAIL_BASE64 === 'string'
+        && C.LOGO_EMAIL_BASE64.length > 1000);
+  check('c est bien du base64',
+        /^[A-Za-z0-9+/]+={0,2}$/.test(C.LOGO_EMAIL_BASE64));
+
+  const octets = Buffer.from(C.LOGO_EMAIL_BASE64, 'base64');
+  check('et bien un PNG',
+        octets[0] === 0x89 && octets.slice(1, 4).toString() === 'PNG');
+  // Il voyage dans CHAQUE email : au-dela de dix kilo-octets, on alourdit
+  // toutes les alertes pour une en-tete.
+  check('il reste sous dix kilo-octets', octets.length < 10240,
+        octets.length + ' octets');
+
+  // Hors de Google, Utilities n existe pas : un email sans logo doit
+  // rester un email complet, pas une exception.
+  check('sans Utilities, la fonction rend null au lieu de tomber',
+        C.logoEmail_() === null);
 }
 
 // ==========================================================================

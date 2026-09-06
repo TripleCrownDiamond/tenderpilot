@@ -94,7 +94,10 @@ OPP_KEYS = {
 }
 
 # Champs compares a chaque collecte : si la source a change, on met a jour.
-UPDATABLE = ["title", "org", "country", "type", "sector", "url", "pdf",
+# "source" en fait partie : une annonce peut nommer sa propre source - voir
+# normalizeOpportunity - et une ligne collectee avant ce changement doit
+# pouvoir etre corrigee au passage suivant.
+UPDATABLE = ["title", "org", "country", "type", "sector", "source", "url", "pdf",
              "published", "deadline", "budget", "summary"]
 
 ID_PREFIX = "TP"

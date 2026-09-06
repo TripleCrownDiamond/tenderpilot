@@ -887,6 +887,66 @@ jamais un arbitrage entre deux échéances.
 
 ---
 
+## Un agrégateur n'est pas la source de ce qu'il réindexe
+
+Le client ne doit lire **nulle part** le nom du service qui a trouvé l'avis
+pour lui : ni dans son tableau, ni dans ses alertes. Ce qui compte pour lui,
+c'est qui publie — `afsafrica.org`, `numun.fund` — parce que c'est là qu'il
+ira déposer.
+
+`normalizeOpportunity` accepte donc un `source` porté par **l'annonce**,
+comme elle accepte déjà son pays et son organisation : l'annonce l'emporte
+sur le défaut de la source. La fiche Fundpilote le remplit avec le domaine
+du vrai lien.
+
+Trois détails qui font que ça tient :
+
+- **La liste laisse `source` vide** pour que la fiche puisse le nommer : la
+  fusion ne remplace jamais une case pleine, et `normalizeOpportunity` y
+  aurait mis l'identifiant du registre.
+- **`source` est dans `UPDATABLE`** : une ligne collectée avant ce
+  changement se corrige au passage suivant.
+- **`ficheUrl` est supprimé avant l'écriture.** C'est un outil de collecte,
+  pas une donnée d'annonce — et il porte le nom de l'agrégateur.
+
+Le registre lui-même est neutre : `SUBVENTIONS-INTL`, « Subventions et
+appels à projets — agrégateur international ». Renommer un identifiant a un
+coût : `appliquerCatalogue_` **ajoute et met à jour, mais ne supprime
+jamais** — une source ajoutée par le client ne doit pas disparaître. Une
+source renommée laisse donc son ancienne ligne en place. « Vérifier
+l'installation » la signale désormais ; c'est au propriétaire de trancher.
+
+## L'alerte se lit en trois secondes, ou elle ne se lit pas
+
+Un rappel d'échéance se lit sur un téléphone, entre deux autres choses. Un
+pavé de « Clé : valeur » sur quinze lignes oblige à tout lire pour trouver
+la seule information qui décide : **combien de jours reste-t-il**.
+
+Les emails partent donc en HTML, avec repli en texte brut — `body` porte
+exactement la même information, parce qu'un email illisible est un email
+perdu, et que certains lecteurs désactivent le HTML.
+
+Quatre règles tenues par les tests :
+
+1. **Les couleurs sont celles du tableau** (`SCHEMA.COULEURS`). Un email
+   orange et une ligne orange doivent vouloir dire la même chose, sinon la
+   couleur n'apprend rien.
+2. **Les intitulés viennent du schéma**, tiret bas remplacé par une espace.
+   L'email et le tableau nomment une donnée de la même façon, et une colonne
+   renommée entraîne l'email avec elle.
+3. **Tout le style est en ligne.** Gmail retire les balises `<style>`.
+4. **Le logo voyage avec le message**, en pièce jointe `cid:`. Une image
+   distante est bloquée par la plupart des messageries tant que le lecteur
+   n'a pas cliqué « afficher les images », et supposerait un hébergement à
+   maintenir. `Marque.gs` est **généré** par `builders/marque.py` : le PNG
+   est quantifié à 64 couleurs — un aplat ne se distingue pas de 16 millions
+   de couleurs à l'œil, et le fichier passe de 19 ko à 4. Il part dans
+   *chaque* email : c'est la différence entre une pièce jointe qu'on
+   remarque et une qu'on ne remarque pas.
+
+Hors de Google, `logoEmail_()` rend `null` plutôt que de lever : un email
+sans logo reste un email complet.
+
 ## Un lien qui mène à un mur d'inscription est pire qu'une absence
 
 **Mesuré le 2026-09-07**, signalé par le client. L'analyseur Fundpilote

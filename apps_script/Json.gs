@@ -273,6 +273,12 @@ function analyserApiFundpilote(corps, source) {
     }, source);
     annonce.ficheUrl = 'https://fundpilote.com/api/v1/opportunities/'
       + String(a.id) + '/';
+    // ON LAISSE LA SOURCE VIDE POUR QUE LA FICHE LA NOMME. normalizeOpportunity
+    // y aurait mis l'identifiant du registre, et la fusion ne remplace
+    // jamais une case pleine : le client aurait lu le nom de l'agregateur.
+    // L'annonce n'entre de toute facon pas sans sa fiche, qui pose les deux
+    // ensemble - le lien et son domaine.
+    annonce.source = '';
     sortie.push(annonce);
   });
 
@@ -303,7 +309,13 @@ function analyserFicheFundpilote(corps) {
   var lien = nettoyerLien(String(d.application_url || '').trim()
                           || String(d.source_url || '').trim());
   var fiche = {};
-  if (lien) fiche.url = lien;
+  if (lien) {
+    fiche.url = lien;
+    // LA SOURCE AFFICHEE EST L'ORIGINE REELLE, PAS L'AGREGATEUR. Le client
+    // ne doit lire nulle part le nom du service qui a trouve l'avis : ce
+    // qui compte pour lui, c'est qui publie - afsafrica.org, numun.fund.
+    fiche.source = domaineDe_(lien);
+  }
 
   var description = String(d.description || '').trim();
   var comment = String(d.how_to_apply || '').trim();

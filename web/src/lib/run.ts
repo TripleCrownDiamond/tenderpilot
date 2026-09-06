@@ -472,7 +472,10 @@ export async function collecterSource(
       // Normalise sans LLM : un client sans cle doit pouvoir filtrer.
       // Meme raison que pour le secteur : une cellule vide est ambigue.
       type: normaliserType(entree.type || source.typeDefaut) || SECTEUR_INCONNU,
-      source: source.id,
+      // L'ANNONCE PEUT NOMMER SA PROPRE SOURCE, comme elle nomme deja son
+      // pays. Un agregateur n'est pas la source de ce qu'il reindexe : le
+      // client doit lire l'origine reelle de l'avis.
+      source: entree.source || source.id,
       // Ce que la source annonce, ou rien : on ne devine pas un montant.
       budget: entree.budget ?? null,
       lien: entree.lien || null,

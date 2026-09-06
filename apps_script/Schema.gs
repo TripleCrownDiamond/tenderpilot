@@ -111,6 +111,7 @@ var SCHEMA = {
   "country",
   "type",
   "sector",
+  "source",
   "url",
   "pdf",
   "published",
@@ -1461,8 +1462,8 @@ var SCHEMA = {
     "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
   ],
   [
-    "FUNDPILOTE-API",
-    "Fundpilote - subventions et appels a projets (agregateur)",
+    "SUBVENTIONS-INTL",
+    "Subventions et appels a projets - agregateur international",
     "JSON:fundpilote.com",
     "https://fundpilote.com/api/v1/opportunities/",
     "International",
@@ -1470,7 +1471,7 @@ var SCHEMA = {
     "Subvention",
     "OUI",
     "",
-    "Verifie le 2026-09-07 : la liste de l'API est publique (200, count=284, 20 par page) mais ne porte NI application_url NI source_url. Le lien /opportunities/<id> bati depuis l'id rend 200 et affiche un MUR D'INSCRIPTION - defaut corrige. La FICHE de l'API, /api/v1/opportunities/<id>/, est publique et porte le vrai lien du bailleur : 10 vrais liens sur 10 mesures. Collecte en deux temps, comme JobRelais. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire."
+    "Verifie le 2026-09-07 : la liste de l'API est publique (200, count=284, 20 par page) mais ne porte NI application_url NI source_url. Le lien /opportunities/<id> bati depuis l'id rend 200 et affiche un MUR D'INSCRIPTION - defaut corrige. La FICHE de l'API, /api/v1/opportunities/<id>/, est publique et porte le vrai lien du bailleur : 10 vrais liens sur 10 mesures. Collecte en deux temps, comme JobRelais. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. Le nom de l'agregateur n'apparait NULLE PART chez le client : chaque annonce nomme sa source reelle, le domaine du bailleur."
   ],
   [
     "EU-PORTAL",

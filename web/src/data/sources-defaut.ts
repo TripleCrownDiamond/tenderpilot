@@ -1171,15 +1171,15 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "statut": "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
   },
   {
-    "code": "FUNDPILOTE-API",
-    "nom": "Fundpilote - subventions et appels a projets (agregateur)",
+    "code": "SUBVENTIONS-INTL",
+    "nom": "Subventions et appels a projets - agregateur international",
     "methode": "JSON:fundpilote.com",
     "url": "https://fundpilote.com/api/v1/opportunities/",
     "paysDefaut": "International",
     "secteurDefaut": null,
     "typeDefaut": "Subvention",
     "active": true,
-    "statut": "Verifie le 2026-09-02 : API publique SANS authentification (200, count=283, 20 par page). 15 ouvertes sur 20 en page 1, aucune expiree. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. La reponse anonyme ne porte NI application_url NI source_url : le lien est bati depuis l id (/opportunities/<id>)."
+    "statut": "Verifie le 2026-09-07 : la liste de l'API est publique (200, count=284, 20 par page) mais ne porte NI application_url NI source_url. Le lien /opportunities/<id> bati depuis l'id rend 200 et affiche un MUR D'INSCRIPTION - defaut corrige. La FICHE de l'API, /api/v1/opportunities/<id>/, est publique et porte le vrai lien du bailleur : 10 vrais liens sur 10 mesures. Collecte en deux temps, comme JobRelais. AGREGATEUR : reindexe 227 bailleurs, a traiter comme une piste, pas comme une source primaire. Le nom de l'agregateur n'apparait NULLE PART chez le client : chaque annonce nomme sa source reelle, le domaine du bailleur."
   },
   {
     "code": "EU-PORTAL",

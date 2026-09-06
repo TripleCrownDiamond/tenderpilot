@@ -32,7 +32,8 @@ MAX_ROWS = 2000
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
-                "Telegram.gs", "Ntfy.gs", "Agenda.gs", "Llm.gs",
+                "Telegram.gs", "Ntfy.gs", "Agenda.gs", "Marque.gs",
+                "Llm.gs",
                 "Run.gs"]
 
 # Couleurs en ARGB opaque. Un code a 6 chiffres est complete par openpyxl
@@ -545,6 +546,7 @@ ROLES_SCRIPTS = {
     "Sources": "mise a jour du catalogue de sources",
     "Telegram": "notifications sur Telegram",
     "Ntfy": "notifications push, via ntfy.sh",
+    "Marque": "le logo embarque dans les emails (GENERE)",
     "Agenda": "echeances suivies dans Google Agenda",
     "Run": "collecte, deadlines, emails et menu",
 }
@@ -591,6 +593,7 @@ SOURCES -> COLLECTE -> DEDUPLICATION -> GOOGLE SHEETS
 | `Json.gs` | lecture des API publiques (Banque mondiale) |
 | `Telegram.gs` | notifications sur Telegram |
 | `Ntfy.gs` | notifications push, via ntfy.sh |
+| `Marque.gs` | le logo embarque dans les emails - GENERE |
 | `Agenda.gs` | echeances suivies posees dans Google Agenda |
 | `Sources.gs` | synchronisation du catalogue de sources |
 | `Sheet.gs` | acces au classeur |

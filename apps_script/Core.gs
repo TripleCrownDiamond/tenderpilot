@@ -17,6 +17,17 @@ function normalizeText(value) {
     .trim();
 }
 
+/**
+ * Le domaine d'une adresse, sans www. : "afsafrica.org".
+ *
+ * Sert a nommer la source REELLE d'une annonce quand elle nous vient d'un
+ * agregateur. Rend une chaine vide si l'adresse n'en porte pas.
+ */
+function domaineDe_(url) {
+  var m = /^https?:\/\/([^/?#]+)/i.exec(String(url || '').trim());
+  return m ? m[1].replace(/^www\./i, '').toLowerCase() : '';
+}
+
 function estVide(v) {
   return v === null || v === undefined || String(v).trim() === '';
 }
@@ -664,7 +675,11 @@ function normalizeOpportunity(brut, source) {
     // nette, la colonne reste vide - on ne devine pas.
     sector: String(brut.sector || source.sector || '').trim()
       || deduireSecteur(brut.title) || SECTEUR_INCONNU,
-    source: String(source.id || '').trim(),
+    // L'ANNONCE PEUT NOMMER SA PROPRE SOURCE, comme elle nomme deja son
+    // pays et son organisation. Un agregateur n'est pas la source de ce
+    // qu'il reindexe : le client doit lire l'origine reelle de l'avis, pas
+    // le nom du robot qui l'a trouve.
+    source: String(brut.source || source.id || '').trim(),
     // Ce que la source ANNONCE, ou rien : on ne devine jamais un montant.
     budget: String(brut.budget || '').trim(),
     url: String(brut.url || '').trim(),

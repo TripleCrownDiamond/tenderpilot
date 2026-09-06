@@ -17,7 +17,7 @@
  * Aucune requete reseau ici : la recuperation vit dans lib/run.ts.
  */
 
-import { EntreeFlux, reparerCaracteres, retirerBalises, nettoyerLien } from "./rss";
+import { domaineDe, EntreeFlux, reparerCaracteres, retirerBalises, nettoyerLien } from "./rss";
 
 /** "28-Aug-2026" ou "2026-09-16T00:00:00Z" -> "2026-09-16". */
 function enIso(valeur: unknown): string | null {
@@ -244,6 +244,9 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
       // L'adresse a INTERROGER au second temps : la fiche de l'API, seule a
       // porter le vrai lien du bailleur.
       ficheUrl: `https://fundpilote.com/api/v1/opportunities/${String(a.id)}/`,
+      // Laissee vide POUR QUE LA FICHE LA NOMME : la fusion ne remplace
+      // jamais une case pleine, et le client lirait le nom de l'agregateur.
+      source: "",
       publie: null,
       resume,
       deadline: enIso(a.deadline),
@@ -278,7 +281,11 @@ export function analyserFicheFundpilote(corps: string): Partial<EntreeFlux> {
     || String(d.source_url ?? "").trim(),
   );
   const fiche: Partial<EntreeFlux> = {};
-  if (lien) fiche.lien = lien;
+  if (lien) {
+    fiche.lien = lien;
+    // LA SOURCE AFFICHEE EST L'ORIGINE REELLE, PAS L'AGREGATEUR.
+    fiche.source = domaineDe(lien);
+  }
 
   const description = String(d.description ?? "").trim();
   const comment = String(d.how_to_apply ?? "").trim();

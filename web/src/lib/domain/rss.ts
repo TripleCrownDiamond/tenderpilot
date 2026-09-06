@@ -11,6 +11,19 @@
 
 import { normaliser, tronquer } from "./regles";
 
+/**
+ * Le domaine d'une adresse, sans www. : "afsafrica.org".
+ *
+ * Sert a nommer la source REELLE d'une annonce quand elle nous vient d'un
+ * agregateur. Rend une chaine vide si l'adresse n'en porte pas.
+ *
+ * Jumeau de domaineDe_() dans Core.gs.
+ */
+export function domaineDe(url: string | null | undefined): string {
+  const m = /^https?:\/\/([^/?#]+)/i.exec(String(url ?? "").trim());
+  return m ? m[1].replace(/^www\./i, "").toLowerCase() : "";
+}
+
 export interface EntreeFlux {
   titre: string;
   lien: string;
@@ -38,6 +51,15 @@ export interface EntreeFlux {
    * pas l'adresse de l'annonce. Voir ANALYSEURS_FICHE.
    */
   ficheUrl?: string | null;
+  /**
+   * La source REELLE de l'annonce, quand elle n'est pas celle qui l'a
+   * trouvee.
+   *
+   * Un agregateur n'est pas la source de ce qu'il reindexe : le client doit
+   * lire l'origine de l'avis - afsafrica.org, numun.fund - et jamais le nom
+   * du service qui est alle le chercher.
+   */
+  source?: string | null;
   /**
    * Le pays de l'annonce, quand la source le donne annonce par annonce.
    *
