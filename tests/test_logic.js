@@ -2889,7 +2889,16 @@ console.log('\n[Installation] onOpen ne tombe jamais, meme sans interface');
   };
   let tombe = false;
   try { m.ctx.onOpen(); } catch (e) { tombe = true; }
-  check('sans interface, onOpen se tait au lieu de tomber', !tombe);
+  check('sans interface, onOpen ne tombe pas', !tombe);
+  // MAIS IL NE SE TAIT PAS : un menu absent parce que le script est casse
+  // et un menu absent parce qu'il n'y a pas d'interface se ressemblent, et
+  // n'ont rien a voir. Le client doit savoir ou chercher.
+  check('et il dit pourquoi le menu manque',
+        m.feuille.logs.some(l => l.action === 'Menu' && l.statut === 'ERROR'),
+        JSON.stringify(m.feuille.logs.slice(-2)));
+  check('avec la marche a suivre apres une copie',
+        m.feuille.logs.some(l => l.action === 'Menu'
+          && l.message.indexOf('autoriser') !== -1));
 
   // Contexte normal : le menu se construit bel et bien.
   const items = [];

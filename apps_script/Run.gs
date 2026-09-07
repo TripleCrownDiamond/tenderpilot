@@ -33,7 +33,26 @@ function onOpen() {
   try {
     construireMenu_();
   } catch (e) {
-    // Pas d'interface : il n'y a rien a construire, et rien a signaler.
+    // DEUX CAS SE RESSEMBLENT ET N'ONT RIEN A VOIR, D'OU CE JOURNAL.
+    //
+    // Pas d'interface - lance depuis l'editeur, un declencheur horaire, un
+    // autre service : il n'y a rien a construire, et c'est sans gravite.
+    //
+    // Ou bien le script est CASSE : un fichier manquant, un fichier colle a
+    // moitie. Le menu n'apparait pas non plus, mais rien ne marchera. Se
+    // taire dans ce cas laisse le client devant un classeur muet, sans un
+    // mot pour lui dire ou chercher - c'est le defaut qu'a introduit la
+    // correction du 2026-09-06, en attrapant l'erreur sans la dire.
+    try {
+      console.log('TenderPilot : menu non construit - ' + e.message);
+      logEvent('', 'Menu', 'ERROR',
+               'Menu non construit : ' + e.message + '. Si le menu manque '
+               + 'apres une copie, ouvrez Extensions > Apps Script et '
+               + 'lancez autoriser : l erreur exacte y apparaitra.');
+      ecrireJournal_();
+    } catch (e2) {
+      // Meme le journal est hors de portee : on ne fait pas de bruit.
+    }
   }
 }
 
