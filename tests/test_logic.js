@@ -3459,6 +3459,17 @@ console.log('\n[Marque] Le logo embarque est valide et leger');
   // rester un email complet, pas une exception.
   check('sans Utilities, la fonction rend null au lieu de tomber',
         C.logoEmail_() === null);
+
+  // UN CLIENT QUI RECOLLE Run.gs SANS Marque.gs NE DOIT PAS PERDRE SES
+  // EMAILS. Le logo est un ornement ; l'alerte, non.
+  const m = monde({});
+  delete m.ctx.logoEmail_;
+  let envoye = null;
+  m.ctx.MailApp = { sendEmail: (o) => { envoye = o; } };
+  m.ctx.sendEmail('a@b.test', 'sujet', 'corps', '<div>html</div>');
+  check('sans Marque.gs, l email part quand meme', envoye !== null);
+  check('simplement sans image jointe',
+        envoye && !envoye.inlineImages && envoye.htmlBody === '<div>html</div>');
 }
 
 // ==========================================================================

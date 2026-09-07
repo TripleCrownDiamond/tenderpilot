@@ -209,8 +209,9 @@ def feuille_demarrage(wb):
                      "publics, subventions et bourses. Il collecte les "
                      "annonces, evite les doublons, calcule les jours "
                      "restants avant la date limite, colore les lignes "
-                     "et vous envoie un email ou une notification Telegram "
-                     "quand une echeance approche."),
+                     "et vous previent quand une echeance approche - par "
+                     "email, sur Telegram, en notification push, ou dans "
+                     "votre Google Agenda."),
         ("blank",    ""),
         ("section",  "Demarrer en 3 etapes"),
         ("bullet",  "1.  Menu TenderPilot > Activer l execution automatique."),

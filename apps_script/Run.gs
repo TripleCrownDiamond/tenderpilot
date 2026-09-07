@@ -78,6 +78,7 @@ function verifierInstallation() {
     'Ntfy.gs': 'envoyerNtfy_',
     'Agenda.gs': 'synchroniserAgenda_',
     'Telegram.gs': 'envoyerTelegram_',
+    'Marque.gs': 'logoEmail_',
     'Sources.gs': 'synchroniserSources',
     'Llm.gs': 'testerLlm'
   };
@@ -845,7 +846,11 @@ function sendEmail(destinataire, sujet, corps, html) {
     // la plupart des messageries bloquent les images externes tant que le
     // lecteur n'a pas clique "afficher les images", et un email dont
     // l'en-tete est vide a l'ouverture ne ressemble a rien.
-    var logo = logoEmail_();
+    // typeof, PAS un appel direct. Marque.gs est un fichier a part : un
+    // client qui recolle Run.gs sans lui aurait un ReferenceError a
+    // CHAQUE envoi, et perdrait tous ses emails pour une image. Une
+    // alerte sans logo reste une alerte ; une alerte qui ne part pas, non.
+    var logo = typeof logoEmail_ === 'function' ? logoEmail_() : null;
     if (logo) options.inlineImages = { logoTenderPilot: logo };
   }
   MailApp.sendEmail(options);
