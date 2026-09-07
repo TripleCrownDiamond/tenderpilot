@@ -293,11 +293,22 @@ def feuille_demarrage(wb):
         ("section",  "Notifications"),
         ("body",     "Par defaut, les alertes partent par email. Trois "
                      "autres canaux existent, tous facultatifs : TELEGRAM "
-                     "(un bot cree via @BotFather), NTFY (une notification "
-                     "push : compte gratuit sur ntfy.sh, jeton d acces dans "
-                     "NTFY_JETON, SEND_NTFY a true - TenderPilot fabrique "
-                     "votre sujet et l ecrit dans NTFY_SUJET, vous vous y "
-                     "abonnez dans l application), et l AGENDA."),
+                     "(un bot cree via @BotFather), NTFY (notification "
+                     "push sur le telephone), et l AGENDA."),
+        ("body",     "POUR NTFY : creez un compte gratuit sur ntfy.sh, puis "
+                     "Account > Access tokens > Create token. Collez le "
+                     "jeton (il commence par tk_) dans NTFY_JETON et mettez "
+                     "SEND_NTFY a true. Le jeton n est PAS facultatif : "
+                     "sans lui vous etes bloque au bout d un ou deux "
+                     "messages, parce que ntfy compte son quota par adresse "
+                     "IP et que Google en partage les siennes."),
+        ("body",     "TenderPilot fabrique alors votre sujet - toujours de "
+                     "la forme tenderpilot- suivi de douze caracteres tires "
+                     "au hasard, par exemple tenderpilot-a1b2c3d4e5f6 - et "
+                     "l ecrit dans NTFY_SUJET. Ne le composez pas vous-meme "
+                     "et ne le partagez pas : qui le connait lit vos "
+                     "alertes. Abonnez-vous a ce sujet dans l application "
+                     "ntfy ; vous n avez pas a vous y connecter."),
         ("body",     "L AGENDA ne recoit PAS tout. Ecrivez OUI dans la "
                      "colonne SUIVI des avis auxquels vous comptez "
                      "repondre : ceux-la seulement sont poses dans votre "

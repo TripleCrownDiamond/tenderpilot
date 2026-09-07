@@ -313,6 +313,24 @@ function source(id, url, extra) {
 }
 
 /** Flux RSS minimal. Aucune source ni annonce reelle. */
+/**
+ * Une fixture datee, rendue intemporelle.
+ *
+ * PIEGE MESURE LE 2026-09-07. La fixture Fundpilote a ete capturee la
+ * veille, avec une echeance au 2026-09-06 : future ce jour-la, passee le
+ * lendemain. Le filtre des annonces expirees s'est mis a tout rejeter, et
+ * trois tests verts sont devenus rouges SANS QU'UNE LIGNE DE CODE AIT
+ * CHANGE.
+ *
+ * Une fixture doit rester le contenu REEL du site - c'est toute sa valeur -
+ * mais un test ne doit jamais dependre du jour ou on le lance. On reecrit
+ * donc la seule chose qui vieillit : la date.
+ */
+function fixtureDatee(corps, dansNJours) {
+  return corps.replace(/"deadline"\s*:\s*"\d{4}-\d{2}-\d{2}"/g,
+                       '"deadline": "' + jourRelatif(dansNJours) + '"');
+}
+
 function fluxRss(entrees) {
   return '<?xml version="1.0"?><rss version="2.0"><channel>'
     + entrees.map(e =>
@@ -1932,14 +1950,19 @@ console.log('\n[Fraicheur] Une source qui ne publie plus est signalee');
 console.log('\n[Fraicheur] Une source ouverte n est jamais dite abandonnee');
 {
   const url = 'https://example.org/flux-vieux-mais-ouvert';
-  const jr = (n) => { const d = new Date(); d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0, 10); };
+  const jr = jourRelatif;
+  // DEUX ANS EN ARRIERE, CALCULES - pas une date ecrite en dur. Une date
+  // absolue dans un test vieillit : ce qui valait "il y a deux ans" en
+  // vaudra quatre, puis dix, et la premisse du test cesse d'etre celle
+  // qu'on croit tester. Mesure du 2026-09-07 : la suite passait
+  // aujourd'hui et echouait a quatre cents jours.
+  const ilYaDeuxAns = new Date(jr(-730) + 'T09:00:00Z').toUTCString();
   const m = monde({
     sources: [source('GRANTS', url)],
     flux: { [url]: '<?xml version="1.0"?><rss version="2.0"><channel>'
       + '<item><title>Programme pluriannuel</title>'
       + '<link>https://example.org/g1</link>'
-      + '<pubDate>Mon, 21 Oct 2024 09:00:00 +0000</pubDate>'
+      + '<pubDate>' + ilYaDeuxAns + '</pubDate>'
       + '<description>Date limite : ' + enFrancais(jr(300)) + '</description>'
       + '</item></channel></rss>' },
     config: { SEND_NEW_OPPORTUNITY: 'false' }
@@ -3197,7 +3220,8 @@ console.log('\n[Fundpilote] La liste ne promet plus un lien qui n existe pas');
   // a un mur d inscription - pire qu une annonce absente, parce qu elle
   // promet. La fiche de l API, elle, est publique et porte le vrai lien.
   const R = path.join(path.resolve(__dirname), 'fixtures');
-  const liste = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const liste = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8'), 30);
   const fiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
   const C = monde({}).ctx;
 
@@ -3232,8 +3256,10 @@ console.log('\n[Fundpilote] Le second temps va chercher le lien, une fois');
 {
   const liste = 'https://exemple.test/fp-liste';
   const R = path.join(path.resolve(__dirname), 'fixtures');
-  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
-  const corpsFiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
+  const corpsListe = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8'), 30);
+  const corpsFiche = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8'), 30);
 
   const m = monde({
     sources: [Object.assign(source('SUBVENTIONS-INTL', liste),
@@ -3277,7 +3303,8 @@ console.log('\n[Fundpilote] Sans lien apres la fiche, l annonce n entre pas');
 {
   const liste = 'https://exemple.test/fp-muet';
   const R = path.join(path.resolve(__dirname), 'fixtures');
-  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
+  const corpsListe = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8'), 30);
   const m = monde({
     sources: [Object.assign(source('SUBVENTIONS-INTL', liste),
                             { method: 'JSON:fundpilote.com' })],
@@ -3305,8 +3332,10 @@ console.log('\n[Fundpilote] Le client ne lit jamais le nom de l agregateur');
 {
   const liste = 'https://exemple.test/fp-nom';
   const R = path.join(path.resolve(__dirname), 'fixtures');
-  const corpsListe = fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8');
-  const corpsFiche = fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8');
+  const corpsListe = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-liste.json'), 'utf8'), 30);
+  const corpsFiche = fixtureDatee(
+    fs.readFileSync(path.join(R, 'fundpilote-fiche.json'), 'utf8'), 30);
 
   const m = monde({
     sources: [Object.assign(source('SUBVENTIONS-INTL', liste),

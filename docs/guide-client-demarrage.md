@@ -61,7 +61,9 @@ existent, toutes facultatives, toutes reglables dans l'onglet CONFIG. Vous
 pouvez les cumuler, ou n'en garder qu'une - laissez `NOTIFICATION_EMAIL`
 vide si vous ne voulez pas d'emails du tout.
 
-**Le plus simple : la notification push (ntfy).** Aucun compte a creer.
+**La notification push (ntfy).** Elle arrive sur votre telephone comme un
+message, meme quand vous ne relevez pas vos emails. Comptez cinq minutes :
+un compte gratuit, un jeton, deux cases a remplir.
 
 1. Creez un compte gratuit sur **ntfy.sh** (deux minutes), puis
    **Account > Access tokens > Create token**. Copiez le jeton, qui
@@ -92,15 +94,17 @@ vide si vous ne voulez pas d'emails du tout.
 > s'obtient dans *Account > Access tokens > Create token*. Coller votre mot
 > de passe a la place ne marchera pas - le test vous le dira.
 
+> **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Il a
+> toujours la meme forme - `tenderpilot-` suivi de douze caracteres tires
+> au hasard, par exemple `tenderpilot-a1b2c3d4e5f6` - et ce tirage a deux
+> raisons : sur le serveur public un sujet est global, donc deux clients
+> qui choisiraient le meme nom recevraient les alertes l'un de l'autre ; et
+> un sujet lisible est un sujet devinable. **Ne le partagez pas** : qui le
+> connait lit vos alertes.
+
 **Si quelque chose ne marche pas**, Menu **TenderPilot > Tester la
 notification push (ntfy)** vous repond precisement : le sujet utilise, si
 un jeton a ete lu, et ce que ntfy a repondu.
-
-> **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Le
-> sujet est tire au hasard pour deux raisons : sur le serveur public il est
-> global - deux clients qui choisiraient le meme nom recevraient les
-> alertes l'un de l'autre - et un sujet lisible est un sujet devinable.
-> **Ne le partagez pas** : qui le connait lit vos alertes.
 
 **Telegram**, si vous y etes deja.
 

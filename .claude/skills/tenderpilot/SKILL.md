@@ -523,11 +523,14 @@ plafond et que `NOTIFIER_PERTINENCE` — on ne marque que ce qui est parti.
 
 ### Le troisième canal : ntfy
 
-Choisi pour une raison unique : **il ne demande rien au client**. L'email
-suppose une boîte qu'on relève ; Telegram suppose un bot, un jeton, un salon.
-ntfy suppose *un mot* — le client installe l'application, s'abonne à un sujet,
-colle ce sujet dans `CONFIG`, et son téléphone sonne. Aucun compte, aucune
-inscription, gratuit.
+Choisi parce qu'il **arrive sur le téléphone sans passer par une boîte aux
+lettres**. L'email se perd dans une pile ; une notification push se voit.
+
+Il a d'abord été présenté comme « aucun compte à créer ». C'était faux — voir
+la section suivante, qui est une correction, pas une nuance. Le coût réel
+pour le client : un compte gratuit sur ntfy.sh, un jeton d'accès, deux cases
+dans `CONFIG`. Cinq minutes, comparable à Telegram. Le sujet, lui, ne se
+choisit pas : le script le fabrique.
 
 Contrat **mesuré le 2026-09-04**, par un aller-retour réel sur `ntfy.sh` :
 un POST avec le texte en corps et les en-têtes `Title`, `Priority`, `Tags`,
@@ -1034,6 +1037,33 @@ diffèrent.
 **Une référence dans la colonne type.** L'analyseur ABE y déversait
 `AVIS N° 001/2026/PRMP-ABE/APM du 19 Janvier 2026`. La limite de longueur
 existante — 60 caractères — ne suffisait pas : ces références en font 45.
+
+### Un test ne doit jamais dépendre du jour où on le lance
+
+**Mesuré le 2026-09-07.** Trois tests Fundpilote sont passés au rouge **sans
+qu'une ligne de code ait changé**. La fixture avait été capturée la veille,
+avec une échéance au 2026-09-06 : future ce jour-là, passée le lendemain. Le
+filtre des annonces expirées s'est mis à tout rejeter.
+
+Le même audit a trouvé une seconde bombe : un `pubDate` écrit en dur — « il y
+a deux ans » — dans un test de fraîcheur. La suite passait le jour même et
+échouait à quatre cents jours.
+
+**Une fixture reste le contenu réel du site** — c'est toute sa valeur, et on
+ne la réécrit pas. Mais le test qui s'en sert doit neutraliser ce qui
+vieillit : `fixtureDatee(corps, n)` réécrit les échéances à `n` jours d'ici,
+et toute date de test se calcule avec `jourRelatif`.
+
+**Le contrôle, à refaire après toute nouvelle fixture datée**, en décalant
+`jourRelatif` :
+
+```
+sed "s|  const d = new Date();|  const d = new Date(); d.setDate(d.getDate() + 400);|" \
+  tests/test_logic.js > tests/_futur.js && node tests/_futur.js ; rm tests/_futur.js
+```
+
+La suite doit passer à 400 et à 1000 jours. Sinon, une date est écrite en dur
+quelque part.
 
 ### Le contrôle à refaire après tout changement d'analyseur
 
