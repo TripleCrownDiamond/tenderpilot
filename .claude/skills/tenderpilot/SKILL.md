@@ -521,92 +521,37 @@ pas rattraper.
 servi : la ligne repassera au prochain passage. C'est la même règle que le
 plafond et que `NOTIFIER_PERTINENCE` — on ne marque que ce qui est parti.
 
-### Le troisième canal : ntfy
+### ntfy, essayé puis retiré — et ce qu'il a appris
 
-Choisi parce qu'il **arrive sur le téléphone sans passer par une boîte aux
-lettres**. L'email se perd dans une pile ; une notification push se voit.
+Ajouté le 2026-09-04, **retiré le 2026-09-07** après trois jours d'essai
+chez un client : le canal n'a jamais fonctionné bout en bout. Le code
+partait correctement — contrat vérifié par aller-retour réel, jeton envoyé
+en `Authorization`, tests à l'appui — et les notifications n'arrivaient
+pas. Ne pas le rouvrir sans élément nouveau.
 
-Il a d'abord été présenté comme « aucun compte à créer ». C'était faux — voir
-la section suivante, qui est une correction, pas une nuance. Le coût réel
-pour le client : un compte gratuit sur ntfy.sh, un jeton d'accès, deux cases
-dans `CONFIG`. Cinq minutes, comparable à Telegram. Le sujet, lui, ne se
-choisit pas : le script le fabrique.
+**La leçon qui vaut au-delà de ntfy, et qui est la vraie prise :**
 
-Contrat **mesuré le 2026-09-04**, par un aller-retour réel sur `ntfy.sh` :
-un POST avec le texte en corps et les en-têtes `Title`, `Priority`, `Tags`,
-`Click` rend `200`, et le message se relit tel quel sur le sujet.
+> Une limite « par visiteur » sur un service public n'est presque jamais par
+> utilisateur : elle est **par adresse IP**, et un runtime hébergé partage
+> son IP avec des milliers d'autres.
 
-### « Aucun compte à créer » était faux, et voici pourquoi
+Mesuré : `ntfy.sh` plafonne à 250 messages par jour et par visiteur ; pour
+un anonyme, un visiteur est une IP. Apps Script sort par les adresses
+partagées de Google. Le quota n'est jamais le nôtre — il est déjà consommé
+quand on arrive. Aucune astuce de code n'y change rien ; seul un jeton de
+compte déplace le compteur, et même avec lui le canal n'a pas tenu.
 
-Ce guide a porté cette phrase pendant deux jours. **Démenti le 2026-09-06
-chez un client** : le premier message passe, le second rend `429 daily quota
-reached`.
+**Le second enseignement, sur la manière.** Ce guide a affirmé « aucun
+compte à créer » pendant deux jours, puis a gardé la phrase *au-dessus* de
+sa propre correction. Corriger le corps d'un texte sans relire ce qui
+l'annonce ne corrige rien.
 
-La cause est structurelle, pas accidentelle. La documentation de ntfy le dit
-en toutes lettres : le quota de `ntfy.sh` est de **250 messages par jour et
-par *visiteur*** — et pour un anonyme, **un visiteur est une adresse IP**.
-Or Apps Script sort par les adresses partagées de Google, que des milliers
-de scripts utilisent en même temps. Le quota n'est jamais le nôtre : il est
-déjà consommé quand on arrive.
-
-**Aucune astuce de code n'y change rien.** Espacer les envois, réduire le
-volume, réessayer plus tard : le bucket appartient à quelqu'un d'autre.
-
-La sortie est un **jeton d'accès** — compte gratuit, deux minutes. Avec lui,
-le quota est compté sur le *compte* et non sur l'IP. `NTFY_JETON` cesse donc
-d'être « utile seulement pour un serveur personnel » et devient **requis en
-pratique**.
-
-**Et les deux côtés ne se mélangent pas.** L'application du téléphone ne
-fait que *s'abonner* — sur `ntfy.sh` les sujets sont publics, elle n'a
-besoin d'aucun compte. Le compte et le jeton ne concernent que l'**envoi**,
-côté script. Dire au client de se connecter dans l'application était un
-conseil inutile, et il détourne du seul réglage qui compte.
-
-Et le message d'erreur le dit : un `429` ne rend plus « ntfy HTTP 429 » mais
-la cause et la sortie. Un client qui lit « quota atteint » sans savoir que le
-quota n'est pas le sien conclut que le produit est cassé.
-
-**La leçon générale.** Une limite « par visiteur » sur un service public
-n'est presque jamais par utilisateur : elle est par IP, et un runtime
-hébergé partage son IP avec des milliers d'autres. À vérifier avant
-d'annoncer qu'un canal ne demande rien.
-
-Deux différences avec Telegram, qui sont dans le code :
-
-- **le corps est du texte simple.** ntfy affiche ce qu'on lui donne ; y
-  envoyer du HTML afficherait les balises ;
-- **le digest montre cinq lignes, pas dix.** Une notification push se lit
-  d'un coup d'œil sur un écran verrouillé.
-
-**Le sujet est fabriqué, jamais inventé.** La première version demandait au
-client de choisir son sujet, avec la consigne d'en prendre un long. C'était
-une mauvaise conception, pour trois raisons qui se voient dès le deuxième
-client :
-
-1. **Les collisions.** Sur le serveur public, un sujet est *global*. Deux
-   clients qui tapent `tenderpilot` — et ils le taperont — reçoivent les
-   alertes l'un de l'autre.
-2. **La devinabilité.** Un sujet lisible est un sujet devinable, et sur
-   `ntfy.sh` connaître le sujet suffit pour lire **et pour écrire**.
-3. **L'incohérence.** Chaque installation aurait sa forme, et plus rien ne
-   serait diagnosticable à distance.
-
-La forme est donc fixe partout : `tenderpilot-<douze caractères au hasard>`.
-Le préfixe rend l'installation reconnaissable, le tirage la rend unique et
-non devinable. `SEND_NTFY` à `true` est la **seule** chose que le client
-écrit ; le script remplit `NTFY_SUJET` au premier besoin et le lui affiche.
-
-Le tirage vient de `Utilities.getUuid()`, **pas** d'un dérivé de
-l'identifiant du classeur : celui-ci figure dans l'URL, et un sujet qu'on
-peut recalculer depuis un lien partagé n'est pas un sujet.
-
-Un sujet déjà renseigné n'est **jamais** remplacé — un client qui héberge son
-propre ntfy garde sa convention.
-
-La règle générale, qui dépasse ntfy : **ce que le produit peut fabriquer
-lui-même, il ne le demande pas.** Une valeur saisie à la main est une valeur
-mal saisie, non unique, et impossible à diagnostiquer.
+**Ce que le retrait a coûté, et pourquoi c'était bon marché.** Retirer
+`ntfy` de `CANAUX` suffit : `canauxNotifies_` ignore une valeur qu'elle ne
+connaît pas, donc une case `Notif_*` qui porte encore `email,telegram,ntfy`
+se relit sans erreur, sans migration. C'est le bénéfice d'avoir stocké une
+*liste de canaux* plutôt que des colonnes par canal — un canal se retire
+comme il s'ajoute. Un test le vérifie explicitement.
 
 ## Suivre une offre : la seule colonne que le client remplit
 

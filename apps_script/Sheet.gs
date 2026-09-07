@@ -63,8 +63,8 @@ function lireConfig() {
  * Ecrit UNE valeur de configuration, en creant la cle si elle manque.
  *
  * Sert a ce que le script se configure lui-meme la ou demander au client de
- * saisir quelque chose serait une source d'erreur - le sujet ntfy, par
- * exemple. Le client relit, il ne compose pas.
+ * saisir quelque chose serait une source d'erreur. Le client relit, il ne
+ * compose pas.
  */
 function ecrireConfig_(cle, valeur) {
   var feuille = getSheet_(SCHEMA.SHEETS.config);

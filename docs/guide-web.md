@@ -179,31 +179,7 @@ vingt-quatre heures cela change tout.
 > **Le jeton permet d'ecrire a votre place.** Traitez-le comme un mot de
 > passe : jamais dans un email, jamais dans un document partage.
 
-### Et la notification push, qui ne demande rien
-
-Un troisieme canal : **ntfy**. **Aucun nom a inventer** - mais un compte
-gratuit a creer, et un jeton d'acces.
-
-| Variable | Valeur |
-|----------|--------|
-| `SEND_NTFY` | `true` |
-| `NTFY_JETON` | le jeton `tk_...` de votre compte ntfy.sh |
-
-Le jeton n'est pas facultatif : ntfy.sh compte son quota par **adresse
-IP**, et un serveur partage - Vercel comme Apps Script - se heurte a un
-quota deja consomme par d'autres. Avec le jeton, le quota est compte sur
-le compte. TenderPilot fabrique votre sujet - de la forme
-`tenderpilot-a1b2c3d4e5f6` - et l'ecrit dans `NTFY_SUJET` : abonnez-vous a
-ce sujet dans l'application ntfy.
-
-Le sujet est tire au hasard, et ce n'est pas un detail : sur le serveur
-public un sujet est **global**, donc deux installations qui porteraient le
-meme nom se croiseraient. Et un sujet lisible est devinable, alors que le
-connaitre suffit pour lire et pour ecrire. Ne le partagez pas.
-
-`NTFY_SERVEUR` n'est utile que si vous hebergez votre propre ntfy.
-
-### Ce que les trois canaux partagent, et ce qu'ils ne partagent pas
+### Ce que les deux canaux partagent, et ce qu'ils ne partagent pas
 
 Ils partagent leurs regles de **declenchement** : une opportunite ne vous
 previent jamais deux fois par le meme canal.
@@ -211,18 +187,17 @@ previent jamais deux fois par le meme canal.
 Tout le reste leur est propre.
 
 - Si l'un tombe, les autres partent quand meme.
-- **Chacun a son plafond** : `MAX_EMAILS_PAR_EXECUTION`,
-  `MAX_TELEGRAM_PAR_EXECUTION`, `MAX_NTFY_PAR_EXECUTION`. Utile, parce que
-  l'email est limite a 100 destinataires par jour la ou un salon Telegram
-  ou un telephone n'ont pas de quota.
+- **Chacun a son plafond** : `MAX_EMAILS_PAR_EXECUTION` et
+  `MAX_TELEGRAM_PAR_EXECUTION`. Utile, parce que l'email est limite a 100
+  destinataires par jour la ou un salon Telegram n'a pas de quota.
 - **Chacun a sa memoire.** Telegram peut avoir tout recu aujourd'hui
   pendant que l'email rattrape sur trois passages, sans jamais rien
   envoyer deux fois.
 
 Vous pouvez n'utiliser aucun email : laissez `NOTIFICATION_EMAIL` vide.
 
-Les messages Telegram et push sont volontairement courts - titre, echeance,
-lien - parce qu'on les lit sur un telephone. Le detail reste a un clic, sur
+Le message Telegram est volontairement court - titre, echeance, lien -
+parce qu'on le lit sur un telephone. Le detail reste a un clic, sur
 la source officielle.
 
 ## 8. La page Sources

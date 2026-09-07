@@ -66,7 +66,6 @@ function construireMenu_() {
     .addSeparator()
     .addItem('Synchroniser les sources', 'synchroniserSources')
     .addItem('Tester la notification Telegram', 'testerTelegram')
-    .addItem('Tester la notification push (ntfy)', 'testerNtfy')
     .addItem('Tester l agenda', 'testerAgenda')
     .addItem('Tester le classement intelligent', 'testerLlm')
     .addItem('Afficher / masquer l onglet SOURCES', 'basculerOngletSources')
@@ -94,7 +93,6 @@ function verifierInstallation() {
   // 1. Le code. On ne peut pas lister les fichiers du projet, mais une
   //    fonction absente prouve qu'un fichier n'a pas ete colle.
   var attendues = {
-    'Ntfy.gs': 'envoyerNtfy_',
     'Agenda.gs': 'synchroniserAgenda_',
     'Telegram.gs': 'envoyerTelegram_',
     'Marque.gs': 'logoEmail_',
@@ -130,21 +128,7 @@ function verifierInstallation() {
       + cles.join(', ')
     : 'CONFIG : complete.');
 
-  // 4. Le sujet ntfy. Un sujet saisi a la main avant la standardisation
-  //    reste en place - sujetNtfy_ ne remplace jamais - et c'est justement
-  //    lui qui risque la collision avec un autre client.
-  var sujet = String(config.NTFY_SUJET || '').trim();
-  if (sujet && !/^tenderpilot-[0-9a-f]{12}$/.test(sujet)) {
-    lignes.push('NTFY : le sujet "' + sujet + '" n est pas au format '
-      + 'standard. VIDEZ la case NTFY_SUJET : un sujet unique sera cree au '
-      + 'prochain passage. Un sujet choisi a la main peut etre utilise par '
-      + 'un autre classeur.');
-  } else {
-    lignes.push('NTFY : ' + (sujet ? 'sujet standard (' + sujet + ').'
-                                   : 'aucun sujet - il sera cree au besoin.'));
-  }
-
-  // 5. Les sources que le catalogue ne connait plus. La synchronisation
+  // 4. Les sources que le catalogue ne connait plus. La synchronisation
   //    AJOUTE et met a jour, elle ne supprime jamais - une source ajoutee
   //    par le client ne doit pas disparaitre. Mais une source RENOMMEE au
   //    catalogue laisse donc son ancienne ligne en place, active, sous son
@@ -1201,12 +1185,6 @@ function plafondTelegram_(config) {
   return isFinite(demande) && demande > 0 ? Math.floor(demande) : Infinity;
 }
 
-/** Meme raisonnement pour ntfy : un reglage de confort, pas un quota. */
-function plafondNtfy_(config) {
-  var demande = Number(config.MAX_NTFY_PAR_EXECUTION);
-  return isFinite(demande) && demande > 0 ? Math.floor(demande) : Infinity;
-}
-
 /**
  * Envoie ce qui doit l'etre, sur les canaux configures.
  *
@@ -1224,9 +1202,8 @@ function sendNotifications(lignes, config, nouvelles) {
   var destinataire = destinataires_(config.NOTIFICATION_EMAIL);
   var parEmail = Boolean(destinataire);
   var parTelegram = telegramActif_(config);
-  var parNtfy = ntfyActif_(config);
 
-  if (!parEmail && !parTelegram && !parNtfy) {
+  if (!parEmail && !parTelegram) {
     logEvent('', 'Notifications', 'SKIPPED', 'Aucun canal configure.');
     return 0;
   }
@@ -1261,17 +1238,6 @@ function sendNotifications(lignes, config, nouvelles) {
       reportees: 0,
       envoyer: function (message) {
         envoyerTelegram_(config, message.telegram);
-      }
-    });
-  }
-  if (parNtfy) {
-    canaux.push({
-      nom: 'ntfy',
-      plafond: plafondNtfy_(config),
-      envoyes: 0,
-      reportees: 0,
-      envoyer: function (message) {
-        envoyerNtfy_(config, message.ntfy);
       }
     });
   }
@@ -1312,8 +1278,7 @@ function sendNotifications(lignes, config, nouvelles) {
       var digest = messageDigest(aNotifier);
       messageDigest_ = {
         sujet: digest.sujet, corps: digest.corps, html: digest.html,
-        telegram: messageTelegramDigest(aNotifier),
-        ntfy: messageNtfyDigest(aNotifier)
+        telegram: messageTelegramDigest(aNotifier)
       };
     } catch (e) {
       logEvent('', 'Digest', 'ERROR', 'Digest non compose : ' + e.message);
@@ -1381,7 +1346,6 @@ function sendNotifications(lignes, config, nouvelles) {
         try {
           message = messageNotification(type, ligne);
           message.telegram = messageTelegram(type, ligne);
-          message.ntfy = messageNtfy(type, ligne);
         } catch (e) {
           logEvent(ligne.source, 'Notification ' + type, 'ERROR',
                    'Message non compose pour ' + (ligne.id || 'sans id')

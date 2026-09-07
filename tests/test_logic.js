@@ -63,7 +63,6 @@ function exigeNumeroDeLigne(ligne, appelant) {
 function monde(options) {
   const opt = options || {};
   const salon = [];
-  const pousses = [];
   const agenda = [];
   const feuille = {
     // Opportunites deja presentes avant la collecte : indispensable pour
@@ -179,9 +178,8 @@ function monde(options) {
     // ecrirait `true` dirait "tous canaux servis" et masquerait exactement
     // ce qu'on cherche a empecher - une alerte renvoyee sur un canal qui
     // l'a deja recue, ou un email perdu parce que Telegram est passe.
-    // Le script se configure lui-meme pour le sujet ntfy : le banc doit
-    // garder ce qu'il ecrit, sinon un sujet neuf serait fabrique a chaque
-    // passage et personne ne resterait abonne.
+    // Le script peut se configurer lui-meme : le banc doit garder ce qu'il
+    // ecrit, sinon la valeur serait refabriquee a chaque passage.
     // Par defaut le classeur du banc a toutes les colonnes du schema. Un
     // test peut en retirer une pour rejouer un classeur d'avant la version.
     colonneExiste_: function (nom) {
@@ -227,14 +225,6 @@ function monde(options) {
       fetch: function (url, options) {
         // Telegram passe par le meme UrlFetchApp que les sources : le banc
         // le detourne pour compter ce que le salon a recu.
-        // ntfy : le corps EST le message, le titre est dans un en-tete.
-        if (String(url).indexOf('ntfy.') !== -1
-            || String(url).indexOf('/tp-') !== -1) {
-          pousses.push({ titre: options.headers.Title,
-                         corps: options.payload,
-                         lien: options.headers.Click || '' });
-          return { getResponseCode: () => 200, getContentText: () => '{}' };
-        }
         if (String(url).indexOf('api.telegram.org') !== -1) {
           salon.push(JSON.parse(options.payload).text);
           return { getResponseCode: () => 200,
@@ -298,11 +288,11 @@ function monde(options) {
 
   vm.createContext(ctx);
   ['Schema.gs', 'Core.gs', 'Rss.gs', 'Html.gs', 'Json.gs', 'Telegram.gs',
-   'Ntfy.gs', 'Agenda.gs', 'Marque.gs',
+   'Agenda.gs', 'Marque.gs',
    'Llm.gs', 'Run.gs'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(SCRIPT, f), 'utf8'), ctx, f);
   });
-  return { ctx, feuille, boite, salon, pousses, agenda };
+  return { ctx, feuille, boite, salon, agenda };
 }
 
 function source(id, url, extra) {
@@ -2638,8 +2628,12 @@ console.log('\n[Deux canaux] Un temoin d une version precedente vaut tout');
   // renverrait au client des alertes deja recues : c est la seule erreur
   // qu on ne peut pas rattraper.
   check('true se lit tous canaux servis',
-        C.canauxNotifies_(true).join(',') === 'email,telegram,ntfy',
+        C.canauxNotifies_(true).join(',') === 'email,telegram',
         C.canauxNotifies_(true).join(','));
+  // Un canal RETIRE ne doit pas faire tomber une case ecrite avant lui.
+  check('une case qui porte un canal disparu se relit sans erreur',
+        C.canauxNotifies_('email,telegram,ntfy').join(',') === 'email,telegram',
+        C.canauxNotifies_('email,telegram,ntfy').join(','));
   check('et VRAI aussi, comme partout ailleurs',
         C.dejaNotifie_('VRAI', 'telegram') === true);
   check('une case vide n a servi personne',
@@ -2656,61 +2650,6 @@ console.log('\n[Deux canaux] Un temoin d une version precedente vaut tout');
         C.ajouterCanal_('email,telegram', 'email') === 'email,telegram');
   check('une valeur illisible ne bloque pas un envoi legitime',
         C.ajouterCanal_('n importe quoi', 'email') === 'email');
-}
-
-// ==========================================================================
-console.log('\n[ntfy] Un troisieme canal, avec ses propres regles');
-{
-  const url = 'https://exemple.test/flux-ntfy';
-  const entrees = [];
-  for (let i = 0; i < 5; i++) {
-    entrees.push({ titre: 'Avis push ' + i,
-      lien: 'https://exemple.test/np' + i,
-      description: 'Date limite : ' + enFrancais(jourRelatif(5)) });
-  }
-  const m = monde({
-    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
-    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '2',
-              MAX_NTFY_PAR_EXECUTION: '0',
-              SEND_NTFY: 'true', NTFY_SUJET: 'tp-essai-9f2a' }
-  });
-
-  m.ctx.executerTenderPilot();
-  check('les cinq notifications push sont parties', m.pousses.length === 5,
-        m.pousses.length + ' notifications');
-  check('l email garde son propre plafond', m.boite.length === 2,
-        m.boite.length + ' emails');
-  check('la notification porte un titre lisible',
-        m.pousses[0].titre === 'Echeance dans 7 jours', m.pousses[0].titre);
-  check('et le lien de l avis, pour l ouvrir d un appui',
-        /^https:\/\/exemple\.test\/np/.test(m.pousses[0].lien),
-        m.pousses[0].lien);
-  check('le corps est du texte simple, sans balisage',
-        m.pousses[0].corps.indexOf('<') === -1, m.pousses[0].corps);
-
-  // La memoire vaut pour ntfy comme pour les autres.
-  m.pousses.length = 0;
-  m.ctx.executerTenderPilot();
-  check('rien n est pousse deux fois', m.pousses.length === 0,
-        m.pousses.length + ' notifications au second passage');
-}
-
-// ==========================================================================
-console.log('\n[ntfy] L adresse se compose sans surprise');
-{
-  const C = monde({}).ctx;
-  check('serveur par defaut',
-        C.adresseNtfy_({ NTFY_SUJET: 'sujet' }) === 'https://ntfy.sh/sujet');
-  check('serveur personnel, barre finale en trop',
-        C.adresseNtfy_({ NTFY_SERVEUR: 'https://push.moi.test/',
-                         NTFY_SUJET: 'sujet' })
-          === 'https://push.moi.test/sujet');
-  // Le sujet n entre PAS dans la condition : le script le fabrique. La
-  // seule decision qui revient au client est SEND_NTFY.
-  check('sans sujet, le canal marche quand meme',
-        C.ntfyActif_({ SEND_NTFY: 'true', NTFY_SUJET: '' }) === true);
-  check('mais sans SEND_NTFY, rien ne part',
-        C.ntfyActif_({ SEND_NTFY: 'false', NTFY_SUJET: 'sujet' }) === false);
 }
 
 // ==========================================================================
@@ -2944,59 +2883,6 @@ console.log('\n[Installation] autoriser() marche sans interface');
 }
 
 // ==========================================================================
-console.log('\n[ntfy] Le sujet est fabrique, jamais invente');
-{
-  // Demander a chacun de choisir son sujet donnait des collisions - sur le
-  // serveur public un sujet est global, et deux clients qui tapent
-  // "tenderpilot" recoivent les alertes l un de l autre.
-  const url = 'https://exemple.test/flux-sujet';
-  const m = monde({
-    sources: [source('SRC-001', url)],
-    flux: { [url]: fluxRss([
-      { titre: 'Avis', lien: 'https://exemple.test/su1',
-        description: 'Date limite : ' + enFrancais(jourRelatif(5)) }
-    ]) },
-    // SEND_NTFY seul : aucun sujet renseigne.
-    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_NTFY: 'true' }
-  });
-
-  m.ctx.executerTenderPilot();
-  const sujet = m.feuille.config.NTFY_SUJET;
-  check('un sujet est ecrit dans CONFIG tout seul',
-        typeof sujet === 'string' && sujet.length > 0, String(sujet));
-  check('il porte le prefixe du produit',
-        sujet.indexOf('tenderpilot-') === 0, sujet);
-  check('et douze caracteres tires au hasard',
-        /^tenderpilot-[0-9a-f]{12}$/.test(sujet), sujet);
-  check('la notification est bien partie', m.pousses.length === 1,
-        m.pousses.length + ' notifications');
-  check('le sujet est journalise, pour que le client le lise',
-        m.feuille.logs.some(l => l.message.indexOf(sujet) !== -1));
-
-  // IL NE CHANGE PLUS. Un sujet qui bougerait a chaque passage
-  // n abonnerait personne.
-  m.ctx.executerTenderPilot();
-  check('le sujet ne change pas au passage suivant',
-        m.feuille.config.NTFY_SUJET === sujet, m.feuille.config.NTFY_SUJET);
-
-  // ET IL EST UNIQUE : deux installations ne doivent pas se croiser.
-  const autre = monde({ config: { SEND_NTFY: 'true' } });
-  autre.ctx.executerTenderPilot();
-  check('deux installations ont deux sujets differents',
-        autre.feuille.config.NTFY_SUJET !== sujet,
-        autre.feuille.config.NTFY_SUJET + ' vs ' + sujet);
-
-  // Un sujet deja choisi est RESPECTE : le client qui a son propre serveur
-  // et sa propre convention n est pas ecrase.
-  const C = m.ctx;
-  check('un sujet deja renseigne n est jamais remplace',
-        C.sujetNtfy_({ NTFY_SUJET: 'le-mien' }) === 'le-mien');
-  check('l adresse se compose avec le sujet fabrique',
-        C.adresseNtfy_({ NTFY_SUJET: sujet })
-          === 'https://ntfy.sh/' + sujet);
-}
-
-// ==========================================================================
 console.log('\n[Agenda] Un classeur d avant la version ne spamme personne');
 {
   // La colonne Agenda est le seul endroit ou l on sait qu une echeance a
@@ -3053,120 +2939,6 @@ console.log('\n[Verification] Un classeur en service sait dire ce qui manque');
         rapport.indexOf('OPPORTUNITIES') !== -1, rapport);
   check('le diagnostic est journalise',
         vieux.feuille.logs.some(l => l.action === 'Verification'));
-}
-
-// ==========================================================================
-console.log('\n[Verification] Un sujet ntfy d avant la standardisation');
-{
-  // sujetNtfy_ ne remplace JAMAIS un sujet existant - c est voulu, pour ne
-  // pas desabonner quelqu un. Mais un sujet choisi a la main est justement
-  // celui qui risque la collision : il faut le dire.
-  const m = monde({ config: { NTFY_SUJET: 'tenderpilot' } });
-  const rapport = m.ctx.verifierInstallation();
-  check('un sujet non standard est signale',
-        rapport.indexOf('n est pas au format') !== -1, rapport);
-  check('et la marche a suivre est donnee',
-        rapport.indexOf('VIDEZ') !== -1, rapport);
-
-  const propre = monde({ config: { NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' } });
-  check('un sujet standard ne declenche rien',
-        propre.ctx.verifierInstallation().indexOf('n est pas au format') === -1);
-}
-
-// ==========================================================================
-console.log('\n[ntfy] Le 429 dit quoi faire, pas seulement que ca a rate');
-{
-  // MESURE DU 2026-09-06 : quota de 250 messages par jour et par VISITEUR,
-  // et un visiteur anonyme est une ADRESSE IP. Apps Script sort par les
-  // adresses partagees de Google. Le quota n est jamais le notre.
-  const m = monde({ config: { SEND_NTFY: 'true',
-                              NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' } });
-  m.ctx.UrlFetchApp.fetch = () => ({
-    getResponseCode: () => 429,
-    getContentText: () => '{"code":42908,"error":"limit reached"}'
-  });
-
-  let message = '';
-  try {
-    m.ctx.envoyerNtfy_(m.feuille.config,
-                       { titre: 'T', corps: 'c', lien: '', priorite: '3' });
-  } catch (e) { message = e.message; }
-
-  check('le refus est explique, pas juste signale',
-        message.indexOf('quota') !== -1 && message.indexOf('IP') !== -1,
-        message);
-  check('et la sortie est donnee',
-        message.indexOf('NTFY_JETON') !== -1, message);
-  check('le code brut ne remplace pas l explication',
-        message.indexOf('HTTP 429') === -1, message);
-}
-
-// ==========================================================================
-console.log('\n[ntfy] Le jeton part en en-tete, jamais dans le journal');
-{
-  const m = monde({});
-  let entetes = null;
-  m.ctx.UrlFetchApp.fetch = (url, options) => {
-    entetes = options.headers;
-    return { getResponseCode: () => 200, getContentText: () => '{}' };
-  };
-  m.ctx.envoyerNtfy_(
-    { NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6', NTFY_JETON: 'tk_secret' },
-    { titre: 'T', corps: 'c', lien: 'https://exemple.test/a', priorite: '5' });
-
-  check('le jeton voyage en Authorization',
-        entetes.Authorization === 'Bearer tk_secret', entetes.Authorization);
-  check('sans jeton, aucun en-tete d autorisation', (() => {
-    let e2 = null;
-    m.ctx.UrlFetchApp.fetch = (url, options) => {
-      e2 = options.headers;
-      return { getResponseCode: () => 200, getContentText: () => '{}' };
-    };
-    m.ctx.envoyerNtfy_({ NTFY_SUJET: 'tenderpilot-a1b2c3d4e5f6' },
-                       { titre: 'T', corps: 'c', lien: '', priorite: '3' });
-    return !('Authorization' in e2);
-  })());
-  check('la priorite et le lien partent bien',
-        entetes.Priority === '5' && entetes.Click === 'https://exemple.test/a');
-}
-
-// ==========================================================================
-console.log('\n[ntfy] Le test dit ce que le script VOIT, pas ce qu on espere');
-{
-  // Un "quota atteint" alors qu un jeton est colle dans CONFIG a presque
-  // toujours la meme cause : le script ne le voit pas. Cle absente, valeur
-  // dans la mauvaise colonne, espace colle avec.
-  function rapportAvec(config) {
-    const m = monde({ config: Object.assign({ SEND_NTFY: 'true' }, config) });
-    m.ctx.UrlFetchApp.fetch = () => ({
-      getResponseCode: () => 200, getContentText: () => '{}'
-    });
-    return m.ctx.testerNtfy();
-  }
-
-  check('sans jeton, le test le dit avant de blamer ntfy',
-        rapportAvec({}).indexOf('AUCUN JETON LU') !== -1);
-  check('un mot de passe colle a la place du jeton est repere',
-        rapportAvec({ NTFY_JETON: 'monmotdepasse' })
-          .indexOf('SUSPECT') !== -1);
-  check('un vrai jeton est reconnu',
-        rapportAvec({ NTFY_JETON: 'tk_abcdefghijklmno' })
-          .indexOf('Jeton lu') !== -1);
-  check('et le sujet est toujours rappele',
-        rapportAvec({ NTFY_JETON: 'tk_abc' }).indexOf('tenderpilot-') !== -1);
-
-  // Un echec reseau ne fait pas tomber le test : il est rapporte.
-  const m = monde({ config: { SEND_NTFY: 'true', NTFY_JETON: 'tk_abc' } });
-  m.ctx.UrlFetchApp.fetch = () => ({
-    getResponseCode: () => 429, getContentText: () => 'limit reached'
-  });
-  const rapport = m.ctx.testerNtfy();
-  check('un refus est rapporte, pas jete',
-        rapport.indexOf('ECHEC') !== -1 && rapport.indexOf('quota') !== -1,
-        rapport);
-  check('et journalise avec l etat du jeton',
-        m.feuille.logs.some(l => l.action === 'Test ntfy'
-          && l.message.indexOf('Jeton lu') !== -1));
 }
 
 // ==========================================================================

@@ -13,7 +13,6 @@ import { test } from "node:test";
 
 import {
   ajouterCanal, Canal, canauxNotifies, dejaNotifie, estSuivie,
-  fabriquerSujetNtfy,
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
   construireIndex, inventaireProfil, listeConfig, parDelai,
   parPertinence, pertinence, pertinenceNotifiable, PROFIL_TYPE_PAYS,
@@ -25,7 +24,7 @@ import {
   SECTEUR_INCONNU,
 } from "../src/lib/domain/regles";
 import {
-  Depot, Envoyeur, Messager, NotificationPush, OpportuniteStockee, Pousseur,
+  Depot, Envoyeur, Messager, OpportuniteStockee,
   Recuperateur, SourceCollecte,
   enregistrerOuMettreAJour, executer, referenceSuivante,
 } from "../src/lib/run";
@@ -62,9 +61,6 @@ interface Monde {
   /** Ce que Telegram a recu : le second canal, compte a part. */
   salon: string[];
   messager: Messager;
-  /** Ce que le canal push a recu, compte a part lui aussi. */
-  pousses: NotificationPush[];
-  pousseur: Pousseur;
   sources: SourceCollecte[];
   /** La configuration vivante : la modifier change le passage suivant. */
   config: Config;
@@ -81,7 +77,6 @@ function monde(options: {
   const journal: Monde["journal"] = [];
   const boite: Monde["boite"] = [];
   const salon: string[] = [];
-  const pousses: NotificationPush[] = [];
   const sources = options.sources ?? [];
   const flux = options.flux ?? {};
   const config: Config = {
@@ -162,12 +157,9 @@ function monde(options: {
   const messager: Messager = {
     async publier(texte: string) { salon.push(texte); },
   };
-  const pousseur: Pousseur = {
-    async pousser(n) { pousses.push(n); },
-  };
 
   return { depot, envoyeur, recuperer, opportunites, journal, boite, salon,
-           messager, pousses, pousseur, sources, config };
+           messager, sources, config };
 }
 
 function source(id: string, url: string, extra: Partial<SourceCollecte> = {}) {
@@ -966,7 +958,10 @@ test("un temoin ecrit par une version precedente vaut tous canaux", async () => 
   // Une base en service porte des `true`. Les relire comme "aucun canal"
   // renverrait au client des alertes qu'il a deja recues - c'est le seul
   // choix qui n'est pas rattrapable.
-  assert.deepEqual(canauxNotifies(true), ["email", "telegram", "ntfy"]);
+  assert.deepEqual(canauxNotifies(true), ["email", "telegram"]);
+  // Un canal RETIRE ne doit pas faire tomber une case ecrite avant lui.
+  assert.deepEqual(canauxNotifies("email,telegram,ntfy"),
+                   ["email", "telegram"]);
   assert.equal(dejaNotifie(true, "telegram"), true);
   assert.equal(dejaNotifie("", "email"), false);
   assert.equal(dejaNotifie("telegram", "email"), false);
@@ -1004,39 +999,6 @@ test("Telegram plafonne de son cote sans retenir l'email", async () => {
             "le report est journalise, canal nomme");
 });
 
-test("ntfy : un troisieme canal, avec son plafond et sa memoire", async () => {
-  const url = "https://example.org/f-ntfy";
-  const entrees = Array.from({ length: 5 }, (_, i) => ({
-    titre: `Avis push ${i}`,
-    lien: `https://example.org/np${i}`,
-    texte: `Date limite : ${enFrancais(jourRelatif(5))}`,
-  }));
-  const m = monde({
-    sources: [source("s1", url)],
-    flux: { [url]: fluxRss(entrees) },
-    config: {
-      envoiNouvelle: false,
-      maxEmailsParExecution: 2,
-      maxNtfyParExecution: 0,
-      envoiNtfy: true, ntfySujet: "tp-essai-9f2a",
-    },
-  });
-
-  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
-                 m.pousseur);
-
-  assert.equal(m.pousses.length, 5, "les cinq notifications partent");
-  assert.equal(m.boite.length, 2, "l'email garde son propre plafond");
-  assert.equal(m.pousses[0].titre, "Echeance dans 7 jours");
-  assert.ok(m.pousses[0].lien.startsWith("https://example.org/np"));
-  assert.ok(!m.pousses[0].corps.includes("<"),
-            "le corps est du texte simple, ntfy n'interprete pas de balisage");
-
-  m.pousses.length = 0;
-  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
-                 m.pousseur);
-  assert.equal(m.pousses.length, 0, "rien n'est pousse deux fois");
-});
 
 test("les rappels peuvent se limiter aux offres suivies", async () => {
   const url = "https://example.org/f-suivi";
@@ -1094,28 +1056,3 @@ test("sans le reglage, les rappels partent comme avant", async () => {
   assert.equal(estSuivie({ titre: "x" }), false);
 });
 
-test("le sujet ntfy est fabrique, jamais invente", async () => {
-  // Sur le serveur public un sujet est global : deux clients qui
-  // choisissent "tenderpilot" recoivent les alertes l'un de l'autre.
-  const a = fabriquerSujetNtfy();
-  const b = fabriquerSujetNtfy();
-
-  assert.match(a, /^tenderpilot-[0-9a-f]{12}$/,
-               "forme fixe : prefixe du produit puis douze caracteres");
-  assert.notEqual(a, b, "deux installations ne partagent pas un sujet");
-
-  // Et le canal marche sans qu'aucun sujet ait ete saisi.
-  const url = "https://example.org/f-sujet";
-  const m = monde({
-    sources: [source("s1", url)],
-    flux: { [url]: fluxRss([
-      { titre: "Avis", lien: "https://example.org/su1",
-        texte: `Date limite : ${enFrancais(jourRelatif(5))}` },
-    ]) },
-    config: { envoiNouvelle: false, envoiNtfy: true, ntfySujet: "" },
-  });
-  await executer(m.depot, m.envoyeur, m.recuperer, undefined, undefined,
-                 m.pousseur);
-  assert.equal(m.pousses.length, 1,
-               "SEND_NTFY seul suffit : le sujet ne se saisit pas");
-});

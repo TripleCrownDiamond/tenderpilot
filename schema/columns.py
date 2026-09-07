@@ -352,31 +352,6 @@ CONFIG = [
      "Collecter aussi les annonces dont la date limite est deja passee. "
      "Laisse a false : les portails gardent des annees d'archives en ligne, "
      "et elles noieraient les opportunites auxquelles vous pouvez repondre."),
-    ("SEND_NTFY", "false",
-     "Envoyer aussi les alertes en notification push, via ntfy.sh. "
-     "Installez l'application ntfy sur votre telephone et abonnez-vous au "
-     "sujet que TenderPilot ecrit dans NTFY_SUJET. IMPORTANT : renseignez "
-     "aussi NTFY_JETON, sans quoi vous serez bloque au bout d'un ou deux "
-     "messages."),
-    ("NTFY_SUJET", "",
-     "NE REMPLISSEZ PAS CETTE CASE : TenderPilot y ecrit tout seul un "
-     "sujet unique, de la forme tenderpilot-a1b2c3d4e5f6, la premiere fois "
-     "que SEND_NTFY est actif. Lisez-le ici, puis abonnez-vous a ce sujet "
-     "dans l'application ntfy. Ne le partagez pas : sur le serveur public, "
-     "qui connait le sujet peut lire vos alertes et vous en envoyer."),
-    ("NTFY_SERVEUR", "https://ntfy.sh",
-     "Serveur ntfy. Laissez tel quel pour le service public gratuit, ou "
-     "mettez l'adresse de votre propre serveur."),
-    ("NTFY_JETON", "",
-     "REQUIS EN PRATIQUE. ntfy.sh compte son quota de 250 messages par "
-     "jour et par ADRESSE IP, et Google fait sortir tous les scripts par "
-     "des adresses partagees : sans jeton, le quota est deja epuise par "
-     "d'autres avant vous, et vous recevez 'daily quota reached'. Creez un "
-     "compte gratuit sur ntfy.sh, Account > Access tokens > Create token, "
-     "et collez le jeton (tk_...) ici : le quota devient le votre."),
-    ("MAX_NTFY_PAR_EXECUTION", "0",
-     "Nombre maximum de notifications push par execution, compte a part "
-     "des emails et de Telegram. 0 = aucun plafond."),
     ("RAPPELS_SUIVIS_SEULEMENT", "false",
      "Ne recevoir les rappels d'echeance (J-7, J-3, J-1, expiree) que pour "
      "les avis ou vous avez ecrit OUI dans la colonne SUIVI de l'onglet "

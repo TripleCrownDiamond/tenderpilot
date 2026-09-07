@@ -102,7 +102,7 @@ Avec un DEUXIEME compte Google - pas le votre, il est deja proprietaire :
 Si les six points passent, vous pouvez vendre.
 
 **Les canaux facultatifs se testent a part**, et seulement si vous les
-vendez comme arguments : Menu > *Tester la notification push (ntfy)* et
+vendez comme arguments : Menu > *Tester la notification Telegram* et
 Menu > *Tester l'agenda*. Le test d'agenda ne pose rien - il dit ce que le
 prochain passage ferait. Un test qui ecrirait dans l'agenda de quelqu'un
 sans qu'il l'ait demande serait un mauvais test.
@@ -179,7 +179,7 @@ phrase par point.
     CODE      : les fichiers attendus sont la.
     COLONNES  : a ajouter dans OPPORTUNITIES - Suivi, Agenda
     CONFIG    : complete.
-    NTFY      : le sujet "tenderpilot" n est pas au format standard...
+    SOURCES   : FUNDPILOTE-API - absente du catalogue livre...
 
 Ajoutez les colonnes nommees **a la fin** de l'onglet OPPORTUNITIES, en
 respectant l'orthographe exacte. Les cles de CONFIG, elles, se creent

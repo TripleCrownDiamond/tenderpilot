@@ -32,7 +32,7 @@ MAX_ROWS = 2000
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
-                "Telegram.gs", "Ntfy.gs", "Agenda.gs", "Marque.gs",
+                "Telegram.gs", "Agenda.gs", "Marque.gs",
                 "Llm.gs",
                 "Run.gs"]
 
@@ -294,22 +294,7 @@ def feuille_demarrage(wb):
         ("section",  "Notifications"),
         ("body",     "Par defaut, les alertes partent par email. Trois "
                      "autres canaux existent, tous facultatifs : TELEGRAM "
-                     "(un bot cree via @BotFather), NTFY (notification "
-                     "push sur le telephone), et l AGENDA."),
-        ("body",     "POUR NTFY : creez un compte gratuit sur ntfy.sh, puis "
-                     "Account > Access tokens > Create token. Collez le "
-                     "jeton (il commence par tk_) dans NTFY_JETON et mettez "
-                     "SEND_NTFY a true. Le jeton n est PAS facultatif : "
-                     "sans lui vous etes bloque au bout d un ou deux "
-                     "messages, parce que ntfy compte son quota par adresse "
-                     "IP et que Google en partage les siennes."),
-        ("body",     "TenderPilot fabrique alors votre sujet - toujours de "
-                     "la forme tenderpilot- suivi de douze caracteres tires "
-                     "au hasard, par exemple tenderpilot-a1b2c3d4e5f6 - et "
-                     "l ecrit dans NTFY_SUJET. Ne le composez pas vous-meme "
-                     "et ne le partagez pas : qui le connait lit vos "
-                     "alertes. Abonnez-vous a ce sujet dans l application "
-                     "ntfy ; vous n avez pas a vous y connecter."),
+                     "(un bot cree via @BotFather) et l AGENDA."),
         ("body",     "L AGENDA ne recoit PAS tout. Ecrivez OUI dans la "
                      "colonne SUIVI des avis auxquels vous comptez "
                      "repondre : ceux-la seulement sont poses dans votre "
@@ -557,7 +542,6 @@ ROLES_SCRIPTS = {
     "Sheet": "acces au classeur",
     "Sources": "mise a jour du catalogue de sources",
     "Telegram": "notifications sur Telegram",
-    "Ntfy": "notifications push, via ntfy.sh",
     "Marque": "le logo embarque dans les emails (GENERE)",
     "Agenda": "echeances suivies dans Google Agenda",
     "Run": "collecte, deadlines, emails et menu",
@@ -604,7 +588,6 @@ SOURCES -> COLLECTE -> DEDUPLICATION -> GOOGLE SHEETS
 | `Html.gs` | extraction des pages sans flux (gouv.bj, BAD, Enabel, ARMP) |
 | `Json.gs` | lecture des API publiques (Banque mondiale) |
 | `Telegram.gs` | notifications sur Telegram |
-| `Ntfy.gs` | notifications push, via ntfy.sh |
 | `Marque.gs` | le logo embarque dans les emails - GENERE |
 | `Agenda.gs` | echeances suivies posees dans Google Agenda |
 | `Sources.gs` | synchronisation du catalogue de sources |

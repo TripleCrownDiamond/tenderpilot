@@ -90,13 +90,8 @@ export interface Config {
   maxEmailsParExecution?: number;
   /** Plafond propre a Telegram. 0 ou absent : aucun plafond. */
   maxTelegramParExecution?: number;
-  /** Plafond propre aux notifications push. 0 ou absent : aucun plafond. */
-  maxNtfyParExecution?: number;
-  envoiNtfy?: boolean;
   /** Reserver les rappels d'echeance aux offres suivies. Jamais les nouveautes. */
   rappelsSuivisSeulement?: boolean;
-  ntfySujet?: string;
-  ntfyServeur?: string;
   /**
    * Fiches lues au maximum en un passage, pour les sources qui datent leurs
    * avis sur la fiche et non dans la liste. Voir ANALYSEURS_FICHE.
@@ -164,11 +159,7 @@ export const CONFIG_DEFAUT: Config = {
   seuilDigest: 5,
   maxEmailsParExecution: 20,
   maxTelegramParExecution: 0,
-  maxNtfyParExecution: 0,
-  envoiNtfy: false,
   rappelsSuivisSeulement: false,
-  ntfySujet: "",
-  ntfyServeur: "https://ntfy.sh",
   maxFichesParPassage: 12,
   fuseau: "Africa/Porto-Novo",
   maxParSource: 40,
@@ -915,32 +906,6 @@ export const NOTIFICATIONS: RegleNotification[] = [
 ];
 
 /**
- * LE SUJET NTFY N'EST PAS INVENTE PAR LE CLIENT, IL EST FABRIQUE.
- *
- * Sur le serveur public, un sujet est global : deux clients qui choisissent
- * "tenderpilot" - et ils le choisiront - recoivent les alertes l'un de
- * l'autre. Un sujet lisible est en outre un sujet devinable, et connaitre
- * le sujet suffit pour lire ET pour ecrire.
- *
- * La forme est donc fixe partout : tenderpilot-<douze caracteres au
- * hasard>. Le prefixe rend l'installation reconnaissable, le tirage la rend
- * unique et non devinable.
- *
- * Jumeau de fabriquerSujetNtfy_() dans Ntfy.gs.
- */
-export const NTFY_PREFIXE = "tenderpilot-";
-
-export function fabriquerSujetNtfy(): string {
-  let brut = "";
-  // Douze caracteres hexadecimaux : 48 bits, assez pour qu'une collision
-  // entre installations reste theorique.
-  for (let i = 0; i < 12; i++) {
-    brut += "0123456789abcdef"[Math.floor(Math.random() * 16)];
-  }
-  return NTFY_PREFIXE + brut;
-}
-
-/**
  * Cette opportunite est-elle suivie par le client ?
  *
  * Jumeau d'estSuivie_() dans Core.gs. Deux mecanismes s'en servent :
@@ -954,7 +919,7 @@ export function estSuivie(o: Opportunite): boolean {
 }
 
 /** Les canaux d'alerte, dans l'ordre ou une case les enumere. */
-export const CANAUX = ["email", "telegram", "ntfy"] as const;
+export const CANAUX = ["email", "telegram"] as const;
 export type Canal = (typeof CANAUX)[number];
 
 /** Ce que porte une case Notif_* : la liste des canaux deja servis. */

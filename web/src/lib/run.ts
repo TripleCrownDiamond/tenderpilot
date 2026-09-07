@@ -87,25 +87,6 @@ export interface Messager {
   publier(texte: string): Promise<void>;
 }
 
-/** Ce qu'une notification push porte : ntfy affiche les trois a part. */
-export interface NotificationPush {
-  titre: string;
-  corps: string;
-  lien: string;
-  priorite: string;
-}
-
-/**
- * Troisieme canal : ntfy. Aucun compte a creer cote client - il s'abonne a
- * un sujet depuis l'application et le colle dans sa configuration.
- *
- * Jumeau de Ntfy.gs. Contrat verifie le 2026-09-04 par un aller-retour
- * reel sur ntfy.sh : POST, le texte en corps, le titre et le lien en
- * en-tetes.
- */
-export interface Pousseur {
-  pousser(notification: NotificationPush): Promise<void>;
-}
 
 /** Recuperation reseau, isolee pour pouvoir etre remplacee dans les tests. */
 /**
@@ -848,62 +829,6 @@ export function messageTelegram(
   return lignes.join("\n");
 }
 
-/** Rang d'urgence ntfy : seul un J-1 merite de sonner en mode silencieux. */
-const PRIORITES_NTFY: Record<string, string> = {
-  nouvelle: "3", j7: "3", j3: "4", j1: "5", expire: "4",
-};
-
-/**
- * Notification push pour une opportunite.
- *
- * Texte simple, sans balisage : ntfy affiche le corps tel quel, la ou
- * Telegram interprete du HTML.
- */
-export function messageNtfy(
-  type: TypeNotification, o: Opportunite,
-): NotificationPush {
-  const lignes = [o.titre];
-
-  const infos: string[] = [];
-  if (o.organisation) infos.push(o.organisation);
-  if (o.pays) infos.push(o.pays);
-  if (infos.length) lignes.push(infos.join(" - "));
-
-  if (o.deadline) {
-    const reste = o.joursRestants;
-    const compte = reste === null || reste === undefined ? ""
-      : reste < 0 ? " (passee)"
-      : reste === 0 ? " (aujourd'hui)"
-      : ` (dans ${reste} jour${reste > 1 ? "s" : ""})`;
-    lignes.push(`Echeance : ${o.deadline}${compte}`);
-  } else {
-    lignes.push("Echeance : a verifier sur la source");
-  }
-
-  return {
-    titre: ENTETES[type],
-    corps: lignes.join("\n"),
-    lien: o.lien ?? "",
-    priorite: PRIORITES_NTFY[type] ?? "3",
-  };
-}
-
-/** Digest push : cinq lignes, pas dix - cela se lit d'un coup d'oeil. */
-export function messageNtfyDigest(nouvelles: Opportunite[]): NotificationPush {
-  const montrees = parPertinence(nouvelles).slice(0, 5);
-  const lignes = montrees.map((o, i) =>
-    `${i + 1}. ${o.titre}${o.deadline ? ` - ${o.deadline}` : ""}`);
-  if (nouvelles.length > montrees.length) {
-    lignes.push(`... et ${nouvelles.length - montrees.length} autres.`);
-  }
-  return {
-    titre: `${nouvelles.length} nouvelles opportunites`,
-    corps: lignes.join("\n"),
-    lien: "",
-    priorite: "3",
-  };
-}
-
 /** Message groupe, quand la collecte rapporte beaucoup d'un coup. */
 export function messageTelegramDigest(nouvelles: Opportunite[]): string {
   const lignes = [
@@ -941,24 +866,19 @@ interface MessageDiffuse {
   sujet: string;
   corps: string;
   telegram: string;
-  ntfy: NotificationPush;
 }
 
 export async function envoyerNotifications(
   depot: Depot, envoyeur: Envoyeur, lignes: OpportuniteStockee[],
   config: Config, nouvelles: OpportuniteStockee[],
-  messager?: Messager, pousseur?: Pousseur,
+  messager?: Messager,
 ): Promise<number> {
   const destinataire = config.emailNotification.trim();
   const parEmail = destinataire !== "";
   const parTelegram = Boolean(
     messager && config.envoiTelegram
     && config.telegramToken.trim() && config.telegramChatId.trim());
-  // Le sujet n'entre pas dans la condition : il est fabrique, pas saisi.
-  // La seule decision qui revient au client est envoiNtfy.
-  const parNtfy = Boolean(pousseur && config.envoiNtfy);
-
-  if (!parEmail && !parTelegram && !parNtfy) {
+  if (!parEmail && !parTelegram) {
     await depot.journaliser(null, "Notifications", "SKIPPED",
                             "Aucun canal configure");
     return 0;
@@ -1000,16 +920,6 @@ export async function envoyerNotifications(
       envoyer: (m) => messager!.publier(m.telegram),
     });
   }
-  if (parNtfy) {
-    voies.push({
-      nom: "ntfy",
-      plafond: (config.maxNtfyParExecution ?? 0) > 0
-        ? Math.floor(config.maxNtfyParExecution as number) : Infinity,
-      envoyes: 0,
-      reportees: 0,
-      envoyer: (m) => pousseur!.pousser(m.ntfy),
-    });
-  }
 
   /** Un envoi sur une voie ; son echec n'arrete jamais l'autre. */
   const emettre = async (
@@ -1040,7 +950,6 @@ export async function envoyerNotifications(
     const message: MessageDiffuse = {
       sujet: digest.sujet, corps: digest.corps,
       telegram: messageTelegramDigest(aNotifier),
-      ntfy: messageNtfyDigest(aNotifier),
     };
     for (const voie of voies) {
       if (voie.envoyes + 1 > voie.plafond) { voie.reportees++; continue; }
@@ -1092,7 +1001,6 @@ export async function envoyerNotifications(
           compose = {
             sujet: message.sujet, corps: message.corps,
             telegram: messageTelegram(type, ligne),
-            ntfy: messageNtfy(type, ligne),
           };
         } catch (e) {
           await depot.journaliser(ligne.source ?? null, `Notification ${type}`,
@@ -1148,7 +1056,6 @@ export async function executer(
   recuperer: Recuperateur = recuperateurReel,
   messager?: Messager,
   classeur?: Classeur,
-  pousseur?: Pousseur,
 ): Promise<Resume> {
   const config = await depot.lireConfig();
   try {
@@ -1177,7 +1084,7 @@ export async function executer(
     const toutes = [...existantes, ...bilan.nouvelles];
     const suivies = await majDeadlines(depot, toutes, config);
     const emails = await envoyerNotifications(
-      depot, envoyeur, toutes, config, bilan.nouvelles, messager, pousseur);
+      depot, envoyeur, toutes, config, bilan.nouvelles, messager);
 
     const resume: Resume = {
       nouvelles: bilan.nouvelles.length,

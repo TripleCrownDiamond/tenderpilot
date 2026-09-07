@@ -473,7 +473,15 @@ function estSuivie_(ligne) {
   return estVrai(ligne.suivi);
 }
 
-var CANAUX = ['email', 'telegram', 'ntfy'];
+/**
+ * Les canaux d'alerte.
+ *
+ * ntfy y a figure du 2026-09-04 au 2026-09-07, puis a ete RETIRE : voir
+ * AGENTS.md. Retirer un canal de cette liste suffit - canauxNotifies_
+ * ignore une valeur qu'elle ne connait pas, donc une case Notif_* qui
+ * porte encore "email,telegram,ntfy" se relit sans erreur.
+ */
+var CANAUX = ['email', 'telegram'];
 
 /**
  * LA MEMOIRE D UNE ALERTE EST PAR CANAL, PAS PAR LIGNE.

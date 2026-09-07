@@ -54,57 +54,13 @@ Vous recevrez un email :
 
 Une opportunite ne vous ecrit jamais deux fois pour la meme raison.
 
-### Trois autres canaux, si vous voulez
+### Deux autres canaux, si vous voulez
 
-Un email se perd dans une boite pleine. Trois autres facons d'etre prevenu
-existent, toutes facultatives, toutes reglables dans l'onglet CONFIG. Vous
-pouvez les cumuler, ou n'en garder qu'une - laissez `NOTIFICATION_EMAIL`
-vide si vous ne voulez pas d'emails du tout.
-
-**La notification push (ntfy).** Elle arrive sur votre telephone comme un
-message, meme quand vous ne relevez pas vos emails. Comptez cinq minutes :
-un compte gratuit, un jeton, deux cases a remplir.
-
-1. Creez un compte gratuit sur **ntfy.sh** (deux minutes), puis
-   **Account > Access tokens > Create token**. Copiez le jeton, qui
-   commence par `tk_`.
-2. Onglet CONFIG : `SEND_NTFY` a **`true`**, et collez le jeton dans
-   **`NTFY_JETON`**. Ce sont les deux seules cases que vous remplissez.
-3. Menu **TenderPilot > Tester la notification push (ntfy)**. TenderPilot
-   fabrique alors **votre** sujet - de la forme
-   `tenderpilot-a1b2c3d4e5f6` - et vous l'affiche.
-4. Installez l'application **ntfy** (Android, iPhone, ou ntfy.sh dans un
-   navigateur), appuyez sur **+**, et collez ce sujet. Vous le retrouverez a
-   tout moment dans la case `NTFY_SUJET` de l'onglet CONFIG.
-
-> **Vous n'avez pas a vous connecter dans l'application.** Sur ntfy.sh les
-> sujets sont publics : s'abonner suffit pour recevoir. Le compte et le
-> jeton ne servent qu'a l'ENVOI, cote TenderPilot. Si l'application vous
-> propose "Gerer les utilisateurs", c'est pour les serveurs proteges - ca
-> ne change rien ici.
-
-> **Le jeton n'est pas facultatif.** ntfy.sh compte son quota de 250
-> messages par jour et par **adresse IP**, et Google fait sortir tous les
-> scripts par des adresses partagees par des milliers d'utilisateurs : sans
-> jeton, votre deuxieme message se heurte a *"daily quota reached"* - un
-> quota que d'autres ont consomme. Avec le jeton, le quota est compte sur
-> votre compte, et il est a vous.
->
-> **Un jeton n'est pas un mot de passe.** Il commence par `tk_` et
-> s'obtient dans *Account > Access tokens > Create token*. Coller votre mot
-> de passe a la place ne marchera pas - le test vous le dira.
-
-> **Ne composez pas le sujet vous-meme**, et ne modifiez pas la case. Il a
-> toujours la meme forme - `tenderpilot-` suivi de douze caracteres tires
-> au hasard, par exemple `tenderpilot-a1b2c3d4e5f6` - et ce tirage a deux
-> raisons : sur le serveur public un sujet est global, donc deux clients
-> qui choisiraient le meme nom recevraient les alertes l'un de l'autre ; et
-> un sujet lisible est un sujet devinable. **Ne le partagez pas** : qui le
-> connait lit vos alertes.
-
-**Si quelque chose ne marche pas**, Menu **TenderPilot > Tester la
-notification push (ntfy)** vous repond precisement : le sujet utilise, si
-un jeton a ete lu, et ce que ntfy a repondu.
+Un email se perd dans une boite pleine. Deux autres facons d'etre prevenu
+existent, toutes deux facultatives et reglables dans l'onglet CONFIG : un
+salon **Telegram**, et vos echeances dans votre **Google Agenda**. Vous
+pouvez les cumuler - laissez `NOTIFICATION_EMAIL` vide si vous ne voulez
+pas d'emails du tout.
 
 **Telegram**, si vous y etes deja.
 
@@ -121,13 +77,12 @@ un jeton a ete lu, et ce que ntfy a repondu.
 
 4. Menu **TenderPilot > Tester la notification Telegram**.
 
-**Chaque canal a son propre rythme.** `MAX_EMAILS_PAR_EXECUTION`,
-`MAX_TELEGRAM_PAR_EXECUTION` et `MAX_NTFY_PAR_EXECUTION` se reglent
-separement. C'est utile : Google ne vous laisse envoyer que 100 emails par
-jour, alors qu'un salon Telegram ou un telephone n'ont pas de limite. Vous
-pouvez donc garder 20 emails par passage et laisser les deux autres sans
-plafond. Une alerte deja partie sur un canal ne repart pas quand un autre la
-rattrape.
+**Chaque canal a son propre rythme.** `MAX_EMAILS_PAR_EXECUTION` et
+`MAX_TELEGRAM_PAR_EXECUTION` se reglent separement. C'est utile : Google ne
+vous laisse envoyer que 100 emails par jour, alors qu'un salon Telegram n'a
+pas de limite. Vous pouvez donc garder 20 emails par passage et laisser
+Telegram sans plafond. Une alerte deja partie sur un canal ne repart pas
+quand l'autre la rattrape.
 
 ## 3 bis. Vos echeances dans votre agenda
 

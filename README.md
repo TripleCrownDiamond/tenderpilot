@@ -11,9 +11,8 @@ SOURCES -> COLLECTE -> NORMALISATION -> DEDUPLICATION -> BASE
 Rien d'autre. Pas d'IA, pas de scoring, pas de Go/No-Go, pas de comptes
 utilisateurs.
 
-Les alertes partent par **email, Telegram ou notification push (ntfy)**. Les
-trois canaux partagent les memes regles de declenchement, mais chacun a son
-plafond et sa memoire : si l'un tombe ou plafonne, les autres passent, et
+Les alertes partent par **email ou Telegram**. Les deux canaux partagent les
+memes regles de declenchement, mais chacun a son plafond et sa memoire : si l'un tombe ou plafonne, les autres passent, et
 aucun ne renvoie ce qu'il a deja envoye.
 
 Les echeances que le client marque **Suivi** sont en plus posees dans son
@@ -54,7 +53,6 @@ Prerequis : Python 3.10+ avec `openpyxl`, et Node pour les tests et le web.
       Sources.gs          synchronisation du catalogue de sources
       Sheet.gs            acces au classeur
       Telegram.gs         second canal : messages Telegram
-      Ntfy.gs             troisieme canal : notifications push
       Agenda.gs           echeances SUIVIES posees dans Google Agenda
       Llm.gs              classement intelligent, inerte sans cle
       Run.gs              collecte, deadlines, alertes, menu, declencheurs
