@@ -1499,6 +1499,44 @@ apparaître des appels dans un flux qui n'en contient pas : ça ne fait que
 descendre le bruit à zéro utile. Ces neuf flux restent inactifs **par
 mesure**, pas par précaution.
 
+### Agriculture, climat, formation : quarante adresses, zéro source
+
+**Chasse du 2026-09-08**, à la demande du propriétaire, sur ses thèmes :
+agriculture, développement durable, climat, ressources naturelles,
+renforcement de capacités, entrepreneuriat, numérique, genre, coopératives,
+médias. Quarante adresses testées, **aucune source nouvelle collectable**.
+
+| Piste | Constat |
+|---|---|
+| CORAF | **SPA** : `/appels-doffres/`, `/opportunites/`, `?s=…` rendent tous le *même* corps de 176 355 octets — la coquille d'accueil |
+| SNV (tenders) | la page existe et décrit bien l'offre, mais la liste est `Loading…` ; aucun point d'API dans le HTML |
+| AGRA | `/procurement/` et `/opportunities/` : 355 occurrences de « tender », **une seule** entrée réelle — page descriptive, pas liste |
+| AfricaRice, IITA, UNOPS, GEF-SGP, CILSS, UEMOA, CEDEAO, UNCCD, GCF | 404 sur toutes les adresses essayées |
+| IFAD, UNIDO | 403 |
+| Hub Rural, ARMP Togo, DNCMP Togo, marchés publics Sénégal | ne répondent pas (délai dépassé) |
+| Inter-réseaux | API WordPress **ouverte**, mais les appels trouvés datent de 2017-2021 ; le site publie encore (dernier billet 2026-02) sans plus d'appels |
+| DGCMEF Burkina | page « Appels d'offre » servie en 30 ko, **aucune date, trois mots-clés** : vide ou chargée en JavaScript |
+| DGMP Côte d'Ivoire | 12 ko, page de garde |
+
+**Le test WordPress vaut d'être retenu.** Beaucoup de ces sites tournent
+sous WordPress, dont l'API REST est ouverte par défaut :
+`/wp-json/wp/v2/posts?per_page=1`. Deux requêtes suffisent à savoir si un
+site est exploitable sans écrire un analyseur — c'est ainsi que Niger
+Marchés a été pris. Ici : CORAF rend sa coquille, AfricaRice 404, seul
+Inter-réseaux répond, avec du contenu périmé.
+
+**Ce que cette chasse confirme.** Les sites d'ONG et d'instituts sont le
+plus mauvais rapport effort/résultat du catalogage : SPA, 404, ou
+Cloudflare. Le volume utile vient de **fournisseurs à flux par pays** (PNUD,
+Banque mondiale), de **portails nationaux**, et de **guichets structurés**
+(portail européen, grants.gov) — tous déjà au registre.
+
+**Ce qui reste ouvert**, par ordre de rentabilité : le portail européen
+(déjà actif, à filtrer par thème plutôt que par statut), UNGM par *agence*
+plutôt que par pays — FAO, FIDA, PNUE y publient — mais bloqué par la même
+décision d'agent utilisateur, et les portails nationaux togolais et
+ivoirien le jour où ils répondront.
+
 ### Pistes fermées, et pourquoi
 
 Inutile de les retester sans élément nouveau.
