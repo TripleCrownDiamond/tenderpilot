@@ -1,0 +1,521 @@
+{
+ "items": [
+  {
+   "AuctionHeaderId": 452015,
+   "NegotiationTitle": "CONSULTANCY FOR TECHNICAL ASSISTANCE FOR ENHANCING YOUTH WORK OPPORTUNITIES",
+   "Negotiation": "AGRA-MZ-1039",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-21T18:36:03+00:00",
+   "OpenDate": "2026-09-07T18:36:03+00:00",
+   "ProcurementBUId": 300000001758818,
+   "ProcurementBUName": "AGRA-Mozambique",
+   "PostingDate": "2026-09-07",
+   "BuyerName": "Caroline Ngomo",
+   "BuyerEmailAddress": "cngomo@agra.org",
+   "Synopsis": "CONSULTANCY FOR TECHNICAL ASSISTANCE FOR ENHANCING YOUTH WORK OPPORTUNITIES THROUGH INTEGRATED YOUTH-LED FREE-RANGE AND SEMI-FREE RANGE POULTRY VALUE CHAINS PRODUCTION IN SOUTHERN MOZAMBIQUE\n",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "12 Days 19 Hours",
+   "TimeRemainingOrder": 12.799409722222222,
+   "PublishDate": "2026-09-07T18:36:04+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758818,
+   "PersonId": 300000051529649,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006E5AF0000000EACED00057708000110D931899662",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006E5AF0000000EACED00057708000110D931899662",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006E5AF0000000EACED00057708000110D931899662/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006E5AF0000000EACED00057708000110D931899662/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006E5AF0000000EACED00057708000110D931899662/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 450015,
+   "NegotiationTitle": "Consultancy to Conduct a Safeguarding, Gender and Youth Inclusion Analysis",
+   "Negotiation": "AGRA-US-1245",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-18T14:07:44+00:00",
+   "OpenDate": "2026-09-04T14:07:44+00:00",
+   "ProcurementBUId": 300000001758828,
+   "ProcurementBUName": "AGRA-USA",
+   "PostingDate": "2026-09-04",
+   "BuyerName": "Jennipher Tibagonzeka",
+   "BuyerEmailAddress": "jtibagonzeka@agra.org",
+   "Synopsis": "Consultancy to Conduct a Safeguarding, Gender and Youth Inclusion Analysis and Capacity Strengthening for the Agrifood System Transformation for Youth Employment (ASTYE) Program in Uganda.",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "9 Days 14 Hours",
+   "TimeRemainingOrder": 9.613078703703703,
+   "PublishDate": "2026-09-04T14:07:44+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758828,
+   "PersonId": 300000061290378,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006DDDF0000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006DDDF0000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006DDDF0000000EACED00057708000110D93189966C/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006DDDF0000000EACED00057708000110D93189966C/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006DDDF0000000EACED00057708000110D93189966C/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 449015,
+   "NegotiationTitle": "Youth Empowerment in Poultry and Horticulture Value Chains",
+   "Negotiation": "AGRA-US-1244",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-16T05:06:56+00:00",
+   "OpenDate": "2026-09-02T05:06:56+00:00",
+   "ProcurementBUId": 300000001758828,
+   "ProcurementBUName": "AGRA-USA",
+   "PostingDate": "2026-09-02",
+   "BuyerName": "Enock Morwani",
+   "BuyerEmailAddress": "EMorwani@agra.org",
+   "Synopsis": "Consultancy to deliver regional youth empowerment activities targeting vulnerable youth along the poultry and horticulture value chains in Eastern and Southern Africa",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "7 Days 5 Hours",
+   "TimeRemainingOrder": 7.237523148148148,
+   "PublishDate": "2026-09-02T05:06:57+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758828,
+   "PersonId": 300000012516276,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006D9F70000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006D9F70000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006D9F70000000EACED00057708000110D93189966C/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006D9F70000000EACED00057708000110D93189966C/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006D9F70000000EACED00057708000110D93189966C/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 445016,
+   "NegotiationTitle": "PROVISION OF INDEPENDENT WHISTLEBLOWING REPORTING SERVICES",
+   "Negotiation": "AGRA-NB-1506",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-15T14:00:00+00:00",
+   "OpenDate": "2026-08-26T13:08:00+00:00",
+   "ProcurementBUId": 300000001758868,
+   "ProcurementBUName": "AGRA-Nairobi",
+   "PostingDate": "2026-08-26",
+   "BuyerName": "Benedette Cheruiyot",
+   "BuyerEmailAddress": "bcheruiyot@agra.org",
+   "Synopsis": "Provision of Independent Whistleblowing Reporting Services",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "6 Days 14 Hours",
+   "TimeRemainingOrder": 6.607708333333333,
+   "PublishDate": "2026-08-26T13:08:00+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 4,
+   "filterPrcBUId": 300000001758868,
+   "PersonId": 300000009058354,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA580000000EACED00057708000110D931899694",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA580000000EACED00057708000110D931899694",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA580000000EACED00057708000110D931899694/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA580000000EACED00057708000110D931899694/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA580000000EACED00057708000110D931899694/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 426014,
+   "NegotiationTitle": "Provision of Website Management, Maintenance, and Content Update Services",
+   "Negotiation": "AGRA-NB-1489",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-14T14:00:35+00:00",
+   "OpenDate": "2026-07-24T18:04:35+00:00",
+   "ProcurementBUId": 300000001758868,
+   "ProcurementBUName": "AGRA-Nairobi",
+   "PostingDate": "2026-07-24",
+   "BuyerName": "Peter Agwata",
+   "BuyerEmailAddress": "pagwata@agra.org",
+   "Synopsis": null,
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "5 Days 14 Hours",
+   "TimeRemainingOrder": 5.608113425925926,
+   "PublishDate": "2026-07-24T18:04:35+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 1,
+   "filterPrcBUId": 300000001758868,
+   "PersonId": 300000002925391,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006801E0000000EACED00057708000110D931899694",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006801E0000000EACED00057708000110D931899694",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006801E0000000EACED00057708000110D931899694/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006801E0000000EACED00057708000110D931899694/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006801E0000000EACED00057708000110D931899694/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 300000093969909,
+   "NegotiationTitle": "Provision of Legal Services in Ghana.",
+   "Negotiation": "AGRA-GH-1071",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-14T14:00:00+00:00",
+   "OpenDate": "2026-08-29T09:34:39+00:00",
+   "ProcurementBUId": 300000001758758,
+   "ProcurementBUName": "AGRA-Ghana",
+   "PostingDate": "2026-08-29",
+   "BuyerName": "Kent Warekwa",
+   "BuyerEmailAddress": "kwarekwa@agra.org",
+   "Synopsis": "Provision of Legal Services in Ghana.",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Active",
+   "NegotiationStatusCode": "ACTIVE",
+   "TimeRemaining": "5 Days 14 Hours",
+   "TimeRemainingOrder": 5.607708333333333,
+   "PublishDate": "2026-08-29T09:34:39+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 4,
+   "filterPrcBUId": 300000001758758,
+   "PersonId": 300000030048008,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D937089DF50000000EACED00057708000110D931899626",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D937089DF50000000EACED00057708000110D931899626",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D937089DF50000000EACED00057708000110D931899626/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D937089DF50000000EACED00057708000110D931899626/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D937089DF50000000EACED00057708000110D931899626/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 445015,
+   "NegotiationTitle": "Consultancy for an Associate Programme Officer",
+   "Negotiation": "AGRA-US-1242",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-08T14:11:18+00:00",
+   "OpenDate": "2026-08-25T14:11:18+00:00",
+   "ProcurementBUId": 300000001758828,
+   "ProcurementBUName": "AGRA-USA",
+   "PostingDate": "2026-08-25",
+   "BuyerName": "Tabitha Ndungu",
+   "BuyerEmailAddress": "tndungu@agra.org",
+   "Synopsis": "Consultancy for an Associate Programme Officer: Youth Capacity Enhancement, Project Implementation, and Monitoring, Evaluation and Learning – to be seconded to SACAU",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Closed",
+   "NegotiationStatusCode": "CLOSED",
+   "TimeRemaining": "0 Seconds",
+   "TimeRemainingOrder": 364999.61555555556,
+   "PublishDate": "2026-08-25T14:11:18+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758828,
+   "PersonId": 300000051272048,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA570000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA570000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA570000000EACED00057708000110D93189966C/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA570000000EACED00057708000110D93189966C/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000000000006CA570000000EACED00057708000110D93189966C/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 300000094238790,
+   "NegotiationTitle": "CONSULTANCY TO CONDUCT DEEP DIAGNOSTICS OF THE POLICY, LEGAL, REGULATORY REFORMS",
+   "Negotiation": "AGRA-TZ-1059-2",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-09-08T11:03:42+00:00",
+   "OpenDate": "2026-08-31T11:03:42+00:00",
+   "ProcurementBUId": 300000001758778,
+   "ProcurementBUName": "AGRA-Tanzania",
+   "PostingDate": "2026-08-31",
+   "BuyerName": "Caroline Ngomo",
+   "BuyerEmailAddress": "cngomo@agra.org",
+   "Synopsis": "CONSULTANCY TO CONDUCT DEEP DIAGNOSTICS OF THE POLICY, LEGAL, REGULATORY REFORMS AND INSTITUTIONAL CAPACITY GAPS, AND SUPPORT IMPLEMENTATION OF PRIORITIZED REFORMS AND INSTITUTIONAL CAPACITY STRENGTHENING ACTIONS TO ENABLE INVESTMENT IN FOOD LOSS REDUCTION SOLUTIONS (FL-RS) IN TANZANIA",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Closed",
+   "NegotiationStatusCode": "CLOSED",
+   "TimeRemaining": "0 Seconds",
+   "TimeRemainingOrder": 364999.48527777777,
+   "PublishDate": "2026-08-31T11:03:42+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758778,
+   "PersonId": 300000051529649,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D9370CB8460000000EACED00057708000110D93189963A",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D9370CB8460000000EACED00057708000110D93189963A",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D9370CB8460000000EACED00057708000110D93189963A/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D9370CB8460000000EACED00057708000110D93189963A/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED00057708000110D9370CB8460000000EACED00057708000110D93189963A/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  },
+  {
+   "AuctionHeaderId": 425014,
+   "NegotiationTitle": "Consultancy for Engagement of a Project Assistant to Support the Implementation",
+   "Negotiation": "AGRA-US-1226",
+   "NegotiationTypeId": 5,
+   "NegotiationType": "RFP",
+   "CloseDate": "2026-07-29T21:12:42+00:00",
+   "OpenDate": "2026-07-15T21:12:42+00:00",
+   "ProcurementBUId": 300000001758828,
+   "ProcurementBUName": "AGRA-USA",
+   "PostingDate": "2026-07-15",
+   "BuyerName": "Benedette Cheruiyot",
+   "BuyerEmailAddress": "bcheruiyot@agra.org",
+   "Synopsis": "Consultancy for Engagement of a Project Assistant to Support the Implementation of AfCFTA Agri-Food Trade Action Plan",
+   "AmendmentDescription": null,
+   "NegotiationStatus": "Canceled",
+   "NegotiationStatusCode": "CANCELLED",
+   "TimeRemaining": "Canceled",
+   "TimeRemainingOrder": 729958.9081944445,
+   "PublishDate": "2026-07-15T21:12:42+00:00",
+   "PreviewDate": null,
+   "AttachmentsCount": 3,
+   "filterPrcBUId": 300000001758828,
+   "PersonId": 300000009058354,
+   "links": [
+    {
+     "rel": "self",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED000577080000000000067C360000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "canonical",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED000577080000000000067C360000000EACED00057708000110D93189966C",
+     "name": "supplierNegotiationAbstracts",
+     "kind": "item"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED000577080000000000067C360000000EACED00057708000110D93189966C/child/DFF",
+     "name": "DFF",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED000577080000000000067C360000000EACED00057708000110D93189966C/child/attachments",
+     "name": "attachments",
+     "kind": "collection"
+    },
+    {
+     "rel": "child",
+     "href": "https://ekjd.fa.em2.oraclecloud.com:443/fscmRestApi/resources/11.13.18.05/supplierNegotiationAbstracts/00020000000EACED000577080000000000067C360000000EACED00057708000110D93189966C/child/supplierNegotiationAmendments",
+     "name": "supplierNegotiationAmendments",
+     "kind": "collection"
+    }
+   ]
+  }
+ ],
+ "count": 9,
+ "hasMore": true,
+ "limit": 50,
+ "offset": 0
+}

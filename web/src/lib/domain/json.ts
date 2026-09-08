@@ -726,7 +726,84 @@ export function analyserNigerMarches(corps: string): EntreeFlux[] {
   return sortie;
 }
 
+/**
+ * Negociations d'achat d'une instance Oracle Fusion Procurement.
+ *
+ * L'API supplierNegotiationAbstracts est PUBLIQUE : elle repond sans jeton
+ * ni cookie, pourvu qu'on lui donne un finder. Ajouter une autre
+ * organisation qui tourne sur Oracle Fusion ne demandera qu'une ligne de
+ * registre, pas une ligne de code.
+ *
+ * MESURE DU 2026-09-09 sur l'instance d'AGRA : deux cents avis, dont
+ * treize ouverts, repartis sur neuf unites d'achat - et le finder NE
+ * FILTRE PAS, il rend toute l'instance. Une ligne couvre les neuf pays.
+ *
+ * Un avis ANNULE garde une date de cloture dans le futur : sans ce filtre
+ * il entrerait dans le tableau et le client y repondrait.
+ *
+ * Jumeau d'analyserApiOracleNegociations() dans Json.gs.
+ */
+const ORACLE_PAYS: Record<string, string> = {
+  // Mesure du 2026-09-09 : les suffixes d'unite sont des pays, sauf deux.
+  Nairobi: "Kenya",
+  USA: "International",
+};
+
+export function analyserOracleNegociations(corps: string): EntreeFlux[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const items = (donnees as { items?: unknown })?.items;
+  if (!Array.isArray(items)) return [];
+
+  return items.map((brut): EntreeFlux | null => {
+    const a = brut as Record<string, unknown>;
+    const titre = String(a.NegotiationTitle ?? "").trim();
+    if (!titre) return null;
+
+    const statut = String(a.NegotiationStatus ?? "").trim().toLowerCase();
+    if (["canceled", "cancelled", "awarded"].includes(statut)) return null;
+
+    const unite = String(a.ProcurementBUName ?? "").trim();
+    const tiret = unite.indexOf("-");
+    const suffixe = tiret !== -1 ? unite.slice(tiret + 1).trim() : "";
+
+    const jour = (v: unknown) => {
+      const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? "").trim());
+      return m ? m[1] : null;
+    };
+
+    // L'HOTE SE LIT DANS LA REPONSE, pas dans la configuration : chaque
+    // item porte un lien "self" vers l'API. L'analyseur marche donc sur
+    // n'importe quelle instance Oracle sans rien savoir d'elle.
+    const self = Array.isArray(a.links)
+      ? String((a.links as Array<Record<string, unknown>>)[0]?.href ?? "") : "";
+    const hote = (/^https?:\/\/[^/:]+/.exec(self)?.[0] ?? "");
+
+    const numero = String(a.Negotiation ?? "").trim();
+    const synopsis = String(a.Synopsis ?? "").trim();
+
+    return {
+      titre,
+      lien: `${hote}/fscmUI/redwood/negotiation-abstracts/view/`
+        + `abstractlisting?prcBuId=${String(a.ProcurementBUId ?? "")}`,
+      organisation: unite || null,
+      pays: ORACLE_PAYS[suffixe] ?? (suffixe || null),
+      type: String(a.NegotiationType ?? "").trim() || null,
+      deadline: jour(a.CloseDate),
+      publie: jour(a.PostingDate),
+      // Le numero ouvre le resume : sans page par avis, c'est lui qui
+      // permet de retrouver la ligne dans la liste.
+      resume: [numero, synopsis].filter(Boolean).join(" - "),
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
+}
+
 export const ANALYSEURS_JSON: Record<string, (corps: string) => EntreeFlux[]> = {
+  "oraclecloud.com": analyserOracleNegociations,
   "worldbank.org": analyserWorldBank,
   "fundpilote.com": analyserFundpilote,
   "ec.europa.eu": analyserEuropa,

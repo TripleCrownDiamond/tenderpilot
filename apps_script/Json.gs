@@ -20,6 +20,7 @@
 
 /** Repertoire des analyseurs d'API, par nom de methode. */
 var ANALYSEURS_JSON = {
+  'oraclecloud.com': analyserApiOracleNegociations,
   'worldbank.org': analyserApiWorldBank,
   'fundpilote.com': analyserApiFundpilote,
   'ec.europa.eu': analyserApiEuropa,
@@ -710,6 +711,100 @@ function formeRequete_(methode, page) {
   return fabrique ? fabrique(page || 1) : null;
 }
 
+/**
+ * Negociations d'achat d'une instance Oracle Fusion Procurement.
+ *
+ * POURQUOI CET ANALYSEUR VAUT PLUS QU'UNE SOURCE. Oracle Fusion est le
+ * progiciel d'achat de beaucoup de grandes organisations, et son API
+ * supplierNegotiationAbstracts est PUBLIQUE : elle repond sans jeton et
+ * sans cookie, pourvu qu'on lui donne un finder. Ajouter une autre
+ * organisation qui tourne dessus ne demandera qu'une ligne de registre.
+ *
+ * MESURE DU 2026-09-09, sur l'instance d'AGRA - l'alliance pour une
+ * revolution verte en Afrique :
+ *
+ *   GET .../supplierNegotiationAbstracts
+ *       ?finder=RowFinderByBU;ProcurementBUId=<id>
+ *       &limit=200&orderBy=CloseDate:desc
+ *   -> 200, deux cents avis, dont TREIZE encore ouverts
+ *
+ * Neuf unites d'achat y cohabitent - Nairobi, Ghana, Tanzanie, Malawi,
+ * Burkina Faso, Rwanda, Mali, Mozambique, USA - et le finder NE FILTRE
+ * PAS : il rend toute l'instance quel que soit l'identifiant passe. C'est
+ * une bonne nouvelle et non un defaut : une ligne de registre couvre les
+ * neuf pays.
+ *
+ * CE QU'ON ECARTE. Un avis ANNULE garde une date de cloture dans le futur
+ * comme les autres : sans ce filtre il entrerait dans le tableau, et le
+ * client y repondrait.
+ *
+ * LE LIEN. Il n'existe pas de page publique par avis - le detail se rend
+ * en JavaScript. On pointe donc la LISTE de l'unite concernee, qui
+ * s'ouvre pour tout le monde, et le numero de negociation part en
+ * reference pour que le client retrouve sa ligne. Meme parti pris que
+ * Plan International.
+ */
+var ORACLE_PAYS = {
+  // Mesure du 2026-09-09 : les suffixes d'unite sont des pays, sauf deux.
+  // On ne devine pas au-dela de ce qui a ete constate.
+  'Nairobi': 'Kenya',
+  'USA': 'International'
+};
+
+function analyserApiOracleNegociations(corps, source) {
+  var donnees;
+  try {
+    donnees = JSON.parse(corps);
+  } catch (e) {
+    return [];
+  }
+  var items = donnees && donnees.items;
+  if (!items || !items.length) return [];
+
+  var sortie = [];
+
+  items.forEach(function (a) {
+    var titre = String(a.NegotiationTitle || '').trim();
+    if (!titre) return;
+
+    var statut = String(a.NegotiationStatus || '').trim().toLowerCase();
+    if (statut === 'canceled' || statut === 'cancelled'
+        || statut === 'awarded') {
+      return;
+    }
+
+    var unite = String(a.ProcurementBUName || '').trim();
+    var tiret = unite.indexOf('-');
+    var suffixe = tiret !== -1 ? unite.slice(tiret + 1).trim() : '';
+
+    // L'HOTE SE LIT DANS LA REPONSE, pas dans la configuration : chaque
+    // item porte un lien "self" vers l'API. L'analyseur marche donc sur
+    // n'importe quelle instance Oracle sans rien savoir d'elle.
+    var self = (a.links && a.links.length) ? String(a.links[0].href || '') : '';
+    var hote = (/^https?:\/\/[^\/:]+/.exec(self) || [''])[0];
+
+    var numero = String(a.Negotiation || '').trim();
+    var synopsis = String(a.Synopsis || '').trim();
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: hote + '/fscmUI/redwood/negotiation-abstracts/view/abstractlisting'
+        + '?prcBuId=' + String(a.ProcurementBUId || ''),
+      ref: numero,
+      org: unite,
+      country: ORACLE_PAYS[suffixe] || suffixe,
+      type: String(a.NegotiationType || '').trim(),
+      deadline: jourSeul_(a.CloseDate),
+      published: jourSeul_(a.PostingDate),
+      // Le numero ouvre le resume : sans page par avis, c'est lui qui
+      // permet de retrouver la ligne dans la liste.
+      summary: [numero, synopsis].filter(function (v) { return v; }).join(' - ')
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     analyseurJson_: analyseurJson_,
@@ -722,6 +817,7 @@ if (typeof module !== 'undefined') {
     formeRequete_: formeRequete_,
     FRONTIERE_MULTIPART: FRONTIERE_MULTIPART,
     REQUETES_SOURCES: REQUETES_SOURCES,
+    analyserApiOracleNegociations: analyserApiOracleNegociations,
     ANALYSEURS_JSON: ANALYSEURS_JSON
   };
 }

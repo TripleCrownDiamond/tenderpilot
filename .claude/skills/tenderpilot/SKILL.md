@@ -1512,7 +1512,7 @@ manquée.
 |---|---|
 | ~~CORAF~~ | **Conclusion fausse, corrigée le lendemain — voir ci-dessous** |
 | SNV (tenders) | la page existe et décrit bien l'offre, mais la liste est `Loading…` ; aucun point d'API dans le HTML |
-| AGRA | `/procurement/` et `/opportunities/` : 355 occurrences de « tender », **une seule** entrée réelle — page descriptive, pas liste |
+| ~~AGRA~~ | **Conclusion fausse elle aussi** : la liste n'est pas sur agra.org, elle est dans leur Oracle — voir ci-dessous |
 | AfricaRice, IITA, UNOPS, GEF-SGP, CILSS, UEMOA, CEDEAO, UNCCD, GCF | 404 sur toutes les adresses essayées |
 | IFAD, UNIDO | 403 |
 | Hub Rural, ARMP Togo, DNCMP Togo, marchés publics Sénégal | ne répondent pas (délai dépassé) |
@@ -1520,6 +1520,44 @@ manquée.
 | DGCMEF Burkina | page « Appels d'offre » servie en 30 ko, **aucune date, trois mots-clés** : vide ou chargée en JavaScript |
 | DGMP Côte d'Ivoire | 12 ko, page de garde |
 | FAO Afrique et Amériques (`/tenders`) | pages **vides** : « Des informations sur les appels d'offres seront fréquemment publiées sur cette page ». Zéro entrée, zéro PDF. La FAO passe par UNGM |
+
+### Oracle Fusion : une API d'achat publique, et un analyseur qui resservira
+
+**Mesure du 2026-09-09.** Le propriétaire a fourni l'adresse que le portail
+d'AGRA appelle en arrière-plan. Elle mène à une instance **Oracle Fusion
+Procurement**, dont la ressource `supplierNegotiationAbstracts` répond
+**sans jeton ni cookie** :
+
+    GET .../fscmRestApi/resources/latest/supplierNegotiationAbstracts
+        ?finder=RowFinderByBU;ProcurementBUId=<id>&limit=200&orderBy=CloseDate:desc
+    -> 200, deux cents avis, dont TREIZE encore ouverts
+
+**Comment trouver le bon appel quand la documentation manque.** La ressource
+répond `400 « A finder is required »` : elle existe donc, et elle est
+publique. `/describe` est ouvert lui aussi et **liste les finders**
+(`RowFinderByBU`) et les attributs. Deux requêtes, et le contrat est connu —
+méthode à reprendre devant toute API Oracle Fusion.
+
+**Trois constats qui font la valeur de la source.**
+
+1. **Le finder ne filtre pas.** Quel que soit l'identifiant passé, il rend
+   toute l'instance — neuf unités d'achat, neuf pays. Une ligne de registre
+   couvre le Ghana, le Burkina, le Mali, le Rwanda, la Tanzanie… et chaque
+   pays est nommé dans sa colonne. C'est un cadeau, pas un défaut.
+2. **L'hôte se lit dans la réponse.** Chaque item porte un lien `self` vers
+   l'API : l'analyseur n'a besoin de rien savoir de l'instance et marche
+   donc sur **n'importe quelle** organisation qui tourne sous Oracle Fusion.
+   Ajouter la suivante ne demandera qu'une ligne de registre.
+3. **Un avis annulé garde une date de clôture dans le futur.** Sans filtre
+   sur `NegotiationStatus`, il entrerait dans le tableau et le client y
+   répondrait. Ce piège ne se voit qu'en regardant les données.
+
+**Et la leçon, la même que pour CORAF, deux jours de suite.** J'avais écarté
+AGRA la veille : « page descriptive, pas liste ». C'était vrai de
+`agra.org`, et faux de la conclusion que j'en tirais. **Une page vitrine
+sans liste ne prouve pas qu'il n'y a pas de liste — elle prouve qu'elle est
+ailleurs.** Le réflexe : regarder ce que la page *appelle* avant de conclure
+qu'elle ne contient rien.
 
 ### CORAF : j'ai déclaré une SPA là où j'avais la mauvaise adresse
 

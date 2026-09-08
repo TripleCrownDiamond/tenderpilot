@@ -3407,6 +3407,55 @@ console.log('\n[CORAF] Un plan de passation n est pas un avis');
 }
 
 // ==========================================================================
+console.log('\n[Oracle] Une API d achat publique, et neuf pays d un coup');
+{
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const corps = fixtureDatee(
+    fs.readFileSync(path.join(R, 'oracle-negociations.json'), 'utf8'), 20);
+  const C = monde({}).ctx;
+  const src = Object.assign(source('AGRA-ORACLE', 'https://exemple.test/o'),
+    { country: 'Afrique (multi-pays)',
+      sector: 'Agriculture et agroalimentaire', type: '' });
+
+  const lus = C.analyserApiOracleNegociations(corps, src);
+  check('les avis sont lus', lus.length === 8, lus.length + ' avis');
+
+  // UN AVIS ANNULE GARDE UNE DATE DE CLOTURE DANS LE FUTUR : sans ce
+  // filtre il entrerait dans le tableau et le client y repondrait.
+  const brut = JSON.parse(fs.readFileSync(
+    path.join(R, 'oracle-negociations.json'), 'utf8'));
+  check('la fixture contient bien un avis annule',
+        brut.items.some(a => a.NegotiationStatus === 'Canceled'));
+  check('et il est ecarte', lus.length === brut.items.length - 1);
+
+  // LE PAYS VIENT DE L UNITE D ACHAT : c est ce qui rend une seule ligne
+  // de registre utile pour neuf pays.
+  const pays = new Set(lus.map(o => o.country));
+  check('plusieurs pays sortent de la meme requete', pays.size >= 3,
+        Array.from(pays).join(', '));
+  check('Nairobi est rendu au Kenya', !pays.has('Nairobi'),
+        Array.from(pays).join(', '));
+
+  check('le numero de negociation ouvre le resume',
+        lus.every(o => /^AGRA-[A-Z]{2}-\d+/.test(o.summary)),
+        lus[0].summary.slice(0, 40));
+  check('et sert de reference pour la deduplication',
+        lus.every(o => o.ref));
+
+  // L HOTE SE LIT DANS LA REPONSE, pas dans la configuration.
+  check('le lien pointe l instance qui a repondu',
+        lus.every(o => o.url.indexOf('oraclecloud.com/fscmUI/') !== -1),
+        lus[0].url.slice(0, 60));
+  check('et porte l unite d achat concernee',
+        lus.every(o => /prcBuId=\d+/.test(o.url)));
+
+  check('un corps illisible ne fait rien tomber',
+        C.analyserApiOracleNegociations('pas du json', src).length === 0);
+  check('une reponse sans items non plus',
+        C.analyserApiOracleNegociations('{"items":[]}', src).length === 0);
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

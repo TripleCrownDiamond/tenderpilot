@@ -1588,6 +1588,18 @@ var SCHEMA = {
     "OUI",
     "",
     "Verifie le 2026-09-08 : 60 avis sur 6 pages, dix par page, rendus cote serveur, tous avec une date limite lisible. AMI de recrutement de consultants et appels a candidatures, en francais, pour toute l'Afrique de l'Ouest et centrale. ATTENTION AU VOLUME REEL : le 2026-09-08, ZERO avis encore ouvert - le CORAF publie quelques AMI par an et la page garde les archives. Les deux seules lignes datees dans le futur etaient le plan de passation et l'avis general annuel, ecartes par l'analyseur : ce ne sont pas des avis auxquels on repond."
+  ],
+  [
+    "AGRA-ORACLE",
+    "AGRA - appels d'offres (revolution verte en Afrique)",
+    "JSON:oraclecloud.com",
+    "https://ekjd.fa.em2.oraclecloud.com/fscmRestApi/resources/latest/supplierNegotiationAbstracts?finder=RowFinderByBU;ProcurementBUId=300000001758758&limit=200&orderBy=CloseDate:desc",
+    "Afrique (multi-pays)",
+    "Agriculture et agroalimentaire",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-09 : API Oracle Fusion PUBLIQUE, sans jeton ni cookie. 200 avis rendus, dont 13 encore ouverts. Neuf unites d'achat cohabitent sur l'instance - Nairobi, Ghana, Tanzanie, Malawi, Burkina Faso, Rwanda, Mali, Mozambique, USA - et le finder NE FILTRE PAS : il rend toute l'instance, donc une ligne couvre les neuf pays, chacun nomme dans la colonne Pays. RFP et RFQ de consultance agricole, en anglais. Les avis annules sont ecartes par l'analyseur : ils gardent une date de cloture future et entreraient sinon dans le tableau."
   ]
 ]
 };

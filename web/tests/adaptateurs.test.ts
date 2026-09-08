@@ -27,6 +27,7 @@ import {
 } from "../src/lib/domain/html";
 import {
   analyserEuropa, analyserFicheFundpilote, analyserFundpilote,
+  analyserOracleNegociations,
   analyserNigerMarches, analyserWorldBank,
   analyseurJson, budgetFourchette, budgetSimple, formeRequete,
 } from "../src/lib/domain/json";
@@ -1120,4 +1121,31 @@ test("CORAF : un plan de passation n'est pas un avis", () => {
   assert.equal(
     analyserPassationCoraf(carte("Avis General de Passation (AGPM)-2026")).length, 0);
   assert.equal(analyserPassationCoraf(carte("AMI N 09-2026")).length, 1);
+});
+
+// ==========================================================================
+// Oracle Fusion : une API d'achat publique, et neuf pays d'un coup.
+
+test("Oracle : les avis annules sont ecartes, les pays sont nommes", () => {
+  const brut = JSON.parse(lire("oracle-negociations.json"));
+  const entrees = analyserOracleNegociations(lire("oracle-negociations.json"));
+
+  assert.ok(brut.items.some((a: { NegotiationStatus: string }) =>
+    a.NegotiationStatus === "Canceled"), "la fixture doit contenir un annule");
+  assert.equal(entrees.length, brut.items.length - 1,
+    "un avis annule garde une date future : sans filtre il passerait");
+
+  const pays = new Set(entrees.map((e) => e.pays));
+  assert.ok(pays.size >= 3, [...pays].join(", "));
+  assert.ok(!pays.has("Nairobi"), "Nairobi est rendu au Kenya");
+
+  assert.ok(entrees.every((e) => /^AGRA-[A-Z]{2}-\d+/.test(e.resume)),
+            entrees[0].resume.slice(0, 40));
+  // L'hote se lit dans la reponse, pas dans la configuration.
+  assert.ok(entrees.every((e) => e.lien.includes("oraclecloud.com/fscmUI/")),
+            entrees[0].lien.slice(0, 60));
+  assert.ok(entrees.every((e) => /prcBuId=\d+/.test(e.lien)));
+
+  assert.equal(analyserOracleNegociations("pas du json").length, 0);
+  assert.equal(analyserOracleNegociations('{"items":[]}').length, 0);
 });
