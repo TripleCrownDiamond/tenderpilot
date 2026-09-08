@@ -15,7 +15,8 @@
 import {
   CHAMPS_MAJ, Config, Opportunite, TypeNotification, aujourdhui,
   ajouterCanal, Canal, champNotification,
-  champsModifies, clesDedup, construireIndex, estVide, joursRestants,
+  champsModifies, clesDedup, construireIndex, estVide, grouperDigest,
+  joursRestants,
   normaliser, parPertinence, pertinence, pertinenceNotifiable,
   SECTEUR_INCONNU, deduireSecteur, normaliserType, notificationsAEnvoyer,
   prochainId,
@@ -758,19 +759,29 @@ export function messageNotification(
 
 /** Email unique quand la collecte rapporte beaucoup. */
 export function messageDigest(
-  nouvelles: Opportunite[],
+  nouvelles: Opportunite[], critere?: string | null,
 ): { sujet: string; corps: string } {
   const lignes = [`Nouvelles opportunites detectees : ${nouvelles.length}`, ""];
-  // Le plus pertinent d'abord, puis le plus urgent : un recapitulatif de
-  // trente lignes ne se lit que si les premieres sont les bonnes.
-  parPertinence(nouvelles).forEach((o, i) => {
-    lignes.push(`${i + 1}. ${o.titre}`
-      + (o.pertinence ? `  [${o.pertinence}]` : ""));
-    lignes.push(`   Organisation : ${o.organisation ?? "-"} | Pays : `
-      + `${o.pays ?? "-"} | Deadline : ${o.deadline || "a verifier"}`);
-    if (o.lien) lignes.push(`   ${o.lien}`);
-    lignes.push("");
-  });
+  let rang = 0;
+
+  for (const groupe of grouperDigest(nouvelles, critere)) {
+    if (groupe.titre) {
+      lignes.push(`== ${groupe.titre.toUpperCase()} `
+        + `(${groupe.annonces.length}) ==`, "");
+    }
+    // Le plus pertinent d'abord, puis le plus urgent : un recapitulatif de
+    // trente lignes ne se lit que si les premieres sont les bonnes.
+    for (const o of groupe.annonces) {
+      rang++;
+      lignes.push(`${rang}. ${o.titre}`
+        + (o.pertinence ? `  [${o.pertinence}]` : ""));
+      lignes.push(`   Organisation : ${o.organisation ?? "-"} | Pays : `
+        + `${o.pays ?? "-"} | Deadline : ${o.deadline || "a verifier"}`);
+      if (o.lien) lignes.push(`   ${o.lien}`);
+      lignes.push("");
+    }
+  }
+
   lignes.push(RAPPEL);
   return {
     sujet: `[TenderPilot] ${nouvelles.length} nouvelles opportunites detectees`,
@@ -946,7 +957,7 @@ export async function envoyerNotifications(
 
   const envoiGroupe = aNotifier.length > config.seuilDigest && config.envoiNouvelle;
   if (envoiGroupe) {
-    const digest = messageDigest(aNotifier);
+    const digest = messageDigest(aNotifier, config.digestGroupePar);
     const message: MessageDiffuse = {
       sujet: digest.sujet, corps: digest.corps,
       telegram: messageTelegramDigest(aNotifier),

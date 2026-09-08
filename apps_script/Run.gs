@@ -1051,25 +1051,37 @@ function messageNotification(type, ligne) {
 }
 
 /** Email recapitulatif quand la collecte rapporte beaucoup - section 19. */
-function messageDigest(nouvelles) {
+function messageDigest(nouvelles, config) {
+  var groupes = grouperDigest_(nouvelles,
+    (config || CONFIG_COURANTE || {}).DIGEST_GROUPE_PAR);
   var lignes = ['Nouvelles opportunites detectees : ' + nouvelles.length, ''];
-  // Le plus pertinent d'abord, puis le plus urgent : un recapitulatif de
-  // trente lignes ne se lit que si les premieres sont les bonnes.
-  parPertinence_(nouvelles).forEach(function (o, i) {
-    lignes.push((i + 1) + '. ' + o.title
-      + (o.pertinence ? '  [' + o.pertinence + ']' : ''));
-    lignes.push('   Organisation : ' + (o.org || '-')
-      + ' | Pays : ' + (o.country || '-')
-      + ' | Deadline : ' + (o.deadline || 'a verifier'));
-    if (o.url) lignes.push('   ' + o.url);
-    lignes.push('');
+  var rang = 0;
+
+  groupes.forEach(function (groupe) {
+    if (groupe.titre) {
+      lignes.push('== ' + groupe.titre.toUpperCase()
+        + ' (' + groupe.annonces.length + ') ==', '');
+    }
+    // Le plus pertinent d'abord, puis le plus urgent : un recapitulatif de
+    // trente lignes ne se lit que si les premieres sont les bonnes.
+    groupe.annonces.forEach(function (o) {
+      rang++;
+      lignes.push(rang + '. ' + o.title
+        + (o.pertinence ? '  [' + o.pertinence + ']' : ''));
+      lignes.push('   Organisation : ' + (o.org || '-')
+        + ' | Pays : ' + (o.country || '-')
+        + ' | Deadline : ' + (o.deadline || 'a verifier'));
+      if (o.url) lignes.push('   ' + o.url);
+      lignes.push('');
+    });
   });
+
   lignes.push(RAPPEL);
   return {
     sujet: '[TenderPilot] ' + nouvelles.length
       + ' nouvelles opportunites detectees',
     corps: lignes.join('\n'),
-    html: digestHtml_(nouvelles)
+    html: digestHtml_(groupes, nouvelles.length)
   };
 }
 
@@ -1081,8 +1093,8 @@ function messageDigest(nouvelles) {
  * C'est le seul email qui peut contenir trente annonces - s'il n'est pas
  * scannable, il n'est pas lu.
  */
-function digestHtml_(nouvelles) {
-  var cartes = parPertinence_(nouvelles).map(function (o) {
+function digestHtml_(groupes, total) {
+  var carte = function (o) {
     var statut = o.status || SCHEMA.STATUT_INCONNU;
     var fond = SCHEMA.COULEURS[statut]
       || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
@@ -1099,14 +1111,28 @@ function digestHtml_(nouvelles) {
       + infos + (o.pertinence
           ? ' &middot; <b>' + echapperHtml_(o.pertinence) + '</b>' : '')
       + '</div></div></td></tr>';
+  };
+
+  var corps = groupes.map(function (groupe) {
+    // UN INTITULE DE RUBRIQUE, quand il y a plus d'un groupe. Poser un
+    // titre au-dessus d'un groupe unique n'apprend rien et ajoute du bruit.
+    var entete = (groupe.titre && groupes.length > 1)
+      ? '<tr><td style="padding:14px 0 8px">'
+        + '<div style="font-size:12px;letter-spacing:.08em;'
+        + 'text-transform:uppercase;color:' + MARINE_EMAIL + ';font-weight:bold;'
+        + 'border-bottom:1px solid #D5DBE3;padding-bottom:5px">'
+        + echapperHtml_(groupe.titre) + ' &middot; ' + groupe.annonces.length
+        + '</div></td></tr>'
+      : '';
+    return entete + groupe.annonces.map(carte).join('');
   }).join('');
 
   return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
     + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
     + enteteMarque_()
     + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
-    + nouvelles.length + ' nouvelles opportunites</h2>'
-    + '<table style="border-collapse:collapse;width:100%">' + cartes
+    + total + ' nouvelles opportunites</h2>'
+    + '<table style="border-collapse:collapse;width:100%">' + corps
     + '</table>'
     + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
     + 'padding-top:12px;margin:16px 0 0">' + echapperHtml_(RAPPEL) + '</p></div>';
@@ -1275,7 +1301,7 @@ function sendNotifications(lignes, config, nouvelles) {
     // ne doit pas emporter l'execution avec lui.
     var messageDigest_ = null;
     try {
-      var digest = messageDigest(aNotifier);
+      var digest = messageDigest(aNotifier, config);
       messageDigest_ = {
         sujet: digest.sujet, corps: digest.corps, html: digest.html,
         telegram: messageTelegramDigest(aNotifier)

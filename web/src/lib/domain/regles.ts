@@ -82,6 +82,8 @@ export interface Config {
   envoiJ1: boolean;
   envoiExpire: boolean;
   seuilDigest: number;
+  /** pertinence | secteur | pays | aucun. Voir grouperDigest(). */
+  digestGroupePar?: string;
   /**
    * Emails envoyes au maximum en une execution. Au-dela, les alertes ne
    * sont pas perdues : elles repartent au passage suivant, les plus
@@ -159,6 +161,7 @@ export const CONFIG_DEFAUT: Config = {
   seuilDigest: 5,
   maxEmailsParExecution: 20,
   maxTelegramParExecution: 0,
+  digestGroupePar: "pertinence",
   rappelsSuivisSeulement: false,
   maxFichesParPassage: 12,
   fuseau: "Africa/Porto-Novo",
@@ -709,6 +712,56 @@ export function pertinenceNotifiable(
   return voulus.some((voulu) =>
     normalise.includes(voulu) || voulu.includes(normalise)
     || (!!rang && voulu === rang));
+}
+
+/** Un groupe du recapitulatif : un intitule, et ce qu'il contient. */
+export interface GroupeDigest<T extends Opportunite = Opportunite> {
+  titre: string;
+  annonces: T[];
+}
+
+/**
+ * Range les nouveautes en groupes, pour un recapitulatif qui se parcourt.
+ *
+ * Un digest de trente annonces a plat se lit comme une liste de courses :
+ * on le survole et on ferme. Groupe par secteur, le lecteur saute aux deux
+ * ou trois rubriques qui le concernent.
+ *
+ * L'ORDRE DES GROUPES N'EST PAS ALPHABETIQUE : un groupe passe devant s'il
+ * contient une annonce plus pertinente. Trier par nom mettrait
+ * "Agriculture" avant "Sante" pour un client qui ne fait que de la sante.
+ *
+ * Jumeau de grouperDigest_() dans Core.gs.
+ */
+export function grouperDigest<T extends Opportunite>(
+  nouvelles: T[], critere?: string | null,
+): GroupeDigest<T>[] {
+  const liste = parPertinence(nouvelles ?? []);
+  const choix = String(critere ?? "").trim().toLowerCase();
+  if (choix === "aucun" || liste.length === 0) {
+    return [{ titre: "", annonces: liste }];
+  }
+
+  const cle = (o: T) =>
+    choix === "secteur" ? String(o.secteur ?? "").trim()
+    : choix === "pays" ? String(o.pays ?? "").trim()
+    : String(o.pertinence ?? "").trim();
+
+  const groupes: GroupeDigest<T>[] = [];
+  const index = new Map<string, GroupeDigest<T>>();
+  for (const o of liste) {
+    // liste est deja triee : le premier vu d'un groupe porte sa meilleure
+    // pertinence, donc l'ordre d'apparition EST le bon ordre.
+    const nom = cle(o) || SECTEUR_INCONNU;
+    let groupe = index.get(nom);
+    if (!groupe) {
+      groupe = { titre: nom, annonces: [] };
+      index.set(nom, groupe);
+      groupes.push(groupe);
+    }
+    groupe.annonces.push(o);
+  }
+  return groupes;
 }
 
 /**

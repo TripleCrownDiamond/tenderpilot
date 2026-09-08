@@ -13,6 +13,7 @@ import { test } from "node:test";
 
 import {
   ajouterCanal, Canal, canauxNotifies, dejaNotifie, estSuivie,
+  grouperDigest,
   CONFIG_DEFAUT, Config, Opportunite, TypeNotification, champNotification,
   construireIndex, inventaireProfil, listeConfig, parDelai,
   parPertinence, pertinence, pertinenceNotifiable, PROFIL_TYPE_PAYS,
@@ -1056,3 +1057,64 @@ test("sans le reglage, les rappels partent comme avant", async () => {
   assert.equal(estSuivie({ titre: "x" }), false);
 });
 
+
+// ==========================================================================
+// Un recapitulatif de trente annonces a plat se survole et se ferme.
+
+test("le recapitulatif se range par secteur, du plus pertinent au reste", () => {
+  const o = (titre: string, secteur: string, pertinence: string,
+             jours: number): Opportunite => ({
+    titre, secteur, pertinence, joursRestants: jours,
+    deadline: jourRelatif(jours), lien: `https://example.org/${titre}`,
+  });
+  const nouvelles = [
+    o("Route", "Infrastructures et BTP", PERTINENCE_HORS_PROFIL, 30),
+    o("Semences", "Agriculture et agroalimentaire", PERTINENCE_A_VOIR, 20),
+    o("Irrigation", "Agriculture et agroalimentaire", PERTINENCE_PRIORITAIRE, 25),
+    o("Pont", "Infrastructures et BTP", PERTINENCE_A_VOIR, 10),
+  ];
+
+  const groupes = grouperDigest(nouvelles, "secteur");
+  assert.equal(groupes.length, 2);
+  assert.equal(groupes[0].titre, "Agriculture et agroalimentaire",
+    "le groupe qui porte l'annonce la plus pertinente passe devant");
+  assert.deepEqual(groupes[0].annonces.map((a) => a.titre),
+                   ["Irrigation", "Semences"]);
+  assert.deepEqual(groupes[1].annonces.map((a) => a.titre), ["Pont", "Route"]);
+
+  // Par pays, par pertinence, ou pas du tout : le meme jeu, range autrement.
+  assert.equal(grouperDigest(nouvelles, "pertinence").length, 3);
+  assert.equal(grouperDigest(nouvelles, "aucun").length, 1);
+  assert.equal(grouperDigest(nouvelles, "aucun")[0].annonces.length, 4);
+
+  // Un reglage illisible ne doit JAMAIS faire disparaitre le recapitulatif.
+  assert.equal(grouperDigest(nouvelles, "n importe quoi").length, 3,
+               "une valeur inconnue vaut 'pertinence'");
+  assert.equal(grouperDigest([], "secteur").length, 1);
+
+  // Une annonce sans secteur n'est pas perdue : elle a sa rubrique.
+  const sansSecteur = grouperDigest(
+    [...nouvelles, o("Divers", "", PERTINENCE_POSSIBLE, 15)], "secteur");
+  assert.ok(sansSecteur.some((g) => g.titre === SECTEUR_INCONNU));
+});
+
+test("le corps du recapitulatif porte les intitules de rubrique", async () => {
+  const url = "https://example.org/f-digest-groupe";
+  const entrees = Array.from({ length: 8 }, (_, i) => ({
+    titre: `Avis ${i}`,
+    lien: `https://example.org/dg${i}`,
+    texte: `Date limite : ${enFrancais(jourRelatif(20))}`,
+  }));
+  const m = monde({
+    sources: [source("s1", url,
+                     { secteurDefaut: "Agriculture et agroalimentaire" })],
+    flux: { [url]: fluxRss(entrees) },
+    config: { seuilDigest: 5, digestGroupePar: "secteur" },
+  });
+
+  await executer(m.depot, m.envoyeur, m.recuperer);
+  const digest = m.boite.find((e) => e.sujet.includes("nouvelles"));
+  assert.ok(digest, "le digest doit partir");
+  assert.ok(digest!.corps.includes("== AGRICULTURE ET AGROALIMENTAIRE (8) =="),
+            digest!.corps.slice(0, 200));
+});

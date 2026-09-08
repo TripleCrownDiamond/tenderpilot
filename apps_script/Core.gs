@@ -786,6 +786,52 @@ function parPertinence_(lignes) {
 }
 
 /**
+ * Range les nouveautes en groupes, pour un recapitulatif qui se parcourt.
+ *
+ * POURQUOI GROUPER. Un digest de trente annonces a plat se lit comme une
+ * liste de courses : on le survole et on ferme. Groupe par secteur, le
+ * lecteur saute aux deux ou trois rubriques qui le concernent et ignore le
+ * reste sans avoir a le lire.
+ *
+ * L'ORDRE DES GROUPES N'EST PAS ALPHABETIQUE. Un groupe passe devant un
+ * autre s'il contient une annonce plus pertinente ; a pertinence egale, le
+ * plus gros d'abord. Trier les rubriques par leur nom mettrait
+ * "Agriculture" avant "Sante" pour un client qui ne fait que de la sante.
+ *
+ * `critere` : 'pertinence', 'secteur', 'pays', ou 'aucun'. Une valeur
+ * inconnue vaut 'pertinence' - le reglage d'un client ne doit jamais faire
+ * disparaitre son recapitulatif.
+ */
+function grouperDigest_(nouvelles, critere) {
+  var liste = parPertinence_(nouvelles || []);
+  var choix = String(critere || '').trim().toLowerCase();
+
+  if (choix === 'aucun' || !liste.length) {
+    return [{ titre: '', annonces: liste }];
+  }
+
+  var cle = function (o) {
+    if (choix === 'secteur') return String(o.sector || '').trim();
+    if (choix === 'pays') return String(o.country || '').trim();
+    return String(o.pertinence || '').trim();
+  };
+
+  var groupes = [];
+  var index = {};
+  liste.forEach(function (o) {
+    // liste est deja triee : le premier vu d'un groupe porte la meilleure
+    // pertinence du groupe, donc l'ordre d'apparition EST le bon ordre.
+    var nom = cle(o) || SECTEUR_INCONNU;
+    if (!index[nom]) {
+      index[nom] = { titre: nom, annonces: [] };
+      groupes.push(index[nom]);
+    }
+    index[nom].annonces.push(o);
+  });
+  return groupes;
+}
+
+/**
  * L'ordre du tableau : le plus de temps devant en haut.
  *
  * Trois rangs, dans cet ordre :
@@ -920,7 +966,7 @@ if (typeof module !== 'undefined') {
     champsModifies: champsModifies, estVrai: estVrai,
     notificationsAEnvoyer: notificationsAEnvoyer, prochainId: prochainId,
     canauxNotifies_: canauxNotifies_, dejaNotifie_: dejaNotifie_,
-    estSuivie_: estSuivie_,
+    estSuivie_: estSuivie_, grouperDigest_: grouperDigest_,
     ajouterCanal_: ajouterCanal_, CANAUX: CANAUX,
     tronquer: tronquer,
     fraicheurSource_: fraicheurSource_,

@@ -864,6 +864,34 @@ jamais** — une source ajoutée par le client ne doit pas disparaître. Une
 source renommée laisse donc son ancienne ligne en place. « Vérifier
 l'installation » la signale désormais ; c'est au propriétaire de trancher.
 
+### Le récapitulatif se parcourt, il ne se lit pas
+
+Un digest de trente annonces à plat se survole et se ferme. Groupé par
+secteur, le lecteur saute aux deux ou trois rubriques qui le concernent et
+ignore le reste **sans avoir à le lire**. `DIGEST_GROUPE_PAR` choisit le
+critère : `pertinence` (défaut), `secteur`, `pays`, `aucun`.
+
+Trois règles portées par `grouperDigest_` :
+
+1. **L'ordre des groupes n'est pas alphabétique.** Un groupe passe devant
+   s'il contient une annonce plus pertinente. Trier par nom mettrait
+   « Agriculture » avant « Santé » pour un client qui ne fait que de la
+   santé. La liste étant déjà triée par pertinence, l'ordre d'apparition
+   *est* le bon ordre — il n'y a pas de second tri.
+2. **Une valeur inconnue vaut `pertinence`.** Un réglage mal tapé ne doit
+   jamais faire disparaître le récapitulatif.
+3. **Une annonce sans secteur garde sa rubrique** (`Non precise`) : elle
+   n'est jamais perdue.
+
+Et une différence assumée entre les deux rendus : le HTML **ne titre pas
+une rubrique unique** — un intitulé au-dessus du seul groupe est du bruit —
+alors que le texte brut le garde, faute d'autre moyen de montrer la
+structure.
+
+**Les rappels d'échéance restent unitaires**, et ce n'est pas un oubli : un
+J-1 noyé au milieu de vingt lignes n'est plus un rappel. Le volume se règle
+par `MAX_EMAILS_PAR_EXECUTION` et `RAPPELS_SUIVIS_SEULEMENT`.
+
 ## L'alerte se lit en trois secondes, ou elle ne se lit pas
 
 Un rappel d'échéance se lit sur un téléphone, entre deux autres choses. Un

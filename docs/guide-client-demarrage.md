@@ -111,6 +111,31 @@ vos rappels J-7, J-3 et J-1 ne concerneront plus que les avis suivis.
 L'annonce des **nouveautes**, elle, continue toujours - une opportunite qui
 vient d'entrer, vous ne pouvez pas encore l'avoir suivie.
 
+### Un seul mail au lieu de dix, range par rubrique
+
+Quand une collecte ramene plus de `DIGEST_THRESHOLD` nouveautes (cinq par
+defaut), elles partent en **un seul mail recapitulatif** au lieu d'un mail
+par annonce.
+
+`DIGEST_GROUPE_PAR` decide comment ce recapitulatif est range :
+
+| Valeur | Ce que vous recevez |
+|--------|---------------------|
+| `pertinence` (defaut) | Prioritaire d'abord, puis A voir, puis le reste |
+| `secteur` | Une rubrique par secteur - agriculture, environnement, numerique... |
+| `pays` | Une rubrique par pays |
+| `aucun` | Une liste a plat |
+
+**Les rubriques les plus interessantes passent en premier**, jamais par
+ordre alphabetique : une rubrique passe devant une autre si elle contient
+une annonce plus pertinente pour vous.
+
+> **Les rappels d'echeance restent separes**, et c'est voulu : un J-1 qui
+> arrive noye au milieu de vingt autres lignes n'est plus un rappel. Si
+> vous en recevez trop, baissez `MAX_EMAILS_PAR_EXECUTION`, ou mettez
+> `RAPPELS_SUIVIS_SEULEMENT` a `true` pour ne plus etre rappele que sur les
+> avis que vous suivez.
+
 ## 4. Laisser tourner
 
 Menu **TenderPilot > Activer l'execution automatique**.

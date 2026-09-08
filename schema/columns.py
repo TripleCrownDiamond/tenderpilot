@@ -328,6 +328,12 @@ CONFIG = [
      "sonne. 0 = aucun plafond. Les deux canaux avancent chacun a son "
      "rythme : une alerte deja partie sur Telegram ne repart pas quand "
      "l'email la rattrape au passage suivant."),
+    ("DIGEST_GROUPE_PAR", "pertinence",
+     "Comment ranger le recapitulatif des nouveautes : pertinence, "
+     "secteur, pays, ou aucun. Un recapitulatif de trente annonces a plat "
+     "se survole et se ferme ; range par secteur, vous sautez aux deux ou "
+     "trois rubriques qui vous concernent. Les rubriques les plus "
+     "pertinentes passent en premier, jamais par ordre alphabetique."),
     ("DIGEST_THRESHOLD", "5",
      "Au-dela de ce nombre de nouvelles opportunites dans une meme "
      "execution, un seul email recapitulatif remplace les emails unitaires."),

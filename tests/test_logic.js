@@ -1391,7 +1391,8 @@ console.log('\n[Pertinence] Le recapitulatif commence par ce qui vous concerne')
   const lignes = m.feuille.opps.slice();
   lignes[0].pertinence = m.ctx.SCHEMA.PERTINENCE_PRIORITAIRE;
   lignes[0].title = 'Celle qui compte';
-  const digest = m.ctx.messageDigest(lignes);
+  // Sans groupement, la premiere annonce est en tete du corps.
+  const digest = m.ctx.messageDigest(lignes, { DIGEST_GROUPE_PAR: 'aucun' });
   const premiere = digest.corps.split('\n')[2];
   check('la plus pertinente est en tete du recapitulatif',
         premiere.indexOf('Celle qui compte') !== -1, premiere);
@@ -3251,6 +3252,100 @@ console.log('\n[Marque] Le logo embarque est valide et leger');
   check('sans Marque.gs, l email part quand meme', envoye !== null);
   check('simplement sans image jointe',
         envoye && !envoye.inlineImages && envoye.htmlBody === '<div>html</div>');
+}
+
+// ==========================================================================
+console.log('\n[Digest] Un recapitulatif se parcourt, il ne se lit pas');
+{
+  const C = monde({}).ctx;
+  const o = (titre, secteur, pertinence, jours) => ({
+    title: titre, sector: secteur, pertinence: pertinence,
+    days: jours, deadline: jourRelatif(jours),
+    url: 'https://exemple.test/' + titre
+  });
+  const nouvelles = [
+    o('Route', 'Infrastructures et BTP', C.SCHEMA.PERTINENCE_HORS_PROFIL, 30),
+    o('Semences', 'Agriculture et agroalimentaire', C.SCHEMA.PERTINENCE_A_VOIR, 20),
+    o('Irrigation', 'Agriculture et agroalimentaire', C.SCHEMA.PERTINENCE_PRIORITAIRE, 25),
+    o('Pont', 'Infrastructures et BTP', C.SCHEMA.PERTINENCE_A_VOIR, 10)
+  ];
+
+  const parSecteur = C.grouperDigest_(nouvelles, 'secteur');
+  check('deux rubriques', parSecteur.length === 2, parSecteur.length + '');
+  check('celle qui porte l annonce la plus pertinente passe devant',
+        parSecteur[0].titre === 'Agriculture et agroalimentaire',
+        parSecteur[0].titre);
+  check('et dedans, le plus pertinent puis le plus urgent',
+        parSecteur[0].annonces.map(a => a.title).join(',') === 'Irrigation,Semences',
+        parSecteur[0].annonces.map(a => a.title).join(','));
+  check('l ordre n est PAS alphabetique',
+        parSecteur[1].titre === 'Infrastructures et BTP');
+
+  check('par pertinence : trois rubriques',
+        C.grouperDigest_(nouvelles, 'pertinence').length === 3);
+  check('par pays, tout tombe dans la meme faute de pays',
+        C.grouperDigest_(nouvelles, 'pays').length === 1);
+  check('aucun : une seule liste, rien de perdu',
+        C.grouperDigest_(nouvelles, 'aucun').length === 1
+        && C.grouperDigest_(nouvelles, 'aucun')[0].annonces.length === 4);
+
+  // UN REGLAGE ILLISIBLE NE DOIT JAMAIS FAIRE DISPARAITRE LE RECAPITULATIF.
+  check('une valeur inconnue vaut pertinence',
+        C.grouperDigest_(nouvelles, 'n importe quoi').length === 3);
+  check('une liste vide rend un groupe vide, pas une erreur',
+        C.grouperDigest_([], 'secteur').length === 1);
+
+  const avecTrou = nouvelles.concat([o('Divers', '', C.SCHEMA.PERTINENCE_POSSIBLE, 15)]);
+  check('une annonce sans secteur a quand meme sa rubrique',
+        C.grouperDigest_(avecTrou, 'secteur')
+         .some(g => g.titre === C.SECTEUR_INCONNU));
+}
+
+// ==========================================================================
+console.log('\n[Digest] Les rubriques se lisent dans le mail');
+{
+  const url = 'https://exemple.test/flux-digest-groupe';
+  const entrees = [];
+  for (let i = 0; i < 8; i++) {
+    entrees.push({ titre: 'Avis ' + i, lien: 'https://exemple.test/dg' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(20)) });
+  }
+  const m = monde({
+    sources: [Object.assign(source('SRC-001', url),
+                            { sector: 'Agriculture et agroalimentaire' })],
+    flux: { [url]: fluxRss(entrees) },
+    config: { DIGEST_THRESHOLD: '5', DIGEST_GROUPE_PAR: 'secteur' }
+  });
+  m.ctx.executerTenderPilot();
+
+  const digest = m.boite.filter(e => e.sujet.indexOf('nouvelles') !== -1)[0];
+  check('le digest est parti', Boolean(digest));
+  check('le texte porte l intitule de rubrique',
+        digest.corps.indexOf('== AGRICULTURE ET AGROALIMENTAIRE (8) ==') !== -1,
+        digest.corps.slice(0, 160));
+  check('et les huit annonces y sont',
+        (digest.html.match(/border-left:4px solid/g) || []).length === 8);
+
+  // UN SEUL GROUPE N APPREND RIEN : le HTML ne pose pas d intitule au-dessus
+  // d une rubrique unique - ce serait du bruit. Le texte, lui, le garde :
+  // il n a pas d autre facon de montrer la structure.
+  check('le HTML ne titre pas une rubrique unique',
+        digest.html.indexOf('Agriculture et agroalimentaire') === -1,
+        'intitule pose alors qu il y a un seul groupe');
+
+  // A DEUX RUBRIQUES, LES INTITULES APPARAISSENT.
+  const deux = m.ctx.digestHtml_([
+    { titre: 'Agriculture et agroalimentaire',
+      annonces: [{ title: 'A', status: 'OUVERT' }] },
+    { titre: 'Infrastructures et BTP',
+      annonces: [{ title: 'B', status: 'OUVERT' }] }
+  ], 2);
+  check('deux rubriques, deux intitules',
+        deux.indexOf('Agriculture et agroalimentaire') !== -1
+        && deux.indexOf('Infrastructures et BTP') !== -1);
+  check('avec le compte de chacune',
+        (deux.match(/&middot; 1</g) || []).length === 2,
+        (deux.match(/&middot; 1</g) || []).length + ' comptes');
 }
 
 // ==========================================================================
