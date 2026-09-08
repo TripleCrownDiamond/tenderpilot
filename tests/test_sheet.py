@@ -440,12 +440,16 @@ def main():
                                ("Guide_Operateur", "guide operateur")):
             check("aucun " + quoi + " dans l archive a vendre",
                   not any(interdit in n for n in noms_vente))
-        check("l archive a vendre tient en trois fichiers",
-              len(noms_vente) == 3, str(len(noms_vente)))
-        for attendu in ("1_Guide_Demarrage.pdf", "2_Catalogue_des_Sources.pdf",
-                        "COMMENCEZ_ICI.txt"):
+        check("l archive a vendre tient en deux fichiers",
+              len(noms_vente) == 2, str(len(noms_vente)))
+        for attendu in ("1_Guide_Demarrage.pdf", "COMMENCEZ_ICI.txt"):
             check(attendu + " est dans l archive a vendre",
                   any(n.endswith(attendu) for n in noms_vente))
+        # LE CATALOGUE N'Y EST PLUS, ET CE CONTROLE EST LA POUR QU'IL N'Y
+        # REVIENNE PAS. Il liste les sources une par une : c'est le travail
+        # qui fait la valeur du produit, offert avant l'achat.
+        check("le catalogue des sources ne part pas avec la vente",
+              not any("Catalogue_des_Sources" in n for n in noms_vente))
 
     if prive.exists():
         with zipfile.ZipFile(prive) as z:

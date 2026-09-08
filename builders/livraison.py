@@ -52,7 +52,19 @@ Si vous hesitez entre deux fichiers, prenez celui de A_VENDRE.
 # L'OPERATEUR recoit tout : les guides de preparation, les fichiers de
 # script pour fabriquer son maitre, et une copie exacte de ce que le client
 # lit, pour savoir de quoi celui-ci parle quand il appelle.
+# Ce que l'ACHETEUR recoit : le guide de demarrage, et rien d'autre.
+#
+# LE CATALOGUE DES SOURCES N'Y EST PLUS. Il liste les cent quinze sources
+# surveillees, une par une - c'est-a-dire le travail qui fait la valeur du
+# produit, offert avant meme l'achat. Un concurrent n'a plus qu'a le lire.
+# Il reste genere, et reste dans l'archive de l'operateur : rien n'empeche
+# de l'envoyer a un client qui le demande APRES la vente.
 GUIDES_CLIENT = [
+    "1_Guide_Demarrage.pdf",
+]
+
+# L'operateur, lui, garde tout - dont le catalogue.
+GUIDES_CLIENT_ARCHIVE = [
     "1_Guide_Demarrage.pdf",
     "2_Catalogue_des_Sources.pdf",
 ]
@@ -110,10 +122,10 @@ CE QUE CONTIENT CETTE ARCHIVE
 ====================================================================
 
 1_Guide_Demarrage.pdf
-    Les quatre etapes ci-dessus, en detail, avec Telegram.
+    Les quatre etapes ci-dessus, en detail, avec Telegram et l'agenda.
 
-2_Catalogue_des_Sources.pdf
-    Les {nb_sources} sources surveillees, par type et par secteur.
+Les {nb_sources} sources surveillees sont listees dans l'onglet SOURCES de
+votre classeur, avec leur type, leur secteur et leur pays.
 
 ====================================================================
 CE QU'IL VOUS FAUT
@@ -282,8 +294,9 @@ def construire_operateur(nom):
         for guide in GUIDES_OPERATEUR:
             z.write(LIVRABLE / "guides" / "operateur" / guide,
                     nom + "/guides/" + guide)
-        # Ce que le client lit, mot pour mot : utile quand il appelle.
-        for guide in GUIDES_CLIENT:
+        # Ce que le client lit, mot pour mot - PLUS le catalogue, que
+        # l'operateur garde sous la main sans le joindre a la vente.
+        for guide in GUIDES_CLIENT_ARCHIVE:
             z.write(LIVRABLE / "guides" / "client" / guide,
                     nom + "/docs_client/" + guide)
 
@@ -316,7 +329,7 @@ def construire():
         print("Le livrable n'existe pas. Lancer d'abord : python build.py")
         return None
 
-    for jeu, dossier in ((GUIDES_CLIENT, "client"),
+    for jeu, dossier in ((GUIDES_CLIENT_ARCHIVE, "client"),
                          (GUIDES_OPERATEUR, "operateur")):
         manquants = [g for g in jeu
                      if not (LIVRABLE / "guides" / dossier / g).exists()]
@@ -364,6 +377,13 @@ def verifier(archive):
         for guide in GUIDES_CLIENT:
             if not any(n.endswith(guide) for n in noms):
                 raise RuntimeError(guide + " absent de " + archive.name)
+        # ET CE QUI NE DOIT PAS Y ETRE. Le catalogue liste les sources une
+        # par une : c'est le travail qui fait la valeur du produit. Le
+        # controle est ici parce qu'un ajout distrait a GUIDES_CLIENT le
+        # remettrait dans l'archive de vente sans que personne ne le voie.
+        if any("Catalogue_des_Sources" in n for n in noms):
+            raise RuntimeError("Le catalogue des sources ne doit pas partir "
+                               "avec l'archive de vente : " + archive.name)
     else:
         attendus = [f for f in fichiers_script() if f.endswith(".gs")]
         presents = [n for n in noms if "/script/" in n and n.endswith(".gs")]

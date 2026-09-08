@@ -134,10 +134,16 @@ Dans les deux cas, il ne voit jamais le code.
 Apres paiement, trois choses :
 
 1. **Le lien `/copy`.**
-2. **L'archive client**, qui ne contient que deux PDF : le guide de
-   demarrage et le catalogue des sources. Aucun fichier de script, aucun
-   classeur.
+2. **L'archive client**, qui ne contient qu'un PDF : le guide de
+   demarrage. Aucun fichier de script, aucun classeur.
 3. **Votre contact**, pour l'aide a l'installation.
+
+> **Le catalogue des sources ne part plus avec la vente.** Il liste les
+> sources une par une - c'est le travail qui fait la valeur du produit,
+> offert avant meme l'achat. Il reste dans VOTRE archive, sous
+> `docs_client/`, et rien ne vous empeche de l'envoyer a un client qui le
+> demande une fois la vente faite. L'acheteur, lui, voit ses sources dans
+> l'onglet SOURCES de son classeur - ce qui suffit largement.
 
 Le lien est la marchandise. **Quiconque l'a peut copier le produit.** Ne le
 publiez jamais, ne le mettez pas dans un post : il ne sort qu'apres
