@@ -1504,11 +1504,13 @@ mesure**, pas par précaution.
 **Chasse du 2026-09-08**, à la demande du propriétaire, sur ses thèmes :
 agriculture, développement durable, climat, ressources naturelles,
 renforcement de capacités, entrepreneuriat, numérique, genre, coopératives,
-médias. Quarante adresses testées, **aucune source nouvelle collectable**.
+médias. Quarante adresses testées **une seule source en est sortie** — le
+CORAF, et encore, parce que le propriétaire a fourni l'adresse que j'avais
+manquée.
 
 | Piste | Constat |
 |---|---|
-| CORAF | **SPA** : `/appels-doffres/`, `/opportunites/`, `?s=…` rendent tous le *même* corps de 176 355 octets — la coquille d'accueil |
+| ~~CORAF~~ | **Conclusion fausse, corrigée le lendemain — voir ci-dessous** |
 | SNV (tenders) | la page existe et décrit bien l'offre, mais la liste est `Loading…` ; aucun point d'API dans le HTML |
 | AGRA | `/procurement/` et `/opportunities/` : 355 occurrences de « tender », **une seule** entrée réelle — page descriptive, pas liste |
 | AfricaRice, IITA, UNOPS, GEF-SGP, CILSS, UEMOA, CEDEAO, UNCCD, GCF | 404 sur toutes les adresses essayées |
@@ -1517,6 +1519,26 @@ médias. Quarante adresses testées, **aucune source nouvelle collectable**.
 | Inter-réseaux | API WordPress **ouverte**, mais les appels trouvés datent de 2017-2021 ; le site publie encore (dernier billet 2026-02) sans plus d'appels |
 | DGCMEF Burkina | page « Appels d'offre » servie en 30 ko, **aucune date, trois mots-clés** : vide ou chargée en JavaScript |
 | DGMP Côte d'Ivoire | 12 ko, page de garde |
+| FAO Afrique et Amériques (`/tenders`) | pages **vides** : « Des informations sur les appels d'offres seront fréquemment publiées sur cette page ». Zéro entrée, zéro PDF. La FAO passe par UNGM |
+
+### CORAF : j'ai déclaré une SPA là où j'avais la mauvaise adresse
+
+**La faute la plus instructive de cette chasse.** Trois chemins devinés —
+`/appels-doffres/`, `/opportunites/`, `?s=appel+d+offres` — ont rendu le
+*même* corps de 176 355 octets. J'en ai conclu « SPA, site fermé ».
+
+La vraie adresse est **`/passation-marche`**, donnée par le propriétaire le
+lendemain : 44 942 octets rendus **côté serveur**, dix cartes régulières,
+toutes datées.
+
+Trois chemins qui rendent la page d'accueil ne prouvent pas qu'un site est
+une SPA. Ils prouvent qu'**on n'a pas trouvé le bon chemin**. Le site
+servait cette page depuis le début. C'est exactement la faute d'Enabel,
+refaite quatre jours plus tard : *une conclusion pessimiste est une
+conclusion comme une autre, elle se mesure.*
+
+**Ce qu'il fallait faire, et qui prend une minute** : lire le menu de la
+page d'accueil. Le lien « Passation de marchés » y figurait.
 
 **Le test WordPress vaut d'être retenu.** Beaucoup de ces sites tournent
 sous WordPress, dont l'API REST est ouverte par défaut :

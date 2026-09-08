@@ -3349,6 +3349,64 @@ console.log('\n[Digest] Les rubriques se lisent dans le mail');
 }
 
 // ==========================================================================
+console.log('\n[CORAF] La recherche agricole ouest-africaine');
+{
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const corps = fs.readFileSync(path.join(R, 'coraf-passation.html'), 'utf8');
+  const C = monde({}).ctx;
+  const src = Object.assign(source('CORAF-MARCHES', 'https://exemple.test/c'),
+    { country: "Afrique de l'Ouest", sector: 'Agriculture et agroalimentaire',
+      type: '' });
+
+  const lus = C.analyserPassationCoraf(corps, src);
+  check('dix avis sur la page', lus.length === 10, lus.length + ' avis');
+  check('tous dates', lus.every(o => /^\d{4}-\d{2}-\d{2}$/.test(o.deadline)),
+        JSON.stringify(lus.map(o => o.deadline)));
+  check('tous avec un lien vers la fiche',
+        lus.every(o => /coraf\.org\/passation-marche\//.test(o.url)));
+  check('la date jj/mm/aaaa est lue dans le bon sens',
+        lus.some(o => o.deadline === '2026-06-26'),
+        JSON.stringify(lus.map(o => o.deadline)));
+
+  // LE TYPE VIENT DE L URL, PAS DU TITRE. "Appel a candidatures" et
+  // "Appel a technologies" vivent tous deux sous /Autre/ : on ne devine pas.
+  const ami = lus.filter(o => o.type === 'AMI');
+  check('les AMI sont reconnus par leur rubrique', ami.length === 7,
+        ami.length + ' AMI');
+  check('et le reste n invente pas de type',
+        lus.filter(o => o.type === C.SECTEUR_INCONNU).length === 3,
+        JSON.stringify(lus.map(o => o.type)));
+
+  check('le lieu sert de resume',
+        lus.some(o => String(o.summary).indexOf('Dakar') !== -1));
+  check('une page vide ne fait rien tomber',
+        C.analyserPassationCoraf('<html>rien</html>', src).length === 0);
+}
+
+// ==========================================================================
+console.log('\n[CORAF] Un plan de passation n est pas un avis');
+{
+  // MESURE DU 2026-09-08 : sur soixante lignes, les DEUX seules datees dans
+  // le futur etaient le plan de passation et l avis general annuel, tous
+  // deux au 01/01/2027. Les laisser passer aurait rempli le tableau du
+  // client de deux lignes trompeuses - et de rien d autre.
+  const C = monde({}).ctx;
+  const carte = (titre) => '<div class="card-opportinute">'
+    + '<p class="title">' + titre + '</p>'
+    + '<p class="map-opportinute">Dakar</p>'
+    + '<p class="date-ajout-opportinute">01/01/2027</p>'
+    + '<a href="https://www.coraf.org/passation-marche/Autre/x">Voir</a></div>';
+  const src = source('CORAF-MARCHES', 'https://exemple.test/c');
+
+  check('le plan de passation est ecarte',
+        C.analyserPassationCoraf(carte('PLAN DE PASSATION DES MARCHES CONSOLIDES'), src).length === 0);
+  check('l avis general annuel aussi',
+        C.analyserPassationCoraf(carte('Avis General de Passation des Marches (AGPM)-2026'), src).length === 0);
+  check('mais un vrai AMI passe',
+        C.analyserPassationCoraf(carte('AMI N 09-2026 : recrutement'), src).length === 1);
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

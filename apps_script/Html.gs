@@ -16,27 +16,7 @@
  */
 
 /** Repertoire des analyseurs disponibles, par nom de methode. */
-var ANALYSEURS_HTML = {
-  'gouv.bj': analyserPageGouvBj,
-  'afdb.org': analyserPageAfdb,
-  'enabel.be': analyserPageEnabel,
-  'armp.bj': analyserPageArmp,
-  'sbee.bj': analyserPageSbee,
-  'soneb.bj': analyserPageSoneb,
-  'araa.org': analyserPageAraa,
-  'bceao.int': analyserPageBceao,
-  'abe.bj': analyserPageAbe,
-  'dedras.org': analyserPageDedras,
-  'afd.fr': analyserPageAfd,
-  'wellcome.org': analyserPageWellcome,
-  'grandchallenges.org': analyserPageGrandChallenges,
-  'unicef.org/supply': analyserPageUnicefSupply,
-  'giz.de': analyserPageGiz,
-  'expertise-france.gestmax.fr': analyserPageExpertiseFrance,
-  'plan-international.org': analyserPagePlanInternational,
-  'jobrelais.com': analyserPageJobrelais,
-  'ungm.org': analyserPageUngm
-};
+
 
 /** Retourne l'analyseur correspondant a une methode HTML:<nom>, ou null. */
 function analyseurHtml_(methode) {
@@ -1044,6 +1024,99 @@ function analyserPagePlanInternational(html, source) {
  * lue", pas "avis sans echeance".
  */
 /** Les hotes qui declarent un analyseur de fiche. Sert a l'audit. */
+/**
+ * Passation de marches du CORAF - la recherche agricole ouest et centre
+ * africaine, basee a Dakar.
+ *
+ * MESURE DU 2026-09-08 : 60 avis sur 6 pages, dix par page, rendus cote
+ * serveur. Chaque avis est une carte reguliere :
+ *
+ *   <div class="card-opportinute">
+ *     <p class="title">AMI N 02-2026 : Recrutement d un consultant...</p>
+ *     <p class="map-opportinute">7 Avenue Habib Bourguiba, Dakar, Senegal</p>
+ *     <p class="first-title">Date limite:</p>
+ *     <p class="date-ajout-opportinute">02/04/2026</p>
+ *     <a href="https://www.coraf.org/passation-marche/AMI/ami-n-02-...">
+ *
+ * La classe est bien "opportinute" - une coquille du site. On l ecrit
+ * telle quelle : c est le contrat, pas ce qu on aurait aime lire.
+ *
+ * LE TYPE EST DANS L URL, pas dans la carte : /passation-marche/AMI/... ou
+ * /passation-marche/Autre/...
+ *
+ * CE QU ON N EN GARDE PAS. Le CORAF publie sur la meme page ses PLANS DE
+ * PASSATION et son avis general annuel, dates au 1er janvier de l annee
+ * suivante. Ce ne sont pas des avis auxquels on repond : le 2026-09-08 ils
+ * etaient les deux SEULES lignes "ouvertes" des soixante. Les laisser
+ * passer aurait rempli le tableau du client de deux lignes trompeuses -
+ * voir la regle sur les plans de passation dans AGENTS.md.
+ */
+function analyserPassationCoraf(html, source) {
+  if (!html) return [];
+  var cartes = String(html).split('<div class="card-opportinute">').slice(1);
+  var sortie = [];
+
+  cartes.forEach(function (carte) {
+    var titre = nettoyerHtml((/<p class="title">([\s\S]*?)<\/p>/.exec(carte)
+                               || [])[1] || '');
+    if (!titre) return;
+    // Un plan de passation n est pas un avis : voir l en-tete.
+    if (/plan de passation|avis general de passation|\bAGPM\b/i.test(titre)) {
+      return;
+    }
+
+    var lien = (/<a\s+href="([^"]+)"/.exec(carte) || [])[1] || '';
+    var jour = (/class="date-ajout-opportinute"[^>]*>\s*(\d{2}\/\d{2}\/\d{4})/
+                .exec(carte) || [])[1] || '';
+    var lieu = nettoyerHtml(
+      (/<p class="map-opportinute">([\s\S]*?)<\/p>/.exec(carte) || [])[1] || '');
+
+    // "AMI" ou "Autre", tel que l URL le range.
+    var rubrique = (/\/passation-marche\/([^\/]+)\//.exec(lien) || [])[1] || '';
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: nettoyerLien(lien),
+      // extractDeadline sait lire jj/mm/aaaa - on lui donne le contexte
+      // qu'il attend plutot que d'ecrire un second lecteur de dates.
+      deadline: jour ? extractDeadline('date limite ' + jour) : null,
+      published: null,
+      summary: lieu,
+      // LE SEUL SIGNAL FIABLE EST LA RUBRIQUE DE L'URL. Le titre ne dit
+      // pas le type - "Appel a candidatures" et "Appel a technologies"
+      // vivent tous deux sous /Autre/. On ne devine pas : hors AMI, la
+      // colonne dira "non precise" plutot qu'un type faux.
+      type: /^AMI$/i.test(rubrique) ? 'AMI' : '',
+      org: 'CORAF'
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
+var ANALYSEURS_HTML = {
+  'coraf.org': analyserPassationCoraf,
+  'gouv.bj': analyserPageGouvBj,
+  'afdb.org': analyserPageAfdb,
+  'enabel.be': analyserPageEnabel,
+  'armp.bj': analyserPageArmp,
+  'sbee.bj': analyserPageSbee,
+  'soneb.bj': analyserPageSoneb,
+  'araa.org': analyserPageAraa,
+  'bceao.int': analyserPageBceao,
+  'abe.bj': analyserPageAbe,
+  'dedras.org': analyserPageDedras,
+  'afd.fr': analyserPageAfd,
+  'wellcome.org': analyserPageWellcome,
+  'grandchallenges.org': analyserPageGrandChallenges,
+  'unicef.org/supply': analyserPageUnicefSupply,
+  'giz.de': analyserPageGiz,
+  'expertise-france.gestmax.fr': analyserPageExpertiseFrance,
+  'plan-international.org': analyserPagePlanInternational,
+  'jobrelais.com': analyserPageJobrelais,
+  'ungm.org': analyserPageUngm
+};
+
 var ANALYSEURS_FICHE = ['jobrelais.com', 'fundpilote.com'];
 
 /**

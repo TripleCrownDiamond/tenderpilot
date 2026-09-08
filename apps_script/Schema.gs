@@ -1576,6 +1576,18 @@ var SCHEMA = {
     "NON",
     "",
     "Verifie le 2026-09-04 : 15 avis par page, au moins 15 pages, TOUS dates, filtres sur les quinze pays de la CEDEAO. Les acheteurs sont les agences elles-memes - FAO, UNICEF, IOM, ILO, UNDP, UNFPA, UNHCR, UNOPS, WFP, WHO, UNIDO, Secretariat de l'ONU : neuf ne sont couverts par aucune autre source du registre. PREMIERE SOURCE HTML SERVIE PAR UN POST : la page /Public/Notice ne rend aucun avis, la liste arrive d'un POST sur /Public/Notice/Search qui repond par des rangees HTML, et la pagination se fait par PageIndex dans le corps (PageSize plafonne a 15 par le serveur). LIVREE INACTIVE POUR UNE SEULE RAISON, MESUREE : UNGM repond 403 des que l'agent utilisateur porte le suffixe TenderPilot/1.0, et 200 a la meme chaine sans ce suffixe. Ce n'est ni Cloudflare ni un defi - un filtre IIS sur la chaine d'agent. Retirer le suffixe reviendrait a ne plus s'identifier : c'est une decision du proprietaire du produit, pas un choix technique, et elle n'a pas ete prise. L'analyseur et la forme de requete sont ecrits, testes sur fixture des deux cotes, et n'attendent qu'un OUI."
+  ],
+  [
+    "CORAF-MARCHES",
+    "CORAF - passation de marches (recherche agricole ouest-africaine)",
+    "HTML:coraf.org",
+    "https://www.coraf.org/passation-marche?page={page}",
+    "Afrique de l'Ouest",
+    "Agriculture et agroalimentaire",
+    "",
+    "OUI",
+    "",
+    "Verifie le 2026-09-08 : 60 avis sur 6 pages, dix par page, rendus cote serveur, tous avec une date limite lisible. AMI de recrutement de consultants et appels a candidatures, en francais, pour toute l'Afrique de l'Ouest et centrale. ATTENTION AU VOLUME REEL : le 2026-09-08, ZERO avis encore ouvert - le CORAF publie quelques AMI par an et la page garde les archives. Les deux seules lignes datees dans le futur etaient le plan de passation et l'avis general annuel, ecartes par l'analyseur : ce ne sont pas des avis auxquels on repond."
   ]
 ]
 };

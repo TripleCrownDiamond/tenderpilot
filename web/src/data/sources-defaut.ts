@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 113 sources : 71 flux RSS, 22 API JSON,
- * 19 collectes HTML, 1 manuelle(s).
- * 54 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 114 sources : 71 flux RSS, 22 API JSON,
+ * 20 collectes HTML, 1 manuelle(s).
+ * 55 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -1279,5 +1279,16 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": "Appel d'offres",
     "active": false,
     "statut": "Verifie le 2026-09-04 : 15 avis par page, au moins 15 pages, TOUS dates, filtres sur les quinze pays de la CEDEAO. Les acheteurs sont les agences elles-memes - FAO, UNICEF, IOM, ILO, UNDP, UNFPA, UNHCR, UNOPS, WFP, WHO, UNIDO, Secretariat de l'ONU : neuf ne sont couverts par aucune autre source du registre. PREMIERE SOURCE HTML SERVIE PAR UN POST : la page /Public/Notice ne rend aucun avis, la liste arrive d'un POST sur /Public/Notice/Search qui repond par des rangees HTML, et la pagination se fait par PageIndex dans le corps (PageSize plafonne a 15 par le serveur). LIVREE INACTIVE POUR UNE SEULE RAISON, MESUREE : UNGM repond 403 des que l'agent utilisateur porte le suffixe TenderPilot/1.0, et 200 a la meme chaine sans ce suffixe. Ce n'est ni Cloudflare ni un defi - un filtre IIS sur la chaine d'agent. Retirer le suffixe reviendrait a ne plus s'identifier : c'est une decision du proprietaire du produit, pas un choix technique, et elle n'a pas ete prise. L'analyseur et la forme de requete sont ecrits, testes sur fixture des deux cotes, et n'attendent qu'un OUI."
+  },
+  {
+    "code": "CORAF-MARCHES",
+    "nom": "CORAF - passation de marches (recherche agricole ouest-africaine)",
+    "methode": "HTML:coraf.org",
+    "url": "https://www.coraf.org/passation-marche?page={page}",
+    "paysDefaut": "Afrique de l'Ouest",
+    "secteurDefaut": "Agriculture et agroalimentaire",
+    "typeDefaut": null,
+    "active": true,
+    "statut": "Verifie le 2026-09-08 : 60 avis sur 6 pages, dix par page, rendus cote serveur, tous avec une date limite lisible. AMI de recrutement de consultants et appels a candidatures, en francais, pour toute l'Afrique de l'Ouest et centrale. ATTENTION AU VOLUME REEL : le 2026-09-08, ZERO avis encore ouvert - le CORAF publie quelques AMI par an et la page garde les archives. Les deux seules lignes datees dans le futur etaient le plan de passation et l'avis general annuel, ecartes par l'analyseur : ce ne sont pas des avis auxquels on repond."
   }
 ];

@@ -21,7 +21,7 @@ import {
   analyserDedras,
   analyserEnabel, analyserExpertiseFrance, analyserGiz,
   analyserGrandChallenges, analyserJobrelais, analyserPlanInternational,
-  analyseurFiche, fusionnerFiche, analyserSbee,
+  analyseurFiche, analyserPassationCoraf, fusionnerFiche, analyserSbee,
   analyserSoneb, analyseurHtml, analyserUngm,
   dateAllemande, dateUngm,
 } from "../src/lib/domain/html";
@@ -1085,4 +1085,39 @@ test("un analyseur de fiche existe aussi pour une methode JSON", () => {
   assert.equal(typeof analyseurFiche("JSON:fundpilote.com"), "function");
   assert.equal(analyseurFiche("JSON:worldbank.org"), null);
   assert.equal(typeof analyseurFiche("HTML:jobrelais.com"), "function");
+});
+
+// ==========================================================================
+// CORAF : la recherche agricole ouest-africaine, a Dakar.
+
+test("CORAF : dix avis dates, le type lu dans l'URL", () => {
+  const entrees = analyserPassationCoraf(lire("coraf-passation.html"));
+
+  assert.equal(entrees.length, 10);
+  assert.ok(entrees.every((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.deadline ?? "")),
+            JSON.stringify(entrees.map((e) => e.deadline)));
+  assert.ok(entrees.some((e) => e.deadline === "2026-06-26"),
+            "jj/mm/aaaa lu dans le bon sens");
+  assert.ok(entrees.every((e) => e.lien.includes("coraf.org/passation-marche/")));
+  assert.equal(entrees.filter((e) => e.type === "AMI").length, 7);
+  assert.equal(entrees.filter((e) => e.type === null).length, 3,
+               "hors AMI, on n'invente pas de type");
+  assert.ok(entrees.some((e) => e.resume.includes("Dakar")));
+  assert.equal(analyserPassationCoraf("<html>rien</html>").length, 0);
+});
+
+test("CORAF : un plan de passation n'est pas un avis", () => {
+  // Le 2026-09-08, sur soixante lignes, les DEUX seules datees dans le
+  // futur etaient le plan de passation et l'avis general annuel.
+  const carte = (titre: string) => '<div class="card-opportinute">'
+    + `<p class="title">${titre}</p>`
+    + '<p class="map-opportinute">Dakar</p>'
+    + '<p class="date-ajout-opportinute">01/01/2027</p>'
+    + '<a href="https://www.coraf.org/passation-marche/Autre/x">Voir</a></div>';
+
+  assert.equal(
+    analyserPassationCoraf(carte("PLAN DE PASSATION DES MARCHES")).length, 0);
+  assert.equal(
+    analyserPassationCoraf(carte("Avis General de Passation (AGPM)-2026")).length, 0);
+  assert.equal(analyserPassationCoraf(carte("AMI N 09-2026")).length, 1);
 });

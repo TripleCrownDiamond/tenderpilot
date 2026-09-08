@@ -1208,6 +1208,7 @@ function enIsoFiche(valeur: unknown): string | null {
 }
 
 export const ANALYSEURS_HTML: Record<string, (html: string) => EntreeFlux[]> = {
+  "coraf.org": analyserPassationCoraf,
   "gouv.bj": analyserGouvBj,
   "afdb.org": analyserAfdb,
   "enabel.be": analyserEnabel,
@@ -1267,6 +1268,60 @@ export function analyseurHtml(methode: string): ((html: string) => EntreeFlux[])
  * la liste a lu fait foi.
  */
 export type AnalyseurFiche = (html: string) => Partial<EntreeFlux>;
+
+/**
+ * Passation de marches du CORAF - la recherche agricole ouest et centre
+ * africaine, basee a Dakar.
+ *
+ * MESURE DU 2026-09-08 : 60 avis sur 6 pages, dix par page, rendus cote
+ * serveur. Chaque avis est une carte reguliere, dont la classe porte une
+ * coquille du site - "opportinute". On l'ecrit telle quelle : c'est le
+ * contrat, pas ce qu'on aurait aime lire.
+ *
+ * LE TYPE EST DANS L'URL : /passation-marche/AMI/... ou /Autre/...
+ *
+ * CE QU'ON N'EN GARDE PAS. Le CORAF publie sur la meme page ses PLANS DE
+ * PASSATION et son avis general annuel, dates au 1er janvier suivant. Ce
+ * ne sont pas des avis auxquels on repond : le 2026-09-08 ils etaient les
+ * deux SEULES lignes "ouvertes" des soixante.
+ *
+ * Jumeau d'analyserPassationCoraf() dans Html.gs.
+ */
+export function analyserPassationCoraf(html: string): EntreeFlux[] {
+  if (!html) return [];
+  const sortie: EntreeFlux[] = [];
+
+  for (const carte of html.split('<div class="card-opportinute">').slice(1)) {
+    const titre = nettoyerHtml(
+      /<p class="title">([\s\S]*?)<\/p>/.exec(carte)?.[1] ?? "");
+    if (!titre) continue;
+    // Un plan de passation n'est pas un avis : voir l'en-tete.
+    if (/plan de passation|avis general de passation|\bAGPM\b/i.test(titre)) {
+      continue;
+    }
+
+    const lien = /<a\s+href="([^"]+)"/.exec(carte)?.[1] ?? "";
+    const jour = /class="date-ajout-opportinute"[^>]*>\s*(\d{2}\/\d{2}\/\d{4})/
+      .exec(carte)?.[1] ?? "";
+    const lieu = nettoyerHtml(
+      /<p class="map-opportinute">([\s\S]*?)<\/p>/.exec(carte)?.[1] ?? "");
+    const rubrique = /\/passation-marche\/([^/]+)\//.exec(lien)?.[1] ?? "";
+
+    sortie.push({
+      titre,
+      lien: nettoyerLien(lien),
+      publie: null,
+      resume: lieu,
+      deadline: jour ? extraireDeadline(`date limite ${jour}`) : null,
+      organisation: "CORAF",
+      // Le seul signal fiable est la rubrique de l'URL : "Appel a
+      // candidatures" et "Appel a technologies" vivent tous deux sous
+      // /Autre/. On ne devine pas.
+      type: /^AMI$/i.test(rubrique) ? "AMI" : null,
+    });
+  }
+  return sortie;
+}
 
 export const ANALYSEURS_FICHE: Record<string, AnalyseurFiche> = {
   // Ce n'est pas reserve au HTML : la fiche de Fundpilote est du JSON, et
