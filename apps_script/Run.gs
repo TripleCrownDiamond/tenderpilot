@@ -888,6 +888,55 @@ function echapperHtml_(texte) {
 }
 
 /**
+ * L'adresse du classeur, pour que chaque alerte y ramene.
+ *
+ * DEMANDE DU 2026-09-10. Une alerte dit "voici une opportunite" et laisse
+ * le lecteur devant son telephone : pour voir les autres, comparer les
+ * echeances ou cocher SUIVI, il lui faut le tableau - et il ne l'a pas
+ * sous la main.
+ *
+ * CALCULEE UNE FOIS PAR EXECUTION. getUrl() est un aller-retour avec
+ * Google : la refaire a chaque message coutait un appel par alerte, pour
+ * une valeur qui ne change jamais.
+ *
+ * Rend une chaine vide hors de Google : un email sans ce lien reste un
+ * email complet.
+ */
+var URL_CLASSEUR = null;
+
+function lienClasseur_() {
+  if (URL_CLASSEUR !== null) return URL_CLASSEUR;
+  try {
+    URL_CLASSEUR = SpreadsheetApp.getActive().getUrl();
+  } catch (e) {
+    URL_CLASSEUR = '';
+  }
+  return URL_CLASSEUR;
+}
+
+/** Le pied de page commun : le rappel, et le retour au tableau. */
+function piedEmail_() {
+  var lien = lienClasseur_();
+  var bouton = lien
+    ? '<div style="margin:0 0 14px"><a href="' + echapperHtml_(lien) + '" '
+      + 'style="display:inline-block;border:1px solid ' + MARINE_EMAIL + ';'
+      + 'color:' + MARINE_EMAIL + ';text-decoration:none;padding:9px 16px;'
+      + 'border-radius:6px;font-size:13px">Ouvrir mon tableau TenderPilot'
+      + '</a></div>'
+    : '';
+  return '<div style="border-top:1px solid #D5DBE3;margin-top:16px;'
+    + 'padding-top:12px">' + bouton
+    + '<p style="font-size:12px;color:#4A5665;margin:0">'
+    + echapperHtml_(RAPPEL) + '</p></div>';
+}
+
+/** Et la meme chose en texte brut, pour les lecteurs sans HTML. */
+function piedTexte_() {
+  var lien = lienClasseur_();
+  return RAPPEL + (lien ? '\n\nVotre tableau : ' + lien : '');
+}
+
+/**
  * L'en-tete de marque, commun a tous les emails.
  *
  * L'image est referencee par cid: - l'identifiant de la piece jointe posee
@@ -989,8 +1038,7 @@ function corpsHtml_(entete, ligne) {
     + (boutons ? '<div style="margin:0 0 18px">' + boutons + '</div>' : '')
     + '<table style="border-collapse:collapse;margin-bottom:18px">'
     + rangs + '</table>'
-    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
-    + 'padding-top:12px;margin:0">' + echapperHtml_(RAPPEL) + '</p></div>';
+    + piedEmail_() + '</div>';
 }
 
 var RAPPEL = 'Consultez toujours la source officielle avant de candidater.';
@@ -1036,25 +1084,25 @@ function messageNotification(type, ligne) {
       sujet: '[TenderPilot] Nouvelle opportunite - '
         + (ligne.org || 'source') + ' - ' + t,
       corps: 'Nouvelle opportunite detectee.\n\n' + detail_(ligne)
-        + '\n\n' + RAPPEL
+        + '\n\n' + piedTexte_()
     };
   } else if (type === 'j7') {
     message = {
       sujet: '[TenderPilot] Deadline dans 7 jours - ' + t,
       corps: 'Cette opportunite arrive bientot a echeance.\n\n'
-        + detail_(ligne) + '\n\n' + RAPPEL
+        + detail_(ligne) + '\n\n' + piedTexte_()
     };
   } else if (type === 'j3') {
     message = {
       sujet: '[TenderPilot] URGENT - ' + ligne.days + ' jours restants - ' + t,
       corps: 'Il ne reste que ' + ligne.days + ' jour(s).\n\n'
-        + detail_(ligne) + '\n\n' + RAPPEL
+        + detail_(ligne) + '\n\n' + piedTexte_()
     };
   } else if (type === 'j1') {
     message = {
       sujet: '[TenderPilot] DERNIER RAPPEL - Deadline demain - ' + t,
       corps: 'Dernier rappel avant echeance.\n\n' + detail_(ligne)
-        + '\n\n' + RAPPEL
+        + '\n\n' + piedTexte_()
     };
   } else {
     message = {
@@ -1062,6 +1110,7 @@ function messageNotification(type, ligne) {
       corps: 'La deadline est passee.\n\nTitre : ' + t
         + (ligne.org ? '\nOrganisation : ' + ligne.org : '')
         + '\nDeadline : ' + ligne.deadline
+        + '\n\n' + piedTexte_()
     };
   }
 
@@ -1097,7 +1146,7 @@ function messageDigest(nouvelles, config) {
     });
   });
 
-  lignes.push(RAPPEL);
+  lignes.push(piedTexte_());
   return {
     sujet: '[TenderPilot] ' + nouvelles.length
       + ' nouvelles opportunites detectees',
@@ -1154,9 +1203,7 @@ function digestHtml_(groupes, total) {
     + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
     + total + ' nouvelles opportunites</h2>'
     + '<table style="border-collapse:collapse;width:100%">' + corps
-    + '</table>'
-    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
-    + 'padding-top:12px;margin:16px 0 0">' + echapperHtml_(RAPPEL) + '</p></div>';
+    + '</table>' + piedEmail_() + '</div>';
 }
 
 /**
@@ -1290,7 +1337,7 @@ function messageRappels(entrees) {
     lignes.push('');
   });
 
-  lignes.push(RAPPEL);
+  lignes.push(piedTexte_());
   return {
     sujet: '[TenderPilot] ' + entrees.length + ' echeance(s) a surveiller',
     corps: lignes.join('\n'),
@@ -1325,9 +1372,7 @@ function rappelsHtml_(entrees) {
     + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
     + entrees.length + ' echeances a surveiller</h2>'
     + '<table style="border-collapse:collapse;width:100%">' + cartes
-    + '</table>'
-    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
-    + 'padding-top:12px;margin:16px 0 0">' + echapperHtml_(RAPPEL) + '</p></div>';
+    + '</table>' + piedEmail_() + '</div>';
 }
 
 /** Et pour le salon : court, comme tout ce qui part sur Telegram. */

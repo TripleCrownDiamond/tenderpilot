@@ -1010,7 +1010,14 @@ Quatre règles tenues par les tests :
    L'email et le tableau nomment une donnée de la même façon, et une colonne
    renommée entraîne l'email avec elle.
 3. **Tout le style est en ligne.** Gmail retire les balises `<style>`.
-4. **Le logo voyage avec le message**, en pièce jointe `cid:`. Une image
+4. **Chaque alerte ramène au tableau.** Un mail dit « voici une
+   opportunité » et laisse le lecteur devant son téléphone : pour voir les
+   autres, comparer les échéances ou cocher `Suivi`, il lui faut le
+   classeur. `lienClasseur_()` le lit **une fois par exécution** —
+   `getUrl()` est un aller-retour avec Google, et la valeur ne change
+   jamais. Hors de Google elle rend une chaîne vide : un mail sans ce lien
+   reste un mail complet.
+5. **Le logo voyage avec le message**, en pièce jointe `cid:`. Une image
    distante est bloquée par la plupart des messageries tant que le lecteur
    n'a pas cliqué « afficher les images », et supposerait un hébergement à
    maintenir. `Marque.gs` est **généré** par `builders/marque.py` : le PNG

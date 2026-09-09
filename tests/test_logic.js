@@ -248,7 +248,17 @@ function monde(options) {
         return { getResponseCode: () => 200, getContentText: () => reponse };
       }
     },
-    SpreadsheetApp: { getActive: () => ({ toast: () => {} }) },
+    SpreadsheetApp: {
+      getActive: () => ({
+        toast: () => {},
+        // Le vrai getUrl rend l'adresse du classeur : les alertes y
+        // ramenent le lecteur.
+        getUrl: () => 'https://docs.google.com/spreadsheets/d/BANC/edit',
+        getSheetByName: (nom) => feuille.onglets[nom] || null,
+        insertSheet: (nom) => (feuille.onglets[nom] = fauxOnglet(nom))
+      }),
+      BorderStyle: { SOLID: 'SOLID' }
+    },
     console: { log: () => {} },
     // Agenda simule. Le vrai CalendarApp rend un evenement porteur d un
     // identifiant : sans lui, la colonne Agenda resterait vide et la meme
@@ -3853,6 +3863,60 @@ console.log('\n[Editeur] Une suppression ne se fait pas sans confirmation');
         m.feuille.opps.length + ' annonces');
   check('le message dit ou lancer le vidage',
         toaste.indexOf('menu') !== -1, toaste);
+}
+
+// ==========================================================================
+console.log('\n[Emails] Chaque alerte ramene au tableau');
+{
+  // DEMANDE DU 2026-09-10. Une alerte dit "voici une opportunite" et laisse
+  // le lecteur devant son telephone : pour voir les autres, comparer les
+  // echeances ou cocher SUIVI, il lui faut le tableau.
+  const url = 'https://exemple.test/flux-lien';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Un avis', lien: 'https://exemple.test/l1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(10)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'true' }
+  });
+  m.ctx.executerTenderPilot();
+
+  const e = m.boite[0];
+  check('le HTML porte un bouton vers le classeur',
+        e.html.indexOf('/spreadsheets/d/BANC/edit') !== -1
+        && e.html.indexOf('Ouvrir mon tableau') !== -1);
+  check('le texte brut aussi, pour qui n affiche pas le HTML',
+        e.corps.indexOf('Votre tableau : https://docs.google.com') !== -1,
+        e.corps.slice(-120));
+  check('et le rappel de prudence reste',
+        e.corps.indexOf('source officielle') !== -1);
+}
+
+// ==========================================================================
+console.log('\n[Emails] L adresse du classeur est lue UNE fois par passage');
+{
+  // getUrl() est un aller-retour avec Google : la refaire a chaque message
+  // couterait un appel par alerte, pour une valeur qui ne change jamais.
+  const m = monde({});
+  let appels = 0;
+  m.ctx.URL_CLASSEUR = null;
+  m.ctx.SpreadsheetApp.getActive = () => ({
+    toast: () => {},
+    getUrl: () => { appels++; return 'https://docs.google.com/x/edit'; }
+  });
+  m.ctx.lienClasseur_(); m.ctx.lienClasseur_(); m.ctx.lienClasseur_();
+  check('trois demandes, un seul aller-retour', appels === 1,
+        appels + ' appels');
+
+  // Hors de Google, un email sans ce lien reste un email complet.
+  const hors = monde({});
+  hors.ctx.URL_CLASSEUR = null;
+  hors.ctx.SpreadsheetApp.getActive = () => { throw new Error('rien'); };
+  check('sans classeur joignable, le lien est vide et rien ne tombe',
+        hors.ctx.lienClasseur_() === '');
+  check('et le pied de page reste lisible',
+        hors.ctx.piedTexte_().indexOf('source officielle') !== -1);
 }
 
 // ==========================================================================

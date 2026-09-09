@@ -54,6 +54,17 @@ Vous recevrez un email :
 
 Une opportunite ne vous ecrit jamais deux fois pour la meme raison.
 
+**Chaque alerte ramene a votre tableau.** Un bouton *Ouvrir mon tableau
+TenderPilot* figure au bas de chaque mail, et l'adresse en toutes lettres
+dans la version texte. C'est de la que vous comparez les echeances et que
+vous cochez la colonne SUIVI.
+
+> **Attention si vous mettez plusieurs adresses** dans
+> `NOTIFICATION_EMAIL`. Vos collegues recevront les alertes, mais le bouton
+> ne s'ouvrira pour eux QUE si vous leur avez donne acces au classeur
+> (bouton *Partager*, en haut a droite). Sans cela, ils verront une page de
+> demande d'autorisation.
+
 ### Deux autres canaux, si vous voulez
 
 Un email se perd dans une boite pleine. Deux autres facons d'etre prevenu
