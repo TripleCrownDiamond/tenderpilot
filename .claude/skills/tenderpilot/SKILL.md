@@ -1204,6 +1204,33 @@ programme. `AFDB-EOI` et `AFDB-NOTICES` sont désactivées dans le registre,
 avec la mesure en clair ; leurs analyseurs restent en place, il suffira d'un
 `OUI` le jour où le site rouvre.
 
+## On ne masque jamais une erreur par une autre
+
+**Mesuré le 2026-09-10.** Le propriétaire lance une fonction depuis
+l'éditeur et lit un message sur le **menu**. La cause réelle était
+ailleurs — et invisible.
+
+`executerManuellement` appelait `SpreadsheetApp.getUi()` **dans sa branche
+d'erreur**, pour afficher une boîte de dialogue. Depuis l'éditeur, où il n'y
+a pas d'interface, `getUi()` jette à son tour : l'erreur affichée devient
+`Cannot call getUi()` et l'erreur d'origine disparaît. Le client cherche du
+côté du menu un problème qui n'y est pas.
+
+**La règle : ce qui sert à dire quelque chose ne doit jamais pouvoir faire
+échouer ce qui l'appelle.** `dire_()` essaie la boîte de dialogue, puis le
+toast, puis le journal d'exécution, et n'échoue sur aucun des trois. Un
+message est un message, pas une opération.
+
+Même piège dans `viderOpportunites`, qui appelait `getUi()` dès sa première
+ligne. Il dégrade désormais — et **refuse de supprimer** sans interface :
+une suppression demande une confirmation, et sans interface personne ne peut
+confirmer.
+
+**Le piège d'ergonomie qui va avec.** Le menu déroulant de l'éditeur propose
+par défaut la **première fonction du fichier ouvert** — `onOpen` pour
+`Run.gs`. Cliquer « Exécuter » sans regarder lance donc la construction du
+menu. Le guide d'installation le dit maintenant explicitement.
+
 ## Un réglage vit à deux endroits, et recoller un `.gs` n'en apporte qu'un
 
 **Mesuré le 2026-09-09, chez un client.** Il a recollé ses fichiers pour

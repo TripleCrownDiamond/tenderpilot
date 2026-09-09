@@ -688,6 +688,12 @@ Une fois `Run.gs` ouvert, la barre affiche
 `Executer` - `Deboguer` - un menu deroulant de fonctions.
 
 1. Dans le menu deroulant, choisissez **`autoriser`**.
+
+> **Regardez bien ce qui est selectionne.** Le menu deroulant propose par
+> defaut la PREMIERE fonction du fichier ouvert - `onOpen` pour `Run.gs`.
+> Si vous cliquez Executer sans changer, vous lancez la construction du
+> menu, qui n'a rien a construire depuis l'editeur : le journal affiche
+> alors un message sur le menu, et vous croyez a une panne.
 2. Cliquez **Executer**.
 3. **Examiner les autorisations**, puis choisissez votre compte Google.
 4. L'ecran "Google n'a pas valide cette application" apparait. C'est normal

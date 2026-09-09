@@ -1662,11 +1662,25 @@ function classerNouvelles_(annonces, existantes, config) {
  * resultat, jamais le reglage.
  */
 function viderOpportunites() {
-  var ui = SpreadsheetApp.getUi();
+  // getUi() des la premiere ligne rendait cette fonction impossible a
+  // lancer depuis l'editeur - et le message d'erreur parlait du menu.
+  var ui = null;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    // Pas d'interface : on ne demandera pas confirmation, voir plus bas.
+  }
   var lignes = lireOpportunites().length;
 
   if (!lignes) {
-    ui.alert(MENU, 'Le tableau est deja vide.', ui.ButtonSet.OK);
+    dire_('Le tableau est deja vide.');
+    return 0;
+  }
+  if (!ui) {
+    // UNE SUPPRESSION NE SE FAIT PAS SANS CONFIRMATION. Sans interface,
+    // personne ne peut confirmer : on ne supprime rien.
+    dire_('Le vidage demande une confirmation : lancez-le depuis le menu '
+          + MENU + ' du classeur, pas depuis l editeur.');
     return 0;
   }
 
@@ -1767,15 +1781,51 @@ function executerTenderPilot() {
 }
 
 function executerManuellement() {
+  var resume;
   try {
-    var r = executerTenderPilot();
-    SpreadsheetApp.getActive().toast(
-      r.nouvelles + ' nouvelle(s), ' + r.misesAJour + ' mise(s) a jour, '
-      + r.emails + ' email(s) envoye(s).', MENU, 8);
+    resume = executerTenderPilot();
   } catch (e) {
-    var ui = SpreadsheetApp.getUi();
-    ui.alert(MENU, 'L execution a echoue.\n\n' + e.message
-      + '\n\nDetail dans l onglet ' + SCHEMA.SHEETS.logs + '.', ui.ButtonSet.OK);
+    // ON NE MASQUE JAMAIS UNE ERREUR PAR UNE AUTRE.
+    //
+    // Cette branche appelait getUi() directement. Lancee depuis l'editeur -
+    // ou il n'y a pas d'interface - getUi() jette a son tour, et l'erreur
+    // affichee devient "Cannot call getUi()" au lieu de celle qui a fait
+    // echouer la collecte. Le client cherche alors du cote du menu un
+    // probleme qui est ailleurs. Mesure du 2026-09-10.
+    dire_('L execution a echoue.\n\n' + e.message
+          + '\n\nDetail dans l onglet ' + SCHEMA.SHEETS.logs + '.');
+    throw e;
+  }
+  dire_(resume.nouvelles + ' nouvelle(s), ' + resume.misesAJour
+        + ' mise(s) a jour, ' + resume.emails + ' email(s) envoye(s).');
+  return resume;
+}
+
+/**
+ * Dit quelque chose au client, par le moyen disponible.
+ *
+ * Une boite de dialogue quand il y a une interface, un toast sinon, et le
+ * journal d'execution dans tous les cas. Aucune de ces trois voies ne doit
+ * pouvoir faire echouer ce qui l'appelle : un message est un message, pas
+ * une operation.
+ */
+function dire_(texte) {
+  try {
+    console.log(texte);
+  } catch (e) {
+    // Rien a faire : on ne va pas echouer pour avoir voulu parler.
+  }
+  try {
+    SpreadsheetApp.getUi().alert(MENU, texte,
+                                 SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  } catch (e) {
+    // Pas d'interface : le toast, qui ne jette pas.
+  }
+  try {
+    SpreadsheetApp.getActive().toast(texte, MENU, 10);
+  } catch (e) {
+    // Ni interface ni classeur actif : le journal a deja recu le texte.
   }
 }
 

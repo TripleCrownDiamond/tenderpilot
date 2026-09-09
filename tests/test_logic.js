@@ -3800,6 +3800,62 @@ console.log('\n[Rappels] Le seuil est un reglage, et zero le desactive');
 }
 
 // ==========================================================================
+console.log('\n[Editeur] On ne masque jamais une erreur par une autre');
+{
+  // MESURE DU 2026-09-10 : le client a lance une fonction depuis
+  // l editeur - ou il n y a pas d interface - et a lu un message sur le
+  // MENU. La collecte, elle, avait echoue pour une autre raison :
+  // executerManuellement appelait getUi() dans sa branche d erreur, et
+  // getUi() jetait a son tour, en remplacant l erreur d origine.
+  const m = monde({});
+  m.ctx.SpreadsheetApp.getUi = function () {
+    throw new Error('Cannot call SpreadsheetApp.getUi() from this context.');
+  };
+  m.ctx.executerTenderPilot = function () {
+    throw new Error('La vraie panne, celle qu il faut lire');
+  };
+
+  let vue = '';
+  try { m.ctx.executerManuellement(); } catch (e) { vue = e.message; }
+  check('l erreur qui remonte est celle de la collecte',
+        vue.indexOf('La vraie panne') !== -1, vue);
+  check('et surtout pas celle du menu',
+        vue.indexOf('getUi') === -1, vue);
+
+  // Sans interface, on parle quand meme : par le toast, puis le journal.
+  let toaste = '';
+  m.ctx.SpreadsheetApp.getActive = () => ({ toast: (t) => { toaste = t; } });
+  m.ctx.dire_('un message');
+  check('sans interface, le message passe par le toast',
+        toaste === 'un message', toaste);
+
+  // Et si meme le toast est hors de portee, dire_ ne fait pas tomber
+  // l appelant : un message est un message, pas une operation.
+  m.ctx.SpreadsheetApp.getActive = () => { throw new Error('rien'); };
+  let tombe = false;
+  try { m.ctx.dire_('un message'); } catch (e) { tombe = true; }
+  check('et si rien n est joignable, dire_ se tait sans tomber', !tombe);
+}
+
+// ==========================================================================
+console.log('\n[Editeur] Une suppression ne se fait pas sans confirmation');
+{
+  const m = monde({ opps: [{ id: 'TP-000001', title: 'Une annonce' }] });
+  m.ctx.SpreadsheetApp.getUi = function () {
+    throw new Error('Cannot call SpreadsheetApp.getUi() from this context.');
+  };
+  let toaste = '';
+  m.ctx.SpreadsheetApp.getActive = () => ({ toast: (t) => { toaste = t; } });
+
+  const efface = m.ctx.viderOpportunites();
+  check('sans interface, rien n est efface', efface === 0);
+  check('et la ligne est toujours la', m.feuille.opps.length === 1,
+        m.feuille.opps.length + ' annonces');
+  check('le message dit ou lancer le vidage',
+        toaste.indexOf('menu') !== -1, toaste);
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');
