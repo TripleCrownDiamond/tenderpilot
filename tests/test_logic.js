@@ -2845,14 +2845,25 @@ console.log('\n[Installation] onOpen ne tombe jamais, meme sans interface');
   let tombe = false;
   try { m.ctx.onOpen(); } catch (e) { tombe = true; }
   check('sans interface, onOpen ne tombe pas', !tombe);
-  // MAIS IL NE SE TAIT PAS : un menu absent parce que le script est casse
-  // et un menu absent parce qu'il n'y a pas d'interface se ressemblent, et
-  // n'ont rien a voir. Le client doit savoir ou chercher.
-  check('et il dit pourquoi le menu manque',
-        m.feuille.logs.some(l => l.action === 'Menu' && l.statut === 'ERROR'),
-        JSON.stringify(m.feuille.logs.slice(-2)));
-  check('avec la marche a suivre apres une copie',
-        m.feuille.logs.some(l => l.action === 'Menu'
+  // ET IL DIT LEQUEL DES DEUX CAS C'EST. Un menu absent faute d'interface
+  // est sans gravite ; un menu absent parce que le script est casse ne
+  // l'est pas. Les melanger ne vaut pas mieux que le silence.
+  check('pas d interface : rien dans le journal, c est sans gravite',
+        !m.feuille.logs.some(l => l.action === 'Menu'),
+        JSON.stringify(m.feuille.logs.filter(l => l.action === 'Menu')));
+
+  // Une VRAIE panne, elle, doit laisser une trace et dire ou chercher.
+  const casse = monde({});
+  casse.ctx.SpreadsheetApp.getUi = function () {
+    throw new Error('ReferenceError: envoyerTelegram_ is not defined');
+  };
+  casse.ctx.onOpen();
+  check('un script casse est journalise en ERROR',
+        casse.feuille.logs.some(l => l.action === 'Menu'
+                                     && l.statut === 'ERROR'),
+        JSON.stringify(casse.feuille.logs.slice(-2)));
+  check('avec la marche a suivre',
+        casse.feuille.logs.some(l => l.action === 'Menu'
           && l.message.indexOf('autoriser') !== -1));
 
   // Contexte normal : le menu se construit bel et bien.

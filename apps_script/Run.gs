@@ -43,13 +43,28 @@ function onOpen() {
     // taire dans ce cas laisse le client devant un classeur muet, sans un
     // mot pour lui dire ou chercher - c'est le defaut qu'a introduit la
     // correction du 2026-09-06, en attrapant l'erreur sans la dire.
+    // ET ON DIT LEQUEL DES DEUX C'EST. Un message qui melange "tout va
+    // bien" et "tout est casse" ne vaut pas mieux que le silence : le
+    // client ne sait toujours pas s'il doit s'inquieter.
+    //
+    // "Cannot call ... getUi() from this context" est la signature du
+    // premier cas, et de lui seul. Toute autre erreur vient du script.
+    var sansInterface = String(e.message || '').indexOf('getUi') !== -1;
     try {
-      console.log('TenderPilot : menu non construit - ' + e.message);
-      logEvent('', 'Menu', 'ERROR',
-               'Menu non construit : ' + e.message + '. Si le menu manque '
-               + 'apres une copie, ouvrez Extensions > Apps Script et '
-               + 'lancez autoriser : l erreur exacte y apparaitra.');
-      ecrireJournal_();
+      if (sansInterface) {
+        console.log('TenderPilot : pas d interface ici, donc pas de menu a '
+          + 'construire. C est normal quand onOpen est lance depuis '
+          + 'l editeur. Le menu apparait en RECHARGEANT le classeur (F5), '
+          + 'jamais en lancant onOpen.');
+      } else {
+        console.log('TenderPilot : menu non construit - ' + e.message);
+        logEvent('', 'Menu', 'ERROR',
+                 'Menu non construit : ' + e.message + '. Ouvrez '
+                 + 'Extensions > Apps Script et lancez autoriser : '
+                 + 'l erreur exacte y apparaitra. Tant qu elle n est pas '
+                 + 'reglee, rien ne fonctionnera.');
+        ecrireJournal_();
+      }
     } catch (e2) {
       // Meme le journal est hors de portee : on ne fait pas de bruit.
     }
