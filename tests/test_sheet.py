@@ -480,6 +480,42 @@ def main():
               len(list(archives_v.glob("*.zip"))) == 2)
 
 
+    # ---------------------------- les guides ont un sommaire cliquable ----
+    #
+    # Un sommaire qui ne mene nulle part est pire que pas de sommaire : le
+    # lecteur clique, rien ne se passe, et il cesse de faire confiance au
+    # document. On verifie donc les LIENS RESOLUS, pas leur presence dans
+    # le Markdown.
+    print("\n[9] Les guides ont un sommaire cliquable")
+
+    import collections
+    sys.path.insert(0, str(ROOT))
+    from builders.guides import ancre_de
+
+    for nom, chemin in (
+        ("client/1_Guide_Demarrage.pdf", "guide-client-demarrage"),
+        ("operateur/1_Guide_Operateur.pdf", "guide-operateur"),
+    ):
+        pdf = ROOT / "dist" / "TenderPilot" / "guides" / nom
+        source = ROOT / "docs" / (chemin + ".md")
+        if not pdf.exists() or not source.exists():
+            continue
+
+        titres = [l.strip()[3:].strip()
+                  for l in source.read_text(encoding="utf-8").split("\n")
+                  if l.strip().startswith("## ")]
+        ancres = [ancre_de(x) for x in titres]
+        doublons = [a for a, n in collections.Counter(ancres).items() if n > 1]
+        check(f"{nom} : deux sections ne partagent pas une ancre",
+              not doublons, str(doublons))
+
+        brut = pdf.read_bytes()
+        # Une destination RESOLUE porte la page et les coordonnees ;
+        # une ancre manquante laisserait ReportLab sans cible.
+        resolus = len(re.findall(rb"/Dest \[ \d+ 0 R /XYZ", brut))
+        check(f"{nom} : {len(titres)} sections, {resolus} liens resolus",
+              resolus >= len(titres) - 1, f"{resolus} pour {len(titres)}")
+
     # ------------------------- la reference des agents est unique ---------
     #
     # AGENTS.md est lu par Cursor, Codex, Aider. Claude Code lit une skill.

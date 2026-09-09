@@ -16,6 +16,7 @@ et ne servirait a rien de plus.
 import csv
 import pathlib
 import re
+import unicodedata
 import sys
 
 from reportlab.lib import colors
@@ -92,6 +93,10 @@ def styles():
         fontSize=9.6, leading=15, textColor=ENCRE, spaceAfter=8,
         allowWidows=0, allowOrphans=0)
     s["puce"] = ParagraphStyle("puce", parent=s["corps"], spaceAfter=3)
+    # Le sommaire : serre, et sans la marge basse du corps.
+    s["sommaire"] = ParagraphStyle(
+        "sommaire", parent=s["corps"], leftIndent=10, spaceAfter=2,
+        leading=15)
     s["code"] = ParagraphStyle(
         "code", parent=base["Code"], fontName="Courier", fontSize=8.4,
         leading=12.5, textColor=ENCRE, backColor=SURFACE,
@@ -171,6 +176,44 @@ def enrichir(texte):
     for i, html in enumerate(garde):
         t = t.replace("\x00" + str(i) + "\x00", html)
     return t
+
+
+def ancre_de(titre):
+    """Un nom d'ancre stable, tire du titre lui-meme.
+
+    Il doit survivre a une reformulation de ponctuation mais changer si le
+    titre change vraiment : deux titres differents ne doivent jamais se
+    disputer la meme ancre.
+    """
+    brut = unicodedata.normalize("NFD", titre)
+    sans_accent = "".join(c for c in brut if unicodedata.category(c) != "Mn")
+    return "s-" + re.sub(r"[^a-z0-9]+", "-", sans_accent.lower()).strip("-")
+
+
+def sommaire(markdown, s):
+    """Le sommaire cliquable : les sections de niveau 2, dans l'ordre.
+
+    POURQUOI SEULEMENT LE NIVEAU 2. Un guide de vingt pages a une quinzaine
+    de sections et une trentaine de sous-sections : les lister toutes
+    donnerait une page de sommaire, c'est-a-dire un second document a lire
+    avant de lire le premier. Les sous-titres se trouvent en parcourant la
+    section, qui tient sur deux pages.
+
+    Rend une liste vide s'il y a moins de quatre sections - un sommaire de
+    trois lignes n'aide personne.
+    """
+    titres = [l.strip()[3:].strip() for l in markdown.split("\n")
+              if l.strip().startswith("## ")]
+    if len(titres) < 4:
+        return []
+
+    lignes = []
+    for titre in titres:
+        lignes.append(Paragraph(
+            lien_html("#" + ancre_de(titre), enrichir(titre)), s["sommaire"]))
+    return [Paragraph("Sommaire", s["h2"])] + lignes + [
+        HRFlowable(width="100%", thickness=0.6, color=TRAIT,
+                   spaceBefore=10, spaceAfter=14)]
 
 
 # ------------------------------------------------------ Markdown en blocs --
@@ -256,8 +299,13 @@ def convertir(markdown, s):
                 # commence sous le titre et se coupe proprement, entete
                 # repetee. Un titre suivi de trois rangees n'est pas
                 # orphelin.
+                # UNE ANCRE SUR CHAQUE TITRE, pour que le sommaire y mene.
+                # ReportLab n'a pas de notion de section : un lien interne
+                # vise un nom pose dans le flux, et rien d'autre.
+                titre_texte = nu[len(prefixe):]
                 elements.append(Paragraph(
-                    enrichir(nu[len(prefixe):]),
+                    '<a name="' + ancre_de(titre_texte) + '"/>'
+                    + enrichir(titre_texte),
                     s[style + "_libre"] if grand_tableau_apres(lignes, i)
                     else s[style]))
                 i += 1
@@ -513,6 +561,7 @@ def rendre(markdown, chemin, titre, sous_titre, version):
     premiere = corps.split("\n", 1)[0].strip()
     if premiere.lower() == ("# " + titre).lower():
         corps = corps.split("\n", 1)[1] if "\n" in corps else ""
+    histoire += sommaire(corps, s)
     histoire += convertir(corps, s)
     CanevasNumerote._legende = "TenderPilot " + version + " - " + titre
     doc.build(histoire, canvasmaker=CanevasNumerote)

@@ -187,6 +187,79 @@ Quand `Deadline` est vide, c'est que la source n'a pas publie de date.
 **Nous n'en inventons jamais** - une date devinee vous ferait manquer un
 depot. Ouvrez l'avis officiel avec le lien de la ligne.
 
+## 5 bis. La colonne Pertinence : ce qui vous concerne
+
+C'est la colonne qui repond a la premiere question qu'on se pose devant un
+tableau de trois cents lignes : **est-ce que ca me concerne ?**
+
+Elle se calcule a chaque passage, sans intelligence artificielle et sans
+aucune cle, a partir de deux reglages de l'onglet CONFIG : `PAYS_SUIVIS` et
+`SECTEURS_SUIVIS`.
+
+### Le calcul, en entier
+
+Deux axes, deux points chacun.
+
+| Le pays de l'annonce | Points |
+|----------------------|--------|
+| Un de vos pays suivis | 2 |
+| International, Afrique, ou pays non precise | 1 |
+| Un autre pays | 0 |
+
+| Le secteur de l'annonce | Points |
+|-------------------------|--------|
+| Un de vos secteurs suivis, ou vous n'en suivez aucun | 2 |
+| Secteur non precise | 1 |
+| Un autre secteur | 0 |
+
+Le total donne le niveau :
+
+| Total | Niveau | Ce que ca veut dire |
+|-------|--------|---------------------|
+| 4 | **3 - PRIORITAIRE** | votre pays ET votre secteur |
+| 3 | **2 - A VOIR** | l'un des deux, l'autre etant ouvert |
+| 2 | **1 - POSSIBLE** | rien ne correspond, rien n'exclut |
+| 0-1 | **0 - HORS PROFIL** | un autre pays et un autre secteur |
+
+### Deux precisions qui evitent des surprises
+
+**Une annonce "internationale" qui nomme un pays dans son titre n'est pas
+consideree comme ouverte.** Si vous suivez le Benin et que le titre dit
+"...au Senegal", elle perd le point des annonces ouvertes. Sans cette
+regle, tout ce qui est publie par une source internationale remontait chez
+vous.
+
+**Les noms de pays sont compares en entier.** Suivre le `Niger` ne fait
+plus remonter le `Nigeria`. En revanche, suivre le `Soudan` attrape encore
+le `Soudan du Sud`, et la `Guinee` attrape la `Guinee-Bissau` : la, c'est le
+nom lui-meme qui est ambigu.
+
+### Ce que la pertinence ne fait JAMAIS
+
+**Elle ne supprime rien.** Une annonce hors profil reste dans votre
+tableau, avec sa couleur et son echeance. Elle etiquette, elle ne trie pas
+a votre place - parce qu'une ligne de trop coute un defilement, et qu'une
+opportunite supprimee coute un marche.
+
+Pour couper le bruit **dans votre boite** sans rien retirer du tableau,
+c'est `NOTIFIER_PERTINENCE` qui sert :
+
+| Valeur | Vous etes prevenu pour |
+|--------|------------------------|
+| vide (defaut) | tout |
+| `3 - PRIORITAIRE, 2 - A VOIR` | ce qui touche vos pays ou vos secteurs |
+| `3 - PRIORITAIRE` | uniquement vos pays ET vos secteurs |
+
+### D'ou viennent les valeurs a ecrire
+
+**Ne les inventez pas.** L'onglet `PAYS_ET_SECTEURS` se remplit tout seul a
+chaque passage avec les pays et les secteurs REELLEMENT collectes, et le
+nombre d'annonces de chacun. Ouvrez-le apres une execution et recopiez de
+la : un pays mal orthographie ne correspondra a rien, en silence.
+
+**L'ordre compte.** Si vous ecrivez `Benin, Niger, Togo`, vos alertes
+arrivent dans cet ordre : le Benin d'abord, a pertinence egale.
+
 ## 6. Suivre d'autres pays
 
 Au depart, **seul le Benin est coche**. C'est le reglage de sortie d'usine,
