@@ -1105,6 +1105,41 @@ programme. `AFDB-EOI` et `AFDB-NOTICES` sont désactivées dans le registre,
 avec la mesure en clair ; leurs analyseurs restent en place, il suffira d'un
 `OUI` le jour où le site rouvre.
 
+## Un réglage vit à deux endroits, et recoller un `.gs` n'en apporte qu'un
+
+**Mesuré le 2026-09-09, chez un client.** Il a recollé ses fichiers pour
+avoir `DIGEST_GROUPE_PAR`, et ne l'a pas vu. Rien n'était cassé : un réglage
+vit dans **le code qui le lit** *et* dans **une ligne de l'onglet CONFIG** —
+et l'onglet appartient au classeur, pas au script.
+
+Conséquence, avant correction : tout réglage ajouté après une vente restait
+invisible chez tous les clients existants. Ils avaient le comportement par
+défaut sans pouvoir le changer, et concluaient que la mise à jour avait
+échoué.
+
+`completerConfig_()` s'exécute donc **au début de chaque passage** et ajoute
+les lignes manquantes, avec leur valeur par défaut et leur description.
+Trois précisions qui comptent :
+
+- **Cela ne change aucun comportement.** La valeur par défaut s'appliquait
+  déjà, codée en dur. Ajouter la ligne la rend *visible et modifiable* —
+  c'est tout l'objet.
+- **On n'ajoute que ce qui manque.** Un réglage que le client a modifié
+  n'est jamais remis à sa valeur d'usine.
+- **La note de bas de tableau n'est pas une clé.** Les nouvelles lignes
+  s'insèrent au-dessus d'elle, pour que l'onglet reste lisible.
+
+`SCHEMA.CONFIG` — clé, défaut, description — est généré depuis
+`schema/columns.py` et voyage avec le script. C'est la même idée que
+`SOURCES_LIVREES` pour les sources : ce que le script doit poser dans le
+classeur voyage **avec le script**.
+
+**La règle générale.** Avant d'ajouter un réglage, une colonne ou un onglet,
+se demander : *comment cela arrive-t-il chez un client déjà en service ?* Si
+la réponse est « il réimporte le classeur », ce n'est pas une réponse — il y
+perdrait ses données. Les colonnes n'ont pas encore leur équivalent : elles
+sont signalées par « Vérifier l'installation », à ajouter à la main.
+
 ## `onOpen` n'a pas toujours d'interface
 
 **Mesure du 2026-09-06, chez un client, a la premiere minute d'utilisation

@@ -96,6 +96,64 @@ function colonneExiste_(nom) {
   return Boolean(entetes_(feuilleOpp_())[nom]);
 }
 
+/**
+ * Ajoute a l'onglet CONFIG les reglages qui y manquent.
+ *
+ * LE PROBLEME QU'ELLE RESOUD. Un reglage nouveau vit a deux endroits : dans
+ * le code qui le lit, et dans une LIGNE de l'onglet CONFIG. Recoller un
+ * fichier .gs apporte le premier et pas le second - l'onglet appartient au
+ * classeur, pas au script. Resultat, un client qui met son script a jour ne
+ * voit jamais le nouveau reglage, et croit que la mise a jour a echoue.
+ *
+ * C'est arrive avec DIGEST_GROUPE_PAR le 2026-09-09.
+ *
+ * La valeur par defaut s'applique de toute facon, code en main : ajouter la
+ * ligne ne change donc rien au comportement, cela rend le reglage VISIBLE
+ * et modifiable. C'est tout l'objet.
+ *
+ * On insere AVANT la note de bas de tableau quand elle existe, pour que
+ * l'onglet reste lisible.
+ */
+function completerConfig_() {
+  var attendues = SCHEMA.CONFIG || [];
+  if (!attendues.length) return 0;
+
+  var feuille = getSheet_(SCHEMA.SHEETS.config);
+  var dernier = feuille.getLastRow();
+  var connues = {};
+  var rangNote = 0;
+
+  if (dernier >= 2) {
+    feuille.getRange(2, 1, dernier - 1, 1).getValues()
+      .forEach(function (r, i) {
+        var cle = String(r[0] === null || r[0] === undefined ? '' : r[0]).trim();
+        if (!cle) return;
+        // La note de bas de tableau n'est pas une cle.
+        if (cle.indexOf('Ne modifiez') === 0) { rangNote = i + 2; return; }
+        connues[cle] = true;
+      });
+  }
+
+  var manquantes = attendues.filter(function (c) { return !connues[c[0]]; });
+  if (!manquantes.length) return 0;
+
+  var lignes = manquantes.map(function (c) { return [c[0], c[1], c[2]]; });
+  if (rangNote) {
+    feuille.insertRowsBefore(rangNote, lignes.length);
+    feuille.getRange(rangNote, 1, lignes.length, 3).setValues(lignes);
+  } else {
+    feuille.getRange(dernier + 1, 1, lignes.length, 3).setValues(lignes);
+  }
+
+  logEvent('', 'Configuration', 'SUCCESS',
+           manquantes.length + ' reglage(s) ajoute(s) dans '
+           + SCHEMA.SHEETS.config + ' : '
+           + manquantes.map(function (c) { return c[0]; }).join(', ')
+           + '. Leur valeur par defaut s appliquait deja ; elle est '
+           + 'desormais visible et modifiable.');
+  return manquantes.length;
+}
+
 // ----------------------------------------------------------------- SOURCES
 
 /** Sources declarees, converties en objets a cles techniques. */

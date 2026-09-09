@@ -469,6 +469,16 @@ var SCHEMA = {{
   /** Les cles attendues dans l'onglet CONFIG. Sert au diagnostic. */
   CONFIG_CLES: {js([c[0] for c in S.CONFIG])},
 
+  /**
+   * La configuration complete : [cle, valeur par defaut, description].
+   *
+   * Elle voyage AVEC LE SCRIPT pour que completerConfig_() puisse ajouter
+   * les reglages nouveaux dans un classeur deja en service. Recoller un
+   * fichier .gs n'ajoute pas une ligne a un onglet : sans cela, un reglage
+   * ajoute apres la vente reste invisible pour tous les clients existants.
+   */
+  CONFIG: {js([list(c) for c in S.CONFIG])},
+
   /** Champs compares a chaque collecte pour detecter un changement. */
   UPDATABLE: {js(S.UPDATABLE)},
 

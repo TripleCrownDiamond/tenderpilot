@@ -113,6 +113,11 @@ vient d'entrer, vous ne pouvez pas encore l'avoir suivie.
 
 ### Un seul mail au lieu de dix, range par rubrique
 
+> Si vous ne voyez pas `DIGEST_GROUPE_PAR` dans l'onglet CONFIG, lancez une
+> execution : TenderPilot ajoute tout seul les reglages qui manquent, avec
+> leur valeur par defaut. Un reglage absent n'a jamais empeche le produit de
+> marcher - c'est sa valeur par defaut qui s'applique.
+
 Quand une collecte ramene plus de `DIGEST_THRESHOLD` nouveautes (cinq par
 defaut), elles partent en **un seul mail recapitulatif** au lieu d'un mail
 par annonce.

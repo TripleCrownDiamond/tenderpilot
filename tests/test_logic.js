@@ -194,6 +194,16 @@ function monde(options) {
       });
       return carte;
     },
+    // Le vrai completerConfig_ ajoute a l'onglet les reglages qui y
+    // manquent. Le banc le simule pour pouvoir verifier QUELS reglages
+    // seraient ajoutes, sans simuler un onglet entier.
+    completerConfig_: function () {
+      const attendues = ctx.SCHEMA.CONFIG || [];
+      const manquantes = attendues.filter(c => !(c[0] in feuille.config));
+      manquantes.forEach(c => { feuille.config[c[0]] = c[1]; });
+      feuille.configAjoutees = manquantes.map(c => c[0]);
+      return manquantes.length;
+    },
     ecrireConfig_: function (cle, valeur) {
       feuille.config[cle] = valeur;
       if (ctx.CONFIG_COURANTE) ctx.CONFIG_COURANTE[cle] = valeur;
@@ -3453,6 +3463,50 @@ console.log('\n[Oracle] Une API d achat publique, et neuf pays d un coup');
         C.analyserApiOracleNegociations('pas du json', src).length === 0);
   check('une reponse sans items non plus',
         C.analyserApiOracleNegociations('{"items":[]}', src).length === 0);
+}
+
+// ==========================================================================
+console.log('\n[Config] Un reglage nouveau entre tout seul dans l onglet');
+{
+  // LE PROBLEME MESURE LE 2026-09-09, chez un client : un reglage vit a
+  // deux endroits - le code qui le lit, et une LIGNE de l onglet CONFIG.
+  // Recoller un .gs apporte le premier et pas le second. Le client a
+  // recolle ses fichiers et n a pas vu DIGEST_GROUPE_PAR.
+  const url = 'https://exemple.test/flux-config';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis', lien: 'https://exemple.test/cf1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(10)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false' }
+  });
+
+  // Le banc part d une configuration minimale : presque tout manque.
+  check('le reglage manque avant le passage',
+        !('DIGEST_GROUPE_PAR' in m.feuille.config));
+
+  m.ctx.executerTenderPilot();
+
+  check('il est la apres', 'DIGEST_GROUPE_PAR' in m.feuille.config);
+  check('avec sa valeur par defaut',
+        m.feuille.config.DIGEST_GROUPE_PAR === 'pertinence',
+        String(m.feuille.config.DIGEST_GROUPE_PAR));
+  check('et tous les autres reglages du schema aussi',
+        m.ctx.SCHEMA.CONFIG.every(c => c[0] in m.feuille.config),
+        JSON.stringify(m.ctx.SCHEMA.CONFIG
+          .filter(c => !(c[0] in m.feuille.config)).map(c => c[0])));
+
+  // ON N AJOUTE QUE CE QUI MANQUE : un reglage que le client a modifie ne
+  // doit jamais etre remis a sa valeur d usine.
+  m.feuille.config.DIGEST_GROUPE_PAR = 'secteur';
+  m.ctx.executerTenderPilot();
+  check('un reglage deja pose n est jamais ecrase',
+        m.feuille.config.DIGEST_GROUPE_PAR === 'secteur',
+        String(m.feuille.config.DIGEST_GROUPE_PAR));
+  check('et rien n est rajoute au second passage',
+        m.feuille.configAjoutees.length === 0,
+        JSON.stringify(m.feuille.configAjoutees));
 }
 
 // ==========================================================================

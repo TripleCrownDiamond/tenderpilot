@@ -124,8 +124,8 @@ function verifierInstallation() {
     return !(c in config);
   });
   lignes.push(cles.length
-    ? 'CONFIG : cle(s) absente(s), elles seront creees au besoin - '
-      + cles.join(', ')
+    ? 'CONFIG : ' + cles.length + ' reglage(s) absent(s) - ils seront '
+      + 'ajoutes a la prochaine execution : ' + cles.join(', ')
     : 'CONFIG : complete.');
 
   // 4. Les sources que le catalogue ne connait plus. La synchronisation
@@ -1511,6 +1511,11 @@ function executerTenderPilot() {
                  agenda: 0 };
 
   try {
+    // AVANT TOUT LE RESTE : les reglages nouveaux entrent dans l'onglet.
+    // Un client qui recolle ses fichiers doit voir ce que la version
+    // apporte, pas le deviner. Voir completerConfig_.
+    completerConfig_();
+
     var existantes = lireOpportunites();
     // Le second temps de collecte ne relit pas la fiche d'une annonce deja
     // enregistree : chaque passage enrichit du NOUVEAU.

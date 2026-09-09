@@ -100,6 +100,192 @@ var SCHEMA = {
   "LLM_INCLURE_EVENEMENTS"
 ],
 
+  /**
+   * La configuration complete : [cle, valeur par defaut, description].
+   *
+   * Elle voyage AVEC LE SCRIPT pour que completerConfig_() puisse ajouter
+   * les reglages nouveaux dans un classeur deja en service. Recoller un
+   * fichier .gs n'ajoute pas une ligne a un onglet : sans cela, un reglage
+   * ajoute apres la vente reste invisible pour tous les clients existants.
+   */
+  CONFIG: [
+  [
+    "NOTIFICATION_EMAIL",
+    "",
+    "Adresse qui recoit les alertes. Plusieurs adresses possibles, separees par des points-virgules. Vide = aucun email envoye."
+  ],
+  [
+    "SEND_NEW_OPPORTUNITY",
+    "true",
+    "Email a chaque nouvelle opportunite."
+  ],
+  [
+    "SEND_J7",
+    "true",
+    "Email quand il reste 7 jours ou moins."
+  ],
+  [
+    "SEND_J3",
+    "true",
+    "Email quand il reste 3 jours ou moins."
+  ],
+  [
+    "SEND_J1",
+    "true",
+    "Email quand il reste 1 jour ou moins."
+  ],
+  [
+    "SEND_EXPIRED",
+    "false",
+    "Email quand la deadline est depassee."
+  ],
+  [
+    "NOTIFIER_PERTINENCE",
+    "",
+    "Ne recevoir que certains niveaux de pertinence, separes par des virgules. Exemple : 3 - PRIORITAIRE, 2 - A VOIR. Vide = tout est notifie. Les annonces ecartees restent dans le tableau : ce reglage coupe le bruit dans votre boite, il ne supprime rien. Voir l'onglet PAYS_ET_SECTEURS pour regler vos pays et vos secteurs."
+  ],
+  [
+    "MAX_EMAILS_PAR_EXECUTION",
+    "20",
+    "Nombre maximum d'emails envoyes en une seule execution. Les alertes au-dela ne sont PAS perdues : elles repartent au passage suivant, les plus pertinentes et les plus urgentes d'abord. Evite les 30 emails d'un coup au premier passage, et protege le quota Google (100 destinataires par jour sur un compte gmail.com, 1500 sur Workspace). Mettez 0 pour ne plafonner que sur le quota."
+  ],
+  [
+    "MAX_TELEGRAM_PAR_EXECUTION",
+    "0",
+    "Nombre maximum de messages Telegram envoyes en une seule execution, compte a part des emails. Telegram n'a pas de quota journalier : ce reglage dit seulement a quelle cadence vous acceptez que le salon sonne. 0 = aucun plafond. Les deux canaux avancent chacun a son rythme : une alerte deja partie sur Telegram ne repart pas quand l'email la rattrape au passage suivant."
+  ],
+  [
+    "DIGEST_GROUPE_PAR",
+    "pertinence",
+    "Comment ranger le recapitulatif des nouveautes : pertinence, secteur, pays, ou aucun. Un recapitulatif de trente annonces a plat se survole et se ferme ; range par secteur, vous sautez aux deux ou trois rubriques qui vous concernent. Les rubriques les plus pertinentes passent en premier, jamais par ordre alphabetique."
+  ],
+  [
+    "DIGEST_THRESHOLD",
+    "5",
+    "Au-dela de ce nombre de nouvelles opportunites dans une meme execution, un seul email recapitulatif remplace les emails unitaires."
+  ],
+  [
+    "TIMEZONE",
+    "Africa/Porto-Novo",
+    "Fuseau utilise pour calculer les jours restants."
+  ],
+  [
+    "BUDGET_COLLECTE_SECONDES",
+    "240",
+    "Temps maximum passe a lire les sources, en secondes. Google arrete toute execution a 6 minutes : au-dela de ce budget la collecte rend la main, et ce qui a ete lu est enregistre normalement - deadlines, couleurs et alertes comprises. Les sources non lues passent en tete au passage suivant, rien n'est oublie. Baissez-le si vos executions sont trop longues."
+  ],
+  [
+    "MAX_FICHES_PAR_PASSAGE",
+    "12",
+    "Certaines sources listent leurs avis sans date : l'echeance n'existe que sur la fiche de chaque avis. TenderPilot va alors la chercher, fiche par fiche, dans la limite de ce nombre par execution. Les annonces non traitees reviennent au passage suivant. Mettez 0 pour desactiver cette lecture en deux temps."
+  ],
+  [
+    "MAX_ITEMS_PER_SOURCE",
+    "40",
+    "Nombre maximum d'annonces lues par source et par execution."
+  ],
+  [
+    "COLLECT_EXPIRED",
+    "false",
+    "Collecter aussi les annonces dont la date limite est deja passee. Laisse a false : les portails gardent des annees d'archives en ligne, et elles noieraient les opportunites auxquelles vous pouvez repondre."
+  ],
+  [
+    "RAPPELS_SUIVIS_SEULEMENT",
+    "false",
+    "Ne recevoir les rappels d'echeance (J-7, J-3, J-1, expiree) que pour les avis ou vous avez ecrit OUI dans la colonne SUIVI de l'onglet OPPORTUNITIES. L'annonce des NOUVEAUTES n'est jamais concernee : une opportunite qui vient d'entrer ne peut pas encore etre suivie. Laisse a false, vous recevez les rappels de tout ce que NOTIFIER_PERTINENCE laisse passer."
+  ],
+  [
+    "SEND_AGENDA",
+    "false",
+    "Poser chaque echeance dans votre Google Agenda. Un evenement d'une journee a la date limite, avec des rappels automatiques : vous voyez vos depots a venir dans l'agenda de votre telephone, sans rien installer. Seules les annonces retenues par NOTIFIER_PERTINENCE y sont posees."
+  ],
+  [
+    "AGENDA_ID",
+    "",
+    "Agenda qui recoit les echeances. Vide = votre agenda principal. Pour un agenda dedie, creez-le dans Google Agenda et collez son identifiant (Parametres de l'agenda > Integrer l'agenda)."
+  ],
+  [
+    "AGENDA_RAPPELS_JOURS",
+    "7, 1",
+    "Combien de jours avant l'echeance Google doit vous prevenir. Plusieurs valeurs separees par des virgules. Vide = aucun rappel, l'evenement est pose sans alerte."
+  ],
+  [
+    "SEND_TELEGRAM",
+    "false",
+    "Envoyer aussi les alertes sur Telegram, en plus des emails."
+  ],
+  [
+    "TELEGRAM_TOKEN",
+    "",
+    "Jeton du bot, donne par @BotFather. Ne le partagez pas : il permet d'ecrire a votre place."
+  ],
+  [
+    "TELEGRAM_CHAT_ID",
+    "",
+    "Identifiant du salon ou du canal qui recoit les alertes. Ecrivez a @userinfobot pour connaitre le votre."
+  ],
+  [
+    "PAYS_SUIVIS",
+    "Benin",
+    "Vos pays, separes par des virgules. Exemple : Benin, Togo, Niger. Remplit la colonne Pertinence a chaque passage, sans aucune cle : vos annonces remontent en tete du tableau. Ne decide PAS de ce qui est collecte - c'est l'onglet SOURCES qui le decide - et ne supprime jamais une ligne."
+  ],
+  [
+    "SECTEURS_SUIVIS",
+    "",
+    "Vos domaines, separes par des virgules. Exemple : Energie, Eau et assainissement, Numerique et technologie. Vide = tous les secteurs comptent. Comme PAYS_SUIVIS : remplit la colonne Pertinence, sans cle, et ne supprime jamais rien."
+  ],
+  [
+    "USE_LLM",
+    "false",
+    "Faire trier les annonces par un modele de langage. Il ecarte les articles et les FAQ, attribue un secteur et un type, et resume. Sans cle, ce reglage n'a aucun effet."
+  ],
+  [
+    "LLM_CLE",
+    "",
+    "Votre cle chez le fournisseur. Ne la partagez pas : c'est votre compte qui paie les appels."
+  ],
+  [
+    "LLM_MODELE",
+    "mistral-small-latest",
+    "Nom du modele. Un petit modele suffit largement pour trier."
+  ],
+  [
+    "LLM_DIALECTE",
+    "openai",
+    "openai (Mistral, Groq, DeepSeek, OpenRouter), anthropic ou gemini."
+  ],
+  [
+    "LLM_ENDPOINT",
+    "",
+    "Adresse de l'API. Vide = celle du dialecte choisi. A renseigner seulement pour un fournisseur inhabituel ou un modele auto-heberge."
+  ],
+  [
+    "LLM_MAX_APPELS_JOUR",
+    "100",
+    "Plafond d'appels par jour. Au-dela, le tri s'arrete pour la journee et la collecte continue normalement. C'est votre garde-fou de facture : en usage courant, une collecte demande 1 a 2 appels."
+  ],
+  [
+    "LLM_TAILLE_LOT",
+    "30",
+    "Nombre d'annonces envoyees en un seul appel. 30 est un bon compromis entre le cout et le risque de reponse tronquee."
+  ],
+  [
+    "LLM_APPELS_MONDIAUX",
+    "true",
+    "Garder les appels ouverts a tous les pays. Laissez a true : une structure beninoise peut candidater a un appel mondial."
+  ],
+  [
+    "LLM_FILTRER_ZONE",
+    "false",
+    "Supprimer les annonces jugees hors de vos pays. Laisse a false, elles restent visibles et simplement signalees - un salon a Nairobi peut valoir le deplacement."
+  ],
+  [
+    "LLM_INCLURE_EVENEMENTS",
+    "false",
+    "Garder les salons, ateliers, formations et conferences. Ecartes par defaut : ce ne sont pas des marches."
+  ]
+],
+
   /** Champs compares a chaque collecte pour detecter un changement. */
   UPDATABLE: [
   "title",
