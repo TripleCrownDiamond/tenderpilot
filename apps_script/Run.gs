@@ -1218,6 +1218,28 @@ function plafondTelegram_(config) {
 }
 
 /**
+ * Ce rappel doit-il partir SEUL, sans passer par le recapitulatif ?
+ *
+ * CE QUI PRESSE NE SE RANGE PAS DANS UNE LISTE. Une echeance a deux jours
+ * qui arrive en douzieme position d'un recapitulatif a toutes les chances
+ * d'etre vue trop tard ; a sept jours, elle peut attendre dans une liste.
+ *
+ * Demande du 2026-09-09 : "les rappels de moins de N jours peuvent venir a
+ * l'unite". Le seuil est un reglage - RAPPELS_UNITAIRES_SOUS_JOURS, trois
+ * jours par defaut - parce que l'urgence n'a pas la meme valeur pour un
+ * dossier qui se monte en une journee et pour un autre qui en demande dix.
+ *
+ * Zero desactive la regle : tout est regroupe.
+ */
+function rappelUnitaire_(ligne, config) {
+  var seuil = Number((config || {}).RAPPELS_UNITAIRES_SOUS_JOURS);
+  if (!isFinite(seuil) || seuil <= 0) return false;
+  var jours = ligne.days;
+  if (jours === null || jours === undefined || jours === '') return false;
+  return Number(jours) <= seuil;
+}
+
+/**
  * Le recapitulatif des RAPPELS d'echeance.
  *
  * POURQUOI IL EXISTE. Les nouveautes tenaient deja en un mail ; les rappels
@@ -1438,6 +1460,8 @@ function sendNotifications(lignes, config, nouvelles) {
   var candidats = [];
   ordonnees.forEach(function (ligne) {
     if (!pertinenceNotifiable(ligne.pertinence, config)) return;
+    // CE QUI PRESSE NE SE RANGE PAS DANS UNE LISTE : voir rappelUnitaire_.
+    if (rappelUnitaire_(ligne, config)) return;
     // On regarde le premier canal : les regles de declenchement sont les
     // memes partout, seule la memoire differe.
     var plan = notificationsAEnvoyer(ligne, config, canaux[0].nom);
@@ -1498,8 +1522,12 @@ function sendNotifications(lignes, config, nouvelles) {
       // message de plus.
       var aEnvoyer = plan.envoyer.filter(function (type) {
         if (type === 'new') return !envoiGroupe;
+        // Une echeance depassee part toujours seule : elle est rare, et
+        // noyer "c'est passe" dans une liste de vingt la rend invisible.
         if (type === 'expired') return true;
-        return !rappelsGroupes;
+        // Un rappel qui presse n'est jamais entre dans le recapitulatif :
+        // il part ici, seul.
+        return !rappelsGroupes || rappelUnitaire_(ligne, config);
       });
 
       // Plafond atteint : ON NE MARQUE RIEN, sur ce canal. La ligne

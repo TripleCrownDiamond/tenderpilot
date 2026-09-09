@@ -483,6 +483,24 @@ que le plafond d'envois, pour la même raison.
 désignent le même niveau. Un réglage qui n'obéit qu'à celui qui a recopié le
 tiret et les espaces au bon endroit est un réglage qui ne marche pas.
 
+## Ce que le moteur web n'a pas encore
+
+Les deux moteurs sont jumeaux sur les **analyseurs** — c'est la règle qui
+prime. Ils ont divergé sur la **mise en forme et le regroupement des
+alertes**, et c'est écrit ici pour que la dette soit visible plutôt
+qu'oubliée :
+
+| Fonctionnalité | Sheets | Web |
+|---|---|---|
+| Emails HTML, couleurs du tableau, logo | oui | **non** — texte brut |
+| Récapitulatif des rappels | oui | **non** — un mail par rappel |
+| Rappels urgents à l'unité | oui | **non** |
+
+Rien de cela ne touche la collecte : les deux moteurs ramènent et classent
+les mêmes annonces. C'est le produit vendu — le classeur — qui a été servi
+en premier. Le jour où le web repasse devant, ces trois points sont à
+porter ensemble.
+
 ## Deux canaux, deux rythmes, deux mémoires
 
 L'email et Telegram partagent leurs règles de **déclenchement** — une
@@ -953,6 +971,17 @@ Au-delà de `DIGEST_THRESHOLD`, tous les rappels entrent donc dans **un seul
 message**, dans le même ordre — du plus pertinent au plus urgent. On ne
 coupe rien : un rappel groupé reste un rappel, vingt mails ne sont plus des
 rappels.
+
+**Mais ce qui presse ne se range pas dans une liste.** Une échéance à deux
+jours qui arrive en douzième position d'un récapitulatif a toutes les
+chances d'être vue trop tard ; à sept jours, elle peut attendre.
+`RAPPELS_UNITAIRES_SOUS_JOURS` — trois jours par défaut — dit en dessous de
+combien de jours un rappel part **dans son propre mail**. C'est un réglage
+parce que l'urgence n'a pas la même valeur pour un dossier qui se monte en
+une journée et pour un autre qui en demande dix. Zéro regroupe tout.
+
+Un rappel urgent n'entre donc jamais dans le récapitulatif : il n'y est pas
+listé, il part seul. Rien n'est envoyé deux fois.
 
 **Trois règles conservées.** Le récapitulatif ne marque que s'il est parti ;
 il compte pour *un* message dans le plafond du canal ; et les échéances

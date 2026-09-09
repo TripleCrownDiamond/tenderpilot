@@ -333,6 +333,11 @@ CONFIG = [
      "sonne. 0 = aucun plafond. Les deux canaux avancent chacun a son "
      "rythme : une alerte deja partie sur Telegram ne repart pas quand "
      "l'email la rattrape au passage suivant."),
+    ("RAPPELS_UNITAIRES_SOUS_JOURS", "3",
+     "En dessous de ce nombre de jours restants, un rappel part dans SON "
+     "PROPRE mail au lieu d'entrer dans le recapitulatif. Une echeance a "
+     "deux jours merite d'arriver seule ; une echeance a sept jours peut "
+     "attendre dans une liste. Mettez 0 pour tout regrouper."),
     ("DIGEST_GROUPE_PAR", "pertinence",
      "Comment ranger le recapitulatif des nouveautes : pertinence, "
      "secteur, pays, ou aucun. Un recapitulatif de trente annonces a plat "

@@ -72,6 +72,7 @@ var SCHEMA = {
   "NOTIFIER_PERTINENCE",
   "MAX_EMAILS_PAR_EXECUTION",
   "MAX_TELEGRAM_PAR_EXECUTION",
+  "RAPPELS_UNITAIRES_SOUS_JOURS",
   "DIGEST_GROUPE_PAR",
   "DIGEST_THRESHOLD",
   "TIMEZONE",
@@ -153,6 +154,11 @@ var SCHEMA = {
     "MAX_TELEGRAM_PAR_EXECUTION",
     "0",
     "Nombre maximum de messages Telegram envoyes en une seule execution, compte a part des emails. Telegram n'a pas de quota journalier : ce reglage dit seulement a quelle cadence vous acceptez que le salon sonne. 0 = aucun plafond. Les deux canaux avancent chacun a son rythme : une alerte deja partie sur Telegram ne repart pas quand l'email la rattrape au passage suivant."
+  ],
+  [
+    "RAPPELS_UNITAIRES_SOUS_JOURS",
+    "3",
+    "En dessous de ce nombre de jours restants, un rappel part dans SON PROPRE mail au lieu d'entrer dans le recapitulatif. Une echeance a deux jours merite d'arriver seule ; une echeance a sept jours peut attendre dans une liste. Mettez 0 pour tout regrouper."
   ],
   [
     "DIGEST_GROUPE_PAR",

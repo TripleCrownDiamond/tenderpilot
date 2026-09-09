@@ -3720,6 +3720,75 @@ console.log('\n[Organisation] Un nom de personne n est pas une organisation');
 }
 
 // ==========================================================================
+console.log('\n[Rappels] Ce qui presse ne se range pas dans une liste');
+{
+  // Demande du 2026-09-09 : "les rappels de moins de N jours peuvent venir
+  // a l unite". Une echeance a deux jours qui arrive en douzieme position
+  // d un recapitulatif a toutes les chances d etre vue trop tard.
+  const url = 'https://exemple.test/flux-urgents';
+  const entrees = [];
+  // Huit echeances a sept jours : regroupables.
+  for (let i = 0; i < 8; i++) {
+    entrees.push({ titre: 'Dans une semaine ' + i,
+      lien: 'https://exemple.test/u' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(7)) });
+  }
+  // Deux qui pressent.
+  entrees.push({ titre: 'Demain', lien: 'https://exemple.test/d1',
+    description: 'Date limite : ' + enFrancais(jourRelatif(1)) });
+  entrees.push({ titre: 'Dans deux jours', lien: 'https://exemple.test/d2',
+    description: 'Date limite : ' + enFrancais(jourRelatif(2)) });
+
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', DIGEST_THRESHOLD: '5',
+              RAPPELS_UNITAIRES_SOUS_JOURS: '3' }
+  });
+  m.ctx.executerTenderPilot();
+
+  const recap = m.boite.filter(e => e.sujet.indexOf('echeance(s)') !== -1);
+  const seuls = m.boite.filter(e => e.sujet.indexOf('echeance(s)') === -1);
+  check('un recapitulatif pour les huit qui peuvent attendre',
+        recap.length === 1 && recap[0].sujet.indexOf('8 echeance') !== -1,
+        recap.map(e => e.sujet).join(' | '));
+  check('et deux mails seuls pour ce qui presse', seuls.length === 2,
+        seuls.map(e => e.sujet).join(' | '));
+  check('le plus urgent porte son propre sujet',
+        seuls.some(e => e.sujet.indexOf('Demain') !== -1),
+        seuls.map(e => e.sujet).join(' | '));
+  check('trois mails au lieu de dix', m.boite.length === 3,
+        m.boite.length + ' emails');
+
+  // RIEN N EST PERDU NI ENVOYE DEUX FOIS.
+  check('les urgents ne sont PAS dans le recapitulatif',
+        recap[0].corps.indexOf('Demain') === -1, 'doublon');
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('et rien ne repart au passage suivant', m.boite.length === 0,
+        m.boite.length + ' emails');
+}
+
+// ==========================================================================
+console.log('\n[Rappels] Le seuil est un reglage, et zero le desactive');
+{
+  const C = monde({}).ctx;
+  const ligne = (jours) => ({ days: jours });
+  check('a deux jours, avec un seuil de trois : seul',
+        C.rappelUnitaire_(ligne(2), { RAPPELS_UNITAIRES_SOUS_JOURS: '3' }));
+  check('a sept jours : regroupe',
+        !C.rappelUnitaire_(ligne(7), { RAPPELS_UNITAIRES_SOUS_JOURS: '3' }));
+  check('pile au seuil : seul',
+        C.rappelUnitaire_(ligne(3), { RAPPELS_UNITAIRES_SOUS_JOURS: '3' }));
+  check('zero regroupe tout',
+        !C.rappelUnitaire_(ligne(1), { RAPPELS_UNITAIRES_SOUS_JOURS: '0' }));
+  check('un reglage illisible ne casse rien',
+        !C.rappelUnitaire_(ligne(1), { RAPPELS_UNITAIRES_SOUS_JOURS: 'abc' }));
+  check('une ligne sans jours restants n est jamais urgente',
+        !C.rappelUnitaire_({ days: '' },
+                           { RAPPELS_UNITAIRES_SOUS_JOURS: '3' }));
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

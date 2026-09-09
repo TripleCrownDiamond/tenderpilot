@@ -135,11 +135,18 @@ par annonce.
 ordre alphabetique : une rubrique passe devant une autre si elle contient
 une annonce plus pertinente pour vous.
 
-> **Les rappels d'echeance restent separes**, et c'est voulu : un J-1 qui
-> arrive noye au milieu de vingt autres lignes n'est plus un rappel. Si
-> vous en recevez trop, baissez `MAX_EMAILS_PAR_EXECUTION`, ou mettez
-> `RAPPELS_SUIVIS_SEULEMENT` a `true` pour ne plus etre rappele que sur les
-> avis que vous suivez.
+**Les rappels d'echeance sont regroupes eux aussi**, au-dela du meme seuil :
+douze echeances font un mail, les douze listees, rien de perdu.
+
+**Sauf ce qui presse.** `RAPPELS_UNITAIRES_SOUS_JOURS` - trois jours par
+defaut - dit en dessous de combien de jours un rappel part dans SON propre
+mail. Une echeance a deux jours ne doit pas arriver en douzieme position
+d'une liste. Mettez 0 pour tout regrouper.
+
+> Si vous recevez encore trop de mails : baissez
+> `MAX_EMAILS_PAR_EXECUTION`, ou mettez `RAPPELS_SUIVIS_SEULEMENT` a `true`
+> pour n'etre rappele que sur les avis ou vous avez ecrit OUI dans la
+> colonne SUIVI.
 
 ## 4. Laisser tourner
 
