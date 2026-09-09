@@ -319,17 +319,40 @@ function extractDeadline(text) {
  * reprend la main - c'est normalizeOpportunity qui arbitre.
  */
 function auteurFlux_(bloc) {
-  var t = stripTags(tagContent_(bloc, 'author')
-                    || tagContent_(bloc, 'dc:creator'));
+  // ON NE LIT PLUS <dc:creator>, ET C'EST UNE MESURE, PAS UNE PRUDENCE.
+  //
+  // Le 2026-09-09, la colonne Organisation d'un mail reel affichait "Ashley
+  // Lulling" et "Ilka Westermeyer" : les REDACTEURS des billets, pas les
+  // bailleurs. Le client lit cette colonne pour savoir a qui il aurait
+  // affaire ; un prenom et un nom ne lui apprennent rien.
+  //
+  // Mesure du meme jour sur les flux actifs : <author> porte l'acheteur
+  // reel - "Societe des Infrastructures Routieres et de l'Amenagement" sur
+  // la DNCMP - tandis que <dc:creator> porte une personne. Les deux balises
+  // ne disent pas la meme chose, et une seule nous interesse.
+  //
+  // Une organisation absente vaut mieux qu'une fausse : sans auteur, le
+  // nom de la source s'applique, et il est juste.
+  var t = stripTags(tagContent_(bloc, 'author'));
   if (!t) return '';
   // La parenthese ne prime QUE derriere une adresse : "Agence des Systemes
   // d Information et du Numerique (ASIN)" doit rester entier, sinon on
   // reduirait un acheteur a son sigle.
-  var apresAdresse = /^[^\s@]+@[^\s@]+\s*\(([^)]+)\)$/.exec(t);
-  if (apresAdresse) return apresAdresse[1].trim();
+  // Une adresse seule ne dit rien : elle ne remplace pas un nom.
   if (/^[^\s@]+@[^\s@]+$/.test(t)) return '';
+
+  // "x@y.bj (Agence des Systemes d Information et du Numerique (ASIN))" :
+  // on retire l'adresse, puis les parentheses qui entourent le TOUT. On ne
+  // cherche pas la derniere parenthese - elle rendrait le sigle seul, et
+  // reduirait un acheteur a ses quatre lettres.
+  var sansAdresse = t.replace(/^[^\s@]+@[^\s@]+\s*/, '').trim();
+  if (sansAdresse !== t) {
+    var entoure = /^\((.*)\)$/.exec(sansAdresse);
+    return (entoure ? entoure[1] : sansAdresse).trim();
+  }
   return t;
 }
+
 
 /**
  * Repare les flux dont chaque element porte le meme titre.

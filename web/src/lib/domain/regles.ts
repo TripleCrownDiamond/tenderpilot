@@ -586,6 +586,13 @@ const PERTINENCE_SEUILS: [string, number][] = [
  * structure beninoise peut candidater a un appel mondial - meme decision
  * que LLM_APPELS_MONDIAUX, et elle vaut sans aucune cle.
  */
+/**
+ * Les pays que le registre nomme reellement. Sert a reconnaitre, dans le
+ * TITRE d'une annonce sans pays propre, qu'elle vise un pays precis.
+ * Jumeau de SCHEMA.PAYS_CONNUS, genere depuis schema/columns.py.
+ */
+const PAYS_CONNUS = ["Algerie", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroun", "Cap-Vert", "Comores", "Congo", "Cote d'Ivoire", "Djibouti", "Egypte", "Erythree", "Eswatini", "Ethiopie", "Gabon", "Gambie", "Ghana", "Guinee", "Guinee equatoriale", "Guinee-Bissau", "Kenya", "Lesotho", "Liberia", "Libye", "Madagascar", "Malawi", "Mali", "Maroc", "Maurice", "Mauritanie", "Mozambique", "Namibie", "Niger", "Nigeria", "Ouganda", "RDC", "Republique centrafricaine", "Rwanda", "Sao Tome-et-Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalie", "Soudan", "Soudan du Sud", "Tanzanie", "Tchad", "Togo", "Tunisie", "Zambie", "Zimbabwe"];
+
 const PAYS_OUVERTS = ["international", "afrique", "multi-pays", "monde",
                       "mondial", "global", "worldwide", "afrique de l'ouest",
                       "cedeao", "umoa"];
@@ -598,10 +605,46 @@ export function listeConfig(valeur: unknown): string[] {
     .filter((m) => m.length > 0);
 }
 
+/** " nigeria " ne contient pas " niger ". Jumeau de contientMots_(). */
+function contientMots(texte: string, motif: string): boolean {
+  return ` ${texte} `.includes(` ${motif} `);
+}
+
+/**
+ * LA COMPARAISON PORTE SUR DES MOTS ENTIERS, ET C'EST UN CORRECTIF.
+ *
+ * Mesure du 2026-09-09, signalee par un client : il suivait "Benin, Niger,
+ * Togo" et recevait des avis du NIGERIA - "nigeria" contient "niger". Le
+ * meme piege attend "Guinee" et "Soudan".
+ *
+ * Elle reste tolerante par ailleurs : une annonce dit "Benin" quand la
+ * source dit "Benin, Afrique de l'Ouest". On compare dans les deux sens.
+ */
 function correspond(texte: unknown, liste: string[]): boolean {
   const t = normaliser(texte);
   if (!t) return false;
-  return liste.some((m) => t.includes(m) || m.includes(t));
+  return liste.some((m) => contientMots(t, m) || contientMots(m, t));
+}
+
+/**
+ * Le titre nomme-t-il un pays PRECIS, et aucun de ceux que le client suit ?
+ *
+ * Ne regarde QUE le titre : un resume cite souvent des pays de contexte.
+ * Jumeau de paysAilleurs_() dans Core.gs.
+ */
+function paysAilleurs(titre: unknown, paysSuivis: string[]): boolean {
+  const t = normaliser(titre);
+  if (!t) return false;
+  let nomme = false;
+  for (const brut of PAYS_CONNUS) {
+    const p = normaliser(brut);
+    if (!p || !contientMots(t, p)) continue;
+    nomme = true;
+    if (paysSuivis.some((s) => contientMots(p, s) || contientMots(s, p))) {
+      return false;
+    }
+  }
+  return nomme;
 }
 
 /**
@@ -616,7 +659,9 @@ function correspond(texte: unknown, liste: string[]): boolean {
  * restreindre. Un point quand le secteur est inconnu. Zero sinon.
  */
 export function pertinence(
-  annonce: { pays?: string | null; secteur?: string | null },
+  // Le TITRE entre dans le calcul : voir paysAilleurs().
+  annonce: { pays?: string | null; secteur?: string | null;
+             titre?: string | null },
   config: { paysSuivis?: string; secteursSuivis?: string } = {},
 ): string {
   const paysSuivis = listeConfig(config.paysSuivis);
@@ -626,7 +671,13 @@ export function pertinence(
   const pays = annonce.pays ?? "";
   if (paysSuivis.length && correspond(pays, paysSuivis)) points += 2;
   else if (!paysSuivis.length || estVide(pays) || correspond(pays, PAYS_OUVERTS)) {
-    points += 1;
+    // UNE ANNONCE "INTERNATIONALE" QUI NOMME UN PAYS N'EST PAS OUVERTE.
+    // Mesure du 2026-09-09 : un client suivant Benin/Niger/Togo recevait
+    // "Organisationsberatung ... in Senegal", dont le pays valait
+    // "International". On ne devine pas, on lit le titre.
+    if (!paysSuivis.length || !paysAilleurs(annonce.titre, paysSuivis)) {
+      points += 1;
+    }
   }
 
   const secteur = annonce.secteur ?? "";

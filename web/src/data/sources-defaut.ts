@@ -7,7 +7,7 @@
  *
  * 115 sources : 71 flux RSS, 23 API JSON,
  * 20 collectes HTML, 1 manuelle(s).
- * 56 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 55 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -1035,8 +1035,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "International",
     "secteurDefaut": "Numerique et technologie",
     "typeDefaut": "Subvention",
-    "active": true,
-    "statut": "Verifie le 2026-09-01 : feed RSS actif avec RFP (Request for Proposals) et subventions tech. Thematiques : Internet freedom, censure numerique, securite. Flux fiable, mises a jour regulieres."
+    "active": false,
+    "statut": "Verifie le 2026-09-09 par collecte reelle : 2 vraies opportunites sur 10 items. Le reste est du billet de blog - 'Frequently Asked Questions', analyses sur les VPN, communique de presse sur un proces. FLUX MIXTE : desactivee, comme Proparco et les autres flux d'actualites. Les deux RFP reels sont annonces sur la meme page que les articles, sans rien qui les distingue - un filtre par mots-cles ne les separerait pas, voir la regle sur les flux d'actualites."
   },
   {
     "code": "TEF-GRANTS",

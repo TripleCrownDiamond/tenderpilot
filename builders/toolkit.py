@@ -512,6 +512,9 @@ var SCHEMA = {{
   /** Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. */
   PAYS_OUVERTS: {js(S.PAYS_OUVERTS)},
 
+  /** Les pays que le registre nomme. Voir paysVise_ dans Core.gs. */
+  PAYS_CONNUS: {js(S.PAYS_CONNUS)},
+
   /** Une opportunite recoit au maximum un email de chaque type. */
   NOTIFICATIONS: {js(S.NOTIFICATIONS)},
 

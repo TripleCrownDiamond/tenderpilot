@@ -714,11 +714,41 @@ function listeConfig_(valeur) {
 }
 
 /** Un des elements de la liste apparait-il dans le texte ? */
+/**
+ * Le motif apparait-il comme une SUITE DE MOTS ENTIERS dans le texte ?
+ *
+ * " nigeria " ne contient pas " niger ". C'est toute la difference entre
+ * ces deux fonctions et un indexOf.
+ */
+function contientMots_(texte, motif) {
+  return (' ' + texte + ' ').indexOf(' ' + motif + ' ') !== -1;
+}
+
+/**
+ * Le texte correspond-il a l'une des valeurs suivies ?
+ *
+ * LA COMPARAISON PORTE SUR DES MOTS ENTIERS, ET C'EST UN CORRECTIF.
+ * MESURE DU 2026-09-09, signalee par un client : il suivait "Benin, Niger,
+ * Togo" et recevait des avis du NIGERIA - parce que "nigeria" contient
+ * "niger". Le meme piege attend "Guinee" et "Soudan", et il ne se voit pas
+ * dans un test qui n'essaie qu'un pays a la fois.
+ *
+ * La comparaison reste TOLERANTE par ailleurs, et elle doit l'etre : une
+ * annonce dit "Benin" quand la source dit "Benin, Afrique de l'Ouest", et
+ * "Cote d'Ivoire" s'ecrit de trois facons. On compare donc dans les deux
+ * sens - le suivi peut etre plus precis que l'annonce, ou l'inverse.
+ *
+ * CE QUE CELA NE REGLE PAS : suivre "Guinee" attrape encore
+ * "Guinee-Bissau", parce que "guinee" y est bien un mot entier. C'est une
+ * ambiguite du nom, pas de la comparaison.
+ */
 function correspond_(texte, liste) {
   var t = normalizeText(texte);
   if (!t) return false;
   for (var i = 0; i < liste.length; i++) {
-    if (t.indexOf(liste[i]) !== -1 || liste[i].indexOf(t) !== -1) return true;
+    var v = liste[i];
+    if (!v) continue;
+    if (contientMots_(t, v) || contientMots_(v, t)) return true;
   }
   return false;
 }
@@ -750,7 +780,21 @@ function pertinence(annonce, config) {
     points += 2;
   } else if (!paysSuivis.length || estVide(pays)
              || correspond_(pays, SCHEMA.PAYS_OUVERTS)) {
-    points += 1;
+    // UNE ANNONCE "INTERNATIONALE" QUI NOMME UN PAYS N'EST PAS OUVERTE.
+    //
+    // MESURE DU 2026-09-09, signalee par un client : il suivait le Benin,
+    // le Niger et le Togo, et recevait "Organisationsberatung ... in
+    // Senegal" et "EUNIC Senegal 2026". Leur colonne Pays disait
+    // "International" - le defaut de la source - alors que leur TITRE
+    // nomme le pays vise. Elles gagnaient le point des annonces ouvertes
+    // et remontaient en "A VOIR".
+    //
+    // On ne devine pas : on lit. Si le titre nomme un pays du registre et
+    // AUCUN des pays suivis, l'annonce ne concerne pas le client. Si le
+    // titre ne nomme rien, elle reste ouverte - c'est le cas courant.
+    if (!paysSuivis.length || !paysAilleurs_(annonce, paysSuivis)) {
+      points += 1;
+    }
   }
 
   var secteur = String((annonce || {}).sector || '');
@@ -774,15 +818,107 @@ function pertinence(annonce, config) {
  *
  * Ne modifie pas le tableau recu.
  */
-function parPertinence_(lignes) {
+/**
+ * Le rang d'un pays dans PAYS_SUIVIS, ou l'infini s'il n'y figure pas.
+ *
+ * L'ORDRE DE LA CONFIGURATION EST UN CHOIX, PAS UNE SAISIE. Un client qui
+ * ecrit "Benin, Niger, Togo" a mis le Benin en premier parce que c'est la
+ * qu'il travaille. Demande le 2026-09-09 : les alertes doivent suivre cet
+ * ordre.
+ */
+function rangPays_(pays, paysSuivis) {
+  var p = normalizeText(pays);
+  if (!p) return 9999;
+  for (var i = 0; i < paysSuivis.length; i++) {
+    if (contientMots_(p, paysSuivis[i]) || contientMots_(paysSuivis[i], p)) {
+      return i;
+    }
+  }
+  return 9999;
+}
+
+/**
+ * L'ordre d'envoi : le plus pertinent, puis le pays le mieux place dans la
+ * configuration, puis le plus urgent.
+ *
+ * LES TROIS CRITERES SONT DANS CET ORDRE POUR UNE RAISON. La pertinence dit
+ * si l'annonce concerne le client ; le rang de pays departage deux annonces
+ * egalement pertinentes ; le delai tranche a l'interieur d'un pays. Mettre
+ * le delai avant le pays ferait remonter une echeance lointaine du Togo
+ * devant une echeance proche du Benin, ce qui n'est pas ce qu'on veut quand
+ * le Benin est ecrit en premier.
+ */
+function parPertinence_(lignes, config) {
+  var suivis = listeConfig_((config || CONFIG_COURANTE || {}).PAYS_SUIVIS);
   return (lignes || []).slice().sort(function (a, b) {
     var pa = String(a.pertinence || '');
     var pb = String(b.pertinence || '');
     if (pa !== pb) return pa < pb ? 1 : -1;
+
+    if (suivis.length) {
+      var ra = rangPays_(a.country, suivis);
+      var rb = rangPays_(b.country, suivis);
+      if (ra !== rb) return ra - rb;
+    }
+
     var ja = a.days === null || a.days === undefined || a.days === '' ? 9999 : a.days;
     var jb = b.days === null || b.days === undefined || b.days === '' ? 9999 : b.days;
     return ja - jb;
   });
+}
+
+/**
+ * Ce titre est-il un PLAN de passation plutot qu'un avis ?
+ *
+ * MESURE DU 2026-09-09, dans un mail reel : "ADDITIF PLAN PREVISIONNEL DE
+ * PASSATION DE MARCHE 2026" et "ANIP - Avis general de passation des
+ * marches relatif au plan de passation" etaient annonces comme des
+ * opportunites. Ce n'en sont pas : un plan annonce ce qu'un acheteur
+ * COMPTE lancer dans l'annee, sans dossier, sans echeance de depot et
+ * sans rien a quoi repondre. Ils portent pourtant une date - souvent le
+ * 31 decembre - donc le filtre des echues ne les arrete pas.
+ *
+ * La regle etait deja appliquee au CORAF ; elle vaut pour toutes les
+ * sources, et vit donc ici.
+ *
+ * ON NE FILTRE PAS "avis de passation" seul : c'est la formule d'un avis
+ * ordinaire. Seuls le PLAN et l'AVIS GENERAL sont ecartes.
+ */
+// UN MOT PEUT S'INTERCALER, ET IL PEUT ETRE MAL ORTHOGRAPHIE. Le mail du
+// 2026-09-09 portait "PLAN PREVISSIONNEL DE PASSATION" - deux S. On ne
+// cherche donc pas le mot du milieu, on autorise seulement qu'il existe.
+var MOTIF_PLAN_PASSATION =
+  /plan\s+(?:\S+\s+)?de\s+passation|avis\s+general\s+de\s+passation|\bAGPM\b/i;
+
+function estPlanDePassation_(titre) {
+  return MOTIF_PLAN_PASSATION.test(String(titre || ''));
+}
+
+/**
+ * Le titre nomme-t-il un pays PRECIS, et aucun de ceux que le client suit ?
+ *
+ * Ne regarde QUE le titre : un resume cite souvent des pays de contexte -
+ * "sur le modele de ce qui a ete fait au Kenya" - qui ne disent rien du
+ * pays vise. Le titre, lui, nomme la cible.
+ */
+function paysAilleurs_(annonce, paysSuivis) {
+  var titre = normalizeText((annonce || {}).title || '');
+  if (!titre) return false;
+
+  var connus = SCHEMA.PAYS_CONNUS || [];
+  var nomme = false;
+  for (var i = 0; i < connus.length; i++) {
+    var p = normalizeText(connus[i]);
+    if (!p || !contientMots_(titre, p)) continue;
+    nomme = true;
+    // Un seul pays suivi cite suffit : l'annonce le concerne.
+    for (var j = 0; j < paysSuivis.length; j++) {
+      if (contientMots_(p, paysSuivis[j]) || contientMots_(paysSuivis[j], p)) {
+        return false;
+      }
+    }
+  }
+  return nomme;
 }
 
 /**
@@ -967,6 +1103,9 @@ if (typeof module !== 'undefined') {
     notificationsAEnvoyer: notificationsAEnvoyer, prochainId: prochainId,
     canauxNotifies_: canauxNotifies_, dejaNotifie_: dejaNotifie_,
     estSuivie_: estSuivie_, grouperDigest_: grouperDigest_,
+    correspond_: correspond_, contientMots_: contientMots_,
+    rangPays_: rangPays_, paysAilleurs_: paysAilleurs_,
+    estPlanDePassation_: estPlanDePassation_,
     ajouterCanal_: ajouterCanal_, CANAUX: CANAUX,
     tronquer: tronquer,
     fraicheurSource_: fraicheurSource_,

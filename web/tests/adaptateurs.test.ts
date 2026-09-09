@@ -1149,3 +1149,4 @@ test("Oracle : les avis annules sont ecartes, les pays sont nommes", () => {
   assert.equal(analyserOracleNegociations("pas du json").length, 0);
   assert.equal(analyserOracleNegociations('{"items":[]}').length, 0);
 });
+

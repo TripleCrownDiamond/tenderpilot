@@ -1118,3 +1118,35 @@ test("le corps du recapitulatif porte les intitules de rubrique", async () => {
   assert.ok(digest!.corps.includes("== AGRICULTURE ET AGROALIMENTAIRE (8) =="),
             digest!.corps.slice(0, 200));
 });
+
+// ==========================================================================
+// Niger ne veut pas dire Nigeria.
+
+test("la comparaison des pays porte sur des mots entiers", () => {
+  const cfg = { paysSuivis: "Benin, Niger, Togo",
+                secteursSuivis: "Numerique et technologie" };
+  const juge = (pays: string, titre = "Avis") =>
+    pertinence({ titre, pays, secteur: "Numerique et technologie" }, cfg);
+
+  // Mesure du 2026-09-09 : "nigeria" contient "niger".
+  assert.notEqual(juge("Nigeria"), PERTINENCE_PRIORITAIRE,
+                  "le Nigeria n'est pas le Niger");
+  assert.equal(juge("Niger"), PERTINENCE_PRIORITAIRE);
+  assert.equal(juge("Benin, Afrique de l'Ouest"), PERTINENCE_PRIORITAIRE,
+               "le Benin reste reconnu dans une valeur composee");
+});
+
+test("une annonce internationale qui nomme un pays n'est pas ouverte", () => {
+  const cfg = { paysSuivis: "Benin, Niger, Togo",
+                secteursSuivis: "Numerique et technologie" };
+  const juge = (titre: string) => pertinence(
+    { titre, pays: "International", secteur: "Numerique et technologie" }, cfg);
+
+  assert.equal(juge("Transformation digitale au Senegal"),
+               PERTINENCE_POSSIBLE, "le titre nomme un pays non suivi");
+  assert.equal(juge("Appel a projets pour le Benin"), PERTINENCE_A_VOIR);
+  assert.equal(juge("Global call for digital innovation"), PERTINENCE_A_VOIR,
+               "aucun pays nomme : l'annonce reste ouverte");
+  assert.equal(juge("Programme Senegal et Benin"), PERTINENCE_A_VOIR,
+               "un pays suivi cite suffit");
+});

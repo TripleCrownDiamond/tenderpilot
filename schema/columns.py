@@ -169,6 +169,11 @@ PERTINENCE_SEUILS = [
 # Un pays ecrit ainsi n'exclut personne : l'annonce est ouverte a tous. Une
 # structure beninoise peut candidater a un appel mondial - c'est la meme
 # decision que LLM_APPELS_MONDIAUX, et elle vaut sans aucune cle.
+# Les pays que le registre nomme reellement. Sert a reconnaitre, dans le
+# TITRE d'une annonce sans pays propre, qu'elle vise un pays precis - et
+# lequel. Liste MESUREE depuis data/sources.csv, jamais ecrite a la main.
+PAYS_CONNUS = ['Algerie', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cameroun', 'Cap-Vert', 'Comores', 'Congo', "Cote d'Ivoire", 'Djibouti', 'Egypte', 'Erythree', 'Eswatini', 'Ethiopie', 'Gabon', 'Gambie', 'Ghana', 'Guinee', 'Guinee equatoriale', 'Guinee-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libye', 'Madagascar', 'Malawi', 'Mali', 'Maroc', 'Maurice', 'Mauritanie', 'Mozambique', 'Namibie', 'Niger', 'Nigeria', 'Ouganda', 'RDC', 'Republique centrafricaine', 'Rwanda', 'Sao Tome-et-Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalie', 'Soudan', 'Soudan du Sud', 'Tanzanie', 'Tchad', 'Togo', 'Tunisie', 'Zambie', 'Zimbabwe']
+
 PAYS_OUVERTS = ["international", "afrique", "multi-pays", "monde", "mondial",
                 "global", "worldwide", "afrique de l'ouest", "cedeao", "umoa"]
 

@@ -1803,7 +1803,10 @@ console.log('\n[Etalement] Les alertes en trop sont reportees, jamais perdues');
   }
   const m = monde({
     sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
-    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '3' }
+    // DIGEST_THRESHOLD haut : on teste ICI l'etalement des rappels
+    // UNITAIRES. Leur regroupement a son propre test.
+    config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '3',
+              DIGEST_THRESHOLD: '20' }
   });
 
   m.ctx.executerTenderPilot();
@@ -2566,8 +2569,10 @@ console.log('\n[Deux canaux] Chacun son plafond, chacun sa memoire');
   }
   const m = monde({
     sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    // DIGEST_THRESHOLD haut : ce test porte sur les canaux, pas sur le
+    // regroupement des rappels - qui a le sien.
     config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '3',
-              MAX_TELEGRAM_PAR_EXECUTION: '0',
+              MAX_TELEGRAM_PAR_EXECUTION: '0', DIGEST_THRESHOLD: '20',
               SEND_TELEGRAM: 'true', TELEGRAM_TOKEN: 'jeton',
               TELEGRAM_CHAT_ID: 'salon' }
   });
@@ -2614,7 +2619,7 @@ console.log('\n[Deux canaux] Telegram plafonne sans retenir l email');
   const m = monde({
     sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
     config: { SEND_NEW_OPPORTUNITY: 'false', MAX_EMAILS_PAR_EXECUTION: '0',
-              MAX_TELEGRAM_PAR_EXECUTION: '2',
+              MAX_TELEGRAM_PAR_EXECUTION: '2', DIGEST_THRESHOLD: '20',
               SEND_TELEGRAM: 'true', TELEGRAM_TOKEN: 'jeton',
               TELEGRAM_CHAT_ID: 'salon' }
   });
@@ -3507,6 +3512,211 @@ console.log('\n[Config] Un reglage nouveau entre tout seul dans l onglet');
   check('et rien n est rajoute au second passage',
         m.feuille.configAjoutees.length === 0,
         JSON.stringify(m.feuille.configAjoutees));
+}
+
+// ==========================================================================
+console.log('\n[Pays] Niger ne veut pas dire Nigeria');
+{
+  // MESURE DU 2026-09-09, signalee par un client : il suivait "Benin,
+  // Niger, Togo" et recevait des avis du NIGERIA, parce que "nigeria"
+  // contient "niger". Le meme piege attend Guinee et Soudan.
+  const C = monde({}).ctx;
+  const suivis = C.listeConfig_('Benin, Niger, Togo');
+
+  check('Nigeria n est PAS Niger', C.correspond_('Nigeria', suivis) === false);
+  check('Niger est bien Niger', C.correspond_('Niger', suivis) === true);
+  check('le Benin reste reconnu dans une valeur composee',
+        C.correspond_("Benin, Afrique de l'Ouest", suivis) === true);
+  // CE QUE LA REGLE NE REGLE PAS, ET QU IL FAUT SAVOIR : "Soudan du Sud"
+  // contient le MOT ENTIER "Soudan". Suivre le Soudan attrape donc le
+  // Soudan du Sud, comme suivre la Guinee attrape la Guinee-Bissau. C est
+  // une ambiguite des noms, pas de la comparaison - et elle est bien moins
+  // couteuse que Niger/Nigeria, ou les deux pays n ont rien a voir.
+  check('en revanche Soudan attrape encore Soudan du Sud',
+        C.correspond_('Soudan du Sud', C.listeConfig_('Soudan')) === true);
+
+  // La tolerance qu'on garde : le suivi peut etre plus large que l'annonce.
+  check('suivre l Afrique de l Ouest attrape ses mentions',
+        C.correspond_("Afrique de l'Ouest",
+                      C.listeConfig_("Afrique de l'Ouest")) === true);
+}
+
+// ==========================================================================
+console.log('\n[Pays] Une annonce internationale qui nomme un pays');
+{
+  // Le client suivait Benin/Niger/Togo et recevait "Organisationsberatung
+  // ... in Senegal" : sa colonne Pays disait "International" - le defaut de
+  // la source - alors que le TITRE nomme le pays vise.
+  const C = monde({}).ctx;
+  const cfg = { PAYS_SUIVIS: 'Benin, Niger, Togo',
+                SECTEURS_SUIVIS: 'Numerique et technologie' };
+  const juge = (titre) => C.pertinence(
+    { title: titre, country: 'International',
+      sector: 'Numerique et technologie' }, cfg);
+
+  check('un titre qui nomme le Senegal perd le point des annonces ouvertes',
+        juge('Transformation digitale au Senegal') === C.SCHEMA.PERTINENCE_POSSIBLE,
+        juge('Transformation digitale au Senegal'));
+  check('un titre qui nomme le Benin le garde',
+        juge('Appel a projets numerique pour le Benin') === C.SCHEMA.PERTINENCE_A_VOIR);
+  check('un titre qui ne nomme aucun pays reste ouvert',
+        juge('Global call for digital innovation') === C.SCHEMA.PERTINENCE_A_VOIR);
+  check('un titre qui nomme DEUX pays dont un suivi reste ouvert',
+        juge('Programme numerique Senegal et Benin') === C.SCHEMA.PERTINENCE_A_VOIR);
+
+  // Sans pays suivis, la regle ne s applique pas : on n ecarte personne.
+  check('sans PAYS_SUIVIS, rien n est ecarte',
+        C.pertinence({ title: 'Projet au Senegal', country: 'International',
+                       sector: 'Numerique et technologie' }, {})
+          === C.SCHEMA.PERTINENCE_A_VOIR,
+        C.pertinence({ title: 'Projet au Senegal', country: 'International',
+                       sector: 'Numerique et technologie' }, {}));
+}
+
+// ==========================================================================
+console.log('\n[Ordre] Le pays ecrit en premier passe en premier');
+{
+  // Demande du 2026-09-09 : "benin est renseigne en premier".
+  const C = monde({}).ctx;
+  const cfg = { PAYS_SUIVIS: 'Benin, Niger, Togo' };
+  const a = (titre, pays, jours) => ({
+    title: titre, country: pays, days: jours,
+    pertinence: C.SCHEMA.PERTINENCE_PRIORITAIRE });
+
+  const ordre = C.parPertinence_([
+    a('Togo lointain', 'Togo', 5),
+    a('Niger proche', 'Niger', 2),
+    a('Benin lointain', 'Benin', 30)
+  ], cfg).map(o => o.title);
+
+  check('le Benin passe devant, meme avec une echeance lointaine',
+        ordre[0] === 'Benin lointain', ordre.join(' | '));
+  check('puis le Niger, puis le Togo',
+        ordre.join(' | ') === 'Benin lointain | Niger proche | Togo lointain',
+        ordre.join(' | '));
+
+  // A pays egal, l urgence tranche.
+  const meme = C.parPertinence_([
+    a('Benin lointain', 'Benin', 30), a('Benin proche', 'Benin', 2)
+  ], cfg).map(o => o.title);
+  check('a pays egal, le plus urgent d abord',
+        meme[0] === 'Benin proche', meme.join(' | '));
+
+  // La pertinence prime toujours sur le pays.
+  const mixte = C.parPertinence_([
+    Object.assign(a('Benin hors profil', 'Benin', 5),
+                  { pertinence: C.SCHEMA.PERTINENCE_HORS_PROFIL }),
+    a('Togo prioritaire', 'Togo', 5)
+  ], cfg).map(o => o.title);
+  check('la pertinence prime sur l ordre des pays',
+        mixte[0] === 'Togo prioritaire', mixte.join(' | '));
+}
+
+// ==========================================================================
+console.log('\n[Rappels] Vingt rappels tiennent en un mail');
+{
+  // MESURE DU 2026-09-09, signalee par un client : "les rappels c est bon,
+  // mais ca epuise le quota". Le probleme n etait pas leur contenu mais
+  // leur NOMBRE - le quota Google est de cent destinataires par jour.
+  const url = 'https://exemple.test/flux-rappels';
+  const entrees = [];
+  for (let i = 0; i < 12; i++) {
+    entrees.push({ titre: 'Echeance ' + i,
+      lien: 'https://exemple.test/r' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(5)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(entrees) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', DIGEST_THRESHOLD: '5' }
+  });
+
+  m.ctx.executerTenderPilot();
+  check('un seul mail au lieu de douze', m.boite.length === 1,
+        m.boite.length + ' emails');
+  check('et il annonce les douze echeances',
+        m.boite[0].sujet.indexOf('12 echeance') !== -1, m.boite[0].sujet);
+  check('AUCUNE n est perdue : les douze sont dans le corps',
+        entrees.every(e => m.boite[0].corps.indexOf(e.titre) !== -1));
+  check('le regroupement est journalise',
+        m.feuille.logs.some(l => l.action === 'Rappels'
+                                 && l.statut === 'SUCCESS'));
+
+  // ET RIEN NE REPART AU PASSAGE SUIVANT : le recapitulatif marque tout.
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('rien ne repart au passage suivant', m.boite.length === 0,
+        m.boite.length + ' emails');
+}
+
+// ==========================================================================
+console.log('\n[Plans] Un plan de passation n est pas un avis, nulle part');
+{
+  // MESURE DU 2026-09-09, dans un mail reel : "ADDITIF PLAN PREVISSIONNEL
+  // DE PASSATION DE MARCHE 2026" et "ANIP - Avis general de passation des
+  // marches" etaient annonces comme des opportunites. Un plan annonce ce
+  // qu un acheteur COMPTE lancer : ni dossier, ni echeance de depot, rien
+  // a quoi repondre - et il porte une date, donc le filtre des echues ne
+  // l arrete pas.
+  const C = monde({}).ctx;
+  const ecarte = [
+    'ADDITIF PLAN PREVISSIONNEL DE PASSATION DE MARCHE 2026',
+    'Plan de passation des marches 2026',
+    'ANIP - Avis general de passation des marches',
+    'PLAN DE PASSATION DES MARCHES CONSOLIDES DU CORAF - 2026'
+  ];
+  const garde = [
+    "Avis d appel d offres pour l acquisition de materiels",
+    'Avis de passation de marche pour la fourniture de X',
+    'Recrutement d un consultant'
+  ];
+  check('les plans sont reconnus, faute d orthographe comprise',
+        ecarte.every(s => C.estPlanDePassation_(s)),
+        JSON.stringify(ecarte.filter(s => !C.estPlanDePassation_(s))));
+  check('un avis ordinaire n est jamais confondu avec un plan',
+        garde.every(s => !C.estPlanDePassation_(s)),
+        JSON.stringify(garde.filter(s => C.estPlanDePassation_(s))));
+
+  // ET LE FILTRE AGIT A LA COLLECTE, POUR TOUTES LES SOURCES.
+  const url = 'https://exemple.test/flux-plan';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'ADDITIF PLAN PREVISSIONNEL DE PASSATION DE MARCHE 2026',
+        lien: 'https://exemple.test/p1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(90)) },
+      { titre: "Avis d appel d offres pour des semences",
+        lien: 'https://exemple.test/p2',
+        description: 'Date limite : ' + enFrancais(jourRelatif(20)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false' }
+  });
+  m.ctx.executerTenderPilot();
+  check('le plan n entre pas dans le tableau',
+        m.feuille.opps.length === 1, m.feuille.opps.length + ' annonces');
+  check('et le vrai avis, si',
+        m.feuille.opps[0].title.indexOf('semences') !== -1,
+        m.feuille.opps[0].title);
+}
+
+// ==========================================================================
+console.log('\n[Organisation] Un nom de personne n est pas une organisation');
+{
+  // MESURE DU 2026-09-09 : la colonne Organisation affichait "Ashley
+  // Lulling" et "Ilka Westermeyer" - les redacteurs des billets. Le client
+  // lit cette colonne pour savoir a qui il aurait affaire.
+  const C = monde({}).ctx;
+  check('dc:creator n est plus lu',
+        C.auteurFlux_('<item><dc:creator>Ashley Lulling</dc:creator></item>')
+          === '');
+  check('author porte l acheteur reel, et il est garde',
+        C.auteurFlux_('<item><author>Societe des Infrastructures Routieres'
+                      + '</author></item>')
+          === 'Societe des Infrastructures Routieres');
+  check('une adresse seule ne dit rien et ne passe pas',
+        C.auteurFlux_('<item><author>marches@exemple.bj</author></item>') === '');
+  check('la parenthese derriere une adresse reste le sigle complet',
+        C.auteurFlux_('<item><author>x@y.bj (Agence des Systemes (ASIN))'
+                      + '</author></item>').indexOf('Agence') === 0);
 }
 
 // ==========================================================================

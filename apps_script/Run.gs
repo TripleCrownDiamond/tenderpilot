@@ -372,7 +372,13 @@ function annoncesDuCorps_(corps, source, analyseur, config) {
         deadline: item.deadline
       }, source);
     })
-    .filter(function (o) { return o.title; });
+    // UN PLAN DE PASSATION N'EST PAS UN AVIS, quelle que soit la source.
+    // Il annonce ce qu'un acheteur COMPTE lancer dans l'annee : ni dossier,
+    // ni echeance de depot, rien a quoi repondre. Et il porte une date -
+    // souvent le 31 decembre - donc le filtre des echues ne l'arrete pas.
+    .filter(function (o) {
+      return o.title && !estPlanDePassation_(o.title);
+    });
 
   return { annonces: retirerExpirees_(lues, config),
            reconnue: estFluxXml(corps) };
@@ -1212,6 +1218,96 @@ function plafondTelegram_(config) {
 }
 
 /**
+ * Le recapitulatif des RAPPELS d'echeance.
+ *
+ * POURQUOI IL EXISTE. Les nouveautes tenaient deja en un mail ; les rappels
+ * partaient un par un. Sur un classeur bien rempli, un passage peut en
+ * declencher vingt d'un coup - vingt mails, et le quota Google de cent
+ * destinataires par jour y passe en trois jours.
+ *
+ * MESURE DU 2026-09-09, signalee par un client : "les rappels c'est bon,
+ * mais ca epuise le quota". Le probleme n'etait pas leur contenu, c'etait
+ * leur NOMBRE. On ne coupe donc rien - on met tout dans un seul message,
+ * du plus urgent au moins urgent.
+ *
+ * Les entrees sont des couples { ligne, types } : une meme ligne peut
+ * porter un rappel et une expiration.
+ */
+function messageRappels(entrees) {
+  var lignes = ['Echeances a surveiller : ' + entrees.length, ''];
+
+  entrees.forEach(function (e, i) {
+    var o = e.ligne;
+    var reste = o.days;
+    var quand = (reste === null || reste === undefined || reste === '')
+      ? 'echeance a verifier'
+      : (Number(reste) < 0 ? 'echeance passee'
+         : Number(reste) === 0 ? "dernier jour"
+         : 'dans ' + reste + ' jour' + (Number(reste) > 1 ? 's' : ''));
+
+    lignes.push((i + 1) + '. ' + o.title + '  [' + quand + ']');
+    lignes.push('   Organisation : ' + (o.org || '-')
+      + ' | Pays : ' + (o.country || '-')
+      + ' | Deadline : ' + (o.deadline || 'a verifier'));
+    if (o.url) lignes.push('   ' + o.url);
+    lignes.push('');
+  });
+
+  lignes.push(RAPPEL);
+  return {
+    sujet: '[TenderPilot] ' + entrees.length + ' echeance(s) a surveiller',
+    corps: lignes.join('\n'),
+    html: rappelsHtml_(entrees),
+    telegram: telegramRappels_(entrees)
+  };
+}
+
+/** Le meme, en cartes colorees par urgence. */
+function rappelsHtml_(entrees) {
+  var cartes = entrees.map(function (e) {
+    var o = e.ligne;
+    var statut = o.status || SCHEMA.STATUT_INCONNU;
+    var fond = SCHEMA.COULEURS[statut]
+      || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
+    var infos = [o.org, o.country, o.deadline ? 'Deadline ' + o.deadline : '']
+      .filter(function (v) { return v; }).map(echapperHtml_).join(' &middot; ');
+    var titre = o.url
+      ? '<a href="' + echapperHtml_(o.url) + '" style="color:' + MARINE_EMAIL
+        + ';text-decoration:none">' + echapperHtml_(o.title) + '</a>'
+      : echapperHtml_(o.title);
+    return '<tr><td style="padding:0 0 10px">'
+      + '<div style="border-left:4px solid ' + fond + ';padding:2px 0 2px 12px">'
+      + '<div style="font-size:15px;font-weight:bold">' + titre + '</div>'
+      + '<div style="font-size:13px;color:#4A5665;margin-top:2px">' + infos
+      + ' &middot; <b>' + echapperHtml_(statut) + '</b></div></div></td></tr>';
+  }).join('');
+
+  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
+    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
+    + enteteMarque_()
+    + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
+    + entrees.length + ' echeances a surveiller</h2>'
+    + '<table style="border-collapse:collapse;width:100%">' + cartes
+    + '</table>'
+    + '<p style="font-size:12px;color:#4A5665;border-top:1px solid #D5DBE3;'
+    + 'padding-top:12px;margin:16px 0 0">' + echapperHtml_(RAPPEL) + '</p></div>';
+}
+
+/** Et pour le salon : court, comme tout ce qui part sur Telegram. */
+function telegramRappels_(entrees) {
+  var lignes = ['<b>' + entrees.length + ' echeances a surveiller</b>', ''];
+  entrees.slice(0, 10).forEach(function (e, i) {
+    var o = e.ligne;
+    lignes.push((i + 1) + '. ' + String(o.title || '')
+      + (o.deadline ? ' - ' + o.deadline : ''));
+  });
+  if (entrees.length > 10) {
+    lignes.push('', '... et ' + (entrees.length - 10) + ' autres.');
+  }
+  return lignes.join('\n');
+}
+
+/**
  * Envoie ce qui doit l'etre, sur les canaux configures.
  *
  * Email et Telegram partagent les memes regles de DECLENCHEMENT - une
@@ -1323,11 +1419,63 @@ function sendNotifications(lignes, config, nouvelles) {
     }
   }
 
-  // LE PLUS PERTINENT ET LE PLUS URGENT D'ABORD. Quand le plafond coupe,
-  // ce qui part est ce qui compte, et ce qui attend est le reste.
+  // LE PLUS PERTINENT, PUIS LE PAYS LE MIEUX PLACE, PUIS LE PLUS URGENT.
+  // Quand le plafond coupe, ce qui part est ce qui compte.
   var ecartees = 0;
+  var ordonnees = parPertinence_(lignes, config);
 
-  parPertinence_(lignes).forEach(function (ligne) {
+  // LES RAPPELS TIENNENT EN UN MAIL QUAND ILS SONT NOMBREUX.
+  //
+  // Les nouveautes avaient leur digest ; les rappels partaient un par un.
+  // Sur un classeur bien rempli, un passage peut en declencher vingt d'un
+  // coup - et le quota Google de cent destinataires par jour y passe en
+  // trois jours. Mesure du 2026-09-09, signalee par un client : le
+  // probleme n'etait pas leur contenu mais leur NOMBRE.
+  //
+  // On ne coupe donc rien : au-dela du seuil, tout entre dans un seul
+  // message, dans le meme ordre. Un rappel groupe reste un rappel ; vingt
+  // mails ne sont plus des rappels, c'est une avalanche.
+  var candidats = [];
+  ordonnees.forEach(function (ligne) {
+    if (!pertinenceNotifiable(ligne.pertinence, config)) return;
+    // On regarde le premier canal : les regles de declenchement sont les
+    // memes partout, seule la memoire differe.
+    var plan = notificationsAEnvoyer(ligne, config, canaux[0].nom);
+    var types = plan.envoyer.filter(function (type) {
+      return type !== 'new' && type !== 'expired';
+    });
+    if (types.length) candidats.push({ ligne: ligne, types: types });
+  });
+
+  var rappelsGroupes = candidats.length > seuilDigest;
+  if (rappelsGroupes) {
+    var messageRappels_ = null;
+    try {
+      messageRappels_ = messageRappels(candidats);
+    } catch (e) {
+      logEvent('', 'Rappels', 'ERROR', 'Recapitulatif non compose : '
+               + e.message);
+      rappelsGroupes = false;
+    }
+    if (messageRappels_) {
+      canaux.forEach(function (canal) {
+        if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
+        if (emettre_(canal, '', 'Rappels', messageRappels_)) {
+          // MARQUER APRES L'ENVOI, ET SEULEMENT CE QUI EST PARTI : c'est la
+          // meme regle que partout. Un recapitulatif qui n'a pas pu partir
+          // ne doit rien marquer.
+          candidats.forEach(function (c) {
+            marquerNotifications_(c.ligne, c.types, canal.nom);
+          });
+        }
+      });
+      logEvent('', 'Rappels', 'SUCCESS',
+               'Recapitulatif de ' + candidats.length + ' echeance(s), '
+               + 'au lieu d autant de mails.');
+    }
+  }
+
+  ordonnees.forEach(function (ligne) {
     // ON NE MARQUE RIEN. Le niveau de pertinence d'une ligne change quand
     // le client change ses pays ou ses secteurs : marquer ici lui
     // interdirait de recevoir plus tard une alerte qu'il vient tout juste
@@ -1346,9 +1494,12 @@ function sendNotifications(lignes, config, nouvelles) {
         return;
       }
 
-      // Ce qui est deja couvert par le digest ne coute pas un message.
+      // Ce qui est deja couvert par un recapitulatif ne coute pas un
+      // message de plus.
       var aEnvoyer = plan.envoyer.filter(function (type) {
-        return !(type === 'new' && envoiGroupe);
+        if (type === 'new') return !envoiGroupe;
+        if (type === 'expired') return true;
+        return !rappelsGroupes;
       });
 
       // Plafond atteint : ON NE MARQUE RIEN, sur ce canal. La ligne

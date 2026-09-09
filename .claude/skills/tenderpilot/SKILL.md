@@ -864,6 +864,53 @@ jamais** — une source ajoutée par le client ne doit pas disparaître. Une
 source renommée laisse donc son ancienne ligne en place. « Vérifier
 l'installation » la signale désormais ; c'est au propriétaire de trancher.
 
+### Cinq défauts trouvés dans un seul mail réel
+
+**Le 2026-09-09, le propriétaire a envoyé le digest qu'il venait de
+recevoir** — 139 opportunités. Un mail réel vaut mieux qu'un test : il en
+est sorti cinq défauts, dont aucun n'était visible dans le code.
+
+**1. `Niger` attrapait `Nigeria`.** La comparaison des pays et des secteurs
+se faisait par `indexOf`. `correspond_` compare désormais des **mots
+entiers** — `" nigeria "` ne contient pas `" niger "`. Le même piège
+attendait `Guinée`/`Guinée-Bissau` et `Soudan`/`Soudan du Sud`, qui restent
+ambigus : là, c'est le nom qui est ambigu, pas la comparaison.
+
+**2. Une annonce « internationale » qui nomme un pays n'est pas ouverte.**
+« Organisationsberatung … in Senegal » avait `International` comme pays — le
+défaut de sa source — et gagnait donc le point des annonces qui n'excluent
+personne. On ne devine pas : `paysAilleurs_` lit le **titre**, et seulement
+le titre — un résumé cite des pays de contexte. S'il nomme un pays du
+registre et aucun de ceux que le client suit, l'annonce perd ce point.
+
+**3. Un nom de personne n'est pas une organisation.** La colonne affichait
+« Ashley Lulling » et « Ilka Westermeyer » : les rédacteurs des billets.
+Mesure du même jour sur les flux actifs : `<author>` porte l'acheteur réel —
+« Société des Infrastructures Routières » sur la DNCMP — tandis que
+`<dc:creator>` porte une personne. **Les deux balises ne disent pas la même
+chose, et une seule nous intéresse.** Une organisation absente vaut mieux
+qu'une fausse : sans auteur, le nom de la source s'applique, et il est juste.
+
+**4. Un plan de passation n'est pas un avis, et pas seulement au CORAF.**
+« ADDITIF PLAN PREVISSIONNEL DE PASSATION » et « Avis général de passation
+des marchés » étaient annoncés comme des opportunités. Un plan annonce ce
+qu'un acheteur *compte* lancer : ni dossier, ni échéance de dépôt, rien à
+quoi répondre — et il porte une date, donc le filtre des échues ne l'arrête
+pas. `estPlanDePassation_` s'applique désormais à **toutes** les sources, à
+la collecte. Le motif tolère un mot intercalé *et* sa faute d'orthographe :
+la source écrivait « PREVISSIONNEL », avec deux S.
+
+**5. OTF était un flux mixte.** 2 vraies opportunités sur 10 ; le reste,
+« Frequently Asked Questions », analyses sur les VPN, communiqué sur un
+procès. Désactivée, comme Proparco. C'était la seule source « actualités »
+qui restait active, et elle avait passé le premier tri parce qu'elle publie
+de vrais RFP — au milieu de ses articles.
+
+**Ce que cet épisode dit de la méthode.** Aucun de ces cinq défauts n'était
+trouvable en lisant le code : il fallait regarder ce qui arrive vraiment
+dans une boîte aux lettres. **Demander à un client de renvoyer un mail réel
+vaut plus qu'une journée de relecture.**
+
 ### Le récapitulatif se parcourt, il ne se lit pas
 
 Un digest de trente annonces à plat se survole et se ferme. Groupé par
@@ -873,6 +920,12 @@ critère : `pertinence` (défaut), `secteur`, `pays`, `aucun`.
 
 Trois règles portées par `grouperDigest_` :
 
+0. **L'ordre suit celui de `PAYS_SUIVIS`.** Un client qui écrit « Benin,
+   Niger, Togo » a mis le Bénin en premier parce que c'est là qu'il
+   travaille — demandé le 2026-09-09. `parPertinence_` trie donc par
+   pertinence, **puis par rang de pays**, puis par délai. Mettre le délai
+   avant le pays ferait remonter une échéance lointaine du Togo devant une
+   échéance proche du Bénin.
 1. **L'ordre des groupes n'est pas alphabétique.** Un groupe passe devant
    s'il contient une annonce plus pertinente. Trier par nom mettrait
    « Agriculture » avant « Santé » pour un client qui ne fait que de la
@@ -888,9 +941,26 @@ une rubrique unique** — un intitulé au-dessus du seul groupe est du bruit —
 alors que le texte brut le garde, faute d'autre moyen de montrer la
 structure.
 
-**Les rappels d'échéance restent unitaires**, et ce n'est pas un oubli : un
-J-1 noyé au milieu de vingt lignes n'est plus un rappel. Le volume se règle
-par `MAX_EMAILS_PAR_EXECUTION` et `RAPPELS_SUIVIS_SEULEMENT`.
+### Les rappels aussi tiennent en un mail
+
+Ils partaient un par un. Sur un classeur bien rempli, un passage peut en
+déclencher vingt — et le quota Google de cent destinataires par jour y passe
+en trois jours. **Mesure du 2026-09-09** : « les rappels c'est bon, mais ça
+épuise le quota ». Le problème n'était pas leur contenu, c'était leur
+**nombre**.
+
+Au-delà de `DIGEST_THRESHOLD`, tous les rappels entrent donc dans **un seul
+message**, dans le même ordre — du plus pertinent au plus urgent. On ne
+coupe rien : un rappel groupé reste un rappel, vingt mails ne sont plus des
+rappels.
+
+**Trois règles conservées.** Le récapitulatif ne marque que s'il est parti ;
+il compte pour *un* message dans le plafond du canal ; et les échéances
+**dépassées** restent unitaires — elles sont rares, et noyer « c'est passé »
+dans une liste de vingt le rendrait invisible.
+
+Le volume se règle aussi par `MAX_EMAILS_PAR_EXECUTION` et
+`RAPPELS_SUIVIS_SEULEMENT`.
 
 ## L'alerte se lit en trois secondes, ou elle ne se lit pas
 
