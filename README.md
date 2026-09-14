@@ -54,6 +54,7 @@ Prerequis : Python 3.10+ avec `openpyxl`, et Node pour les tests et le web.
       Sheet.gs            acces au classeur
       Telegram.gs         second canal : messages Telegram
       Agenda.gs           echeances SUIVIES posees dans Google Agenda
+      Plans.gs            plans de passation du portail beninois
       Llm.gs              classement intelligent, inerte sans cle
       Run.gs              collecte, deadlines, alertes, menu, declencheurs
       Schema.gs           GENERE depuis schema/columns.py

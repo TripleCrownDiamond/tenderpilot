@@ -15,7 +15,8 @@ var SCHEMA = {
   "sources": "SOURCES",
   "config": "CONFIG",
   "logs": "LOGS",
-  "profil": "PAYS_ET_SECTEURS"
+  "profil": "PAYS_ET_SECTEURS",
+  "plans": "PLANS_DE_PASSATION"
 },
 
   /** Cle technique -> nom de colonne de l'onglet OPPORTUNITIES. */
@@ -77,6 +78,8 @@ var SCHEMA = {
   "DIGEST_THRESHOLD",
   "TIMEZONE",
   "BUDGET_COLLECTE_SECONDES",
+  "COLLECTER_PLANS",
+  "PLANS_AUTORITES_PAR_PASSAGE",
   "MAX_FICHES_PAR_PASSAGE",
   "MAX_ITEMS_PER_SOURCE",
   "COLLECT_EXPIRED",
@@ -179,6 +182,16 @@ var SCHEMA = {
     "BUDGET_COLLECTE_SECONDES",
     "240",
     "Temps maximum passe a lire les sources, en secondes. Google arrete toute execution a 6 minutes : au-dela de ce budget la collecte rend la main, et ce qui a ete lu est enregistre normalement - deadlines, couleurs et alertes comprises. Les sources non lues passent en tete au passage suivant, rien n'est oublie. Baissez-le si vos executions sont trop longues."
+  ],
+  [
+    "COLLECTER_PLANS",
+    "true",
+    "Remplir l'onglet PLANS_DE_PASSATION avec les marches que les autorites beninoises PREVOIENT de lancer, budget estime compris. Un plan n'est pas un appel d'offres : il sert a anticiper, a preparer un dossier avant que l'avis ne paraisse. Mettez false pour ne pas le collecter."
+  ],
+  [
+    "PLANS_AUTORITES_PAR_PASSAGE",
+    "30",
+    "Le portail publie les plans autorite par autorite - pres de trois cents. TenderPilot en lit ce nombre a chaque execution, et reprend la ou il s'etait arrete a la suivante : l'onglet se complete sur deux a trois jours, puis se tient a jour. Baissez-le si vos executions sont trop longues."
   ],
   [
     "MAX_FICHES_PAR_PASSAGE",
@@ -457,6 +470,21 @@ var SCHEMA = {
   PROFIL_TYPE_PAYS: "Pays",
   PROFIL_TYPE_SECTEUR: "Secteur",
 
+  /** Colonnes de l'onglet PLANS_DE_PASSATION. Voir Plans.gs. */
+  PLANS: [
+  "Reference",
+  "Autorite",
+  "Objet",
+  "Type",
+  "Mode",
+  "Montant_Estime",
+  "Lancement_Prevu",
+  "Demarrage_Prevu",
+  "Bailleur",
+  "Annee",
+  "Derniere_MAJ"
+],
+
   /**
    * Le catalogue de sources livre avec cette version.
    *
@@ -521,14 +549,14 @@ var SCHEMA = {
   [
     "BJ-DNCMP",
     "Marches Publics du Benin - appels d'offres",
-    "RSS",
-    "https://api.marches-publics.bj/v2/rss",
+    "JSON:marches-publics.bj",
+    "https://api.marches-publics.bj/v2/api/portail/appelsoffres?page=0&size=100&search=&status=1",
     "Benin",
     "",
     "Appel d'offres",
     "OUI",
     "",
-    "Verifie le 2026-09-02 : 46 annonces. Le portail www.marches-publics.bj est une application Angular, vide cote serveur, et le reste de son API repond 401 : le flux RSS est la SEULE porte publique. Il ne porte AUCUNE echeance - ouvrir le lien pour la date limite - et tous ses titres valent 'Appel d'Offre' : l'objet reel est dans la description, l'acheteur dans <author> (SBEE, ASIN, agences territoriales)."
+    "Verifie le 2026-09-14 : API PUBLIQUE du portail, sans authentification - api.marches-publics.bj/v2/api/portail/. La note precedente affirmait que le flux RSS etait la seule porte et que le reste repondait 401 : c'etait faux, les chemins testes le 2026-09-02 n'avaient pas le prefixe portail/. status=1 rend 51 avis EN COURS, 51 avec date limite, 51 avec le PDF du dossier, 51 avec reference. Le flux RSS portait les memes 51 avis, verifie par objet dans les deux sens, mais sans echeance ni reference. Le lien pointe la liste publique - le portail n'a pas de page par avis - et le PDF part dans sa colonne, espaces du nom encodes."
   ],
   [
     "UNDP-BKF",

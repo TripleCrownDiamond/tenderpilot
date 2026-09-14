@@ -58,10 +58,15 @@ def main():
     # PAYS_ET_SECTEURS se lit juste apres CONFIG : on y regle son profil,
     # on vient la verifier ce qui existe reellement.
     attendus = ["LISEZ_MOI", S.SHEETS["opportunities"], S.SHEETS["sources"],
-                S.SHEETS["config"], S.SHEETS["profil"], S.SHEETS["logs"]]
+                S.SHEETS["config"], S.SHEETS["profil"], S.SHEETS["plans"],
+                S.SHEETS["logs"]]
     check("six onglets, dans l'ordre", wb.sheetnames == attendus,
           str(wb.sheetnames))
 
+    plans = wb[S.SHEETS["plans"]]
+    check("l onglet des plans porte ses colonnes",
+          [c.value for c in plans[1][:len(S.PLANS)]] == S.PLANS,
+          str([c.value for c in plans[1][:len(S.PLANS)]]))
     profil = wb[S.SHEETS["profil"]]
     check("l onglet des pays et secteurs a ses colonnes",
           [c.value for c in profil[1][:len(S.PROFIL)]] == S.PROFIL,

@@ -29,7 +29,17 @@ function reparerCaracteres(texte) {
   if (!texte) return '';
   return String(texte)
     .replace(/([A-Za-zÀ-ÿ])�([A-Za-zÀ-ÿ])/g, "$1'$2")
-    .replace(/�/g, '');
+    .replace(/�/g, '')
+    // "UniversitÚ", "IngÚnierie", "MathÚmatiques" : un e accentue enregistre
+    // en latin-1 puis relu en cp850, mesure le 2026-09-14 dans l'API du
+    // portail beninois. Huit mots casses sur deux cent quatre-vingts.
+    //
+    // La regle est etroite, et c'est voulu : "Ú" apres une MINUSCULE. En
+    // francais ce caractere n'existe pas, et une majuscule accentuee apres
+    // une minuscule n'arrive jamais dans un texte sain. "MINISTÈRES", lui,
+    // est correct et ne doit pas etre touche : une reparation cp850
+    // generique le transformerait en "MINISTÔRES".
+    .replace(/([a-zà-ÿ])Ú/g, '$1é');
 }
 
 /**

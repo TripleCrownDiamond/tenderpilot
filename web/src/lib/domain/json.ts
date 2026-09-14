@@ -802,7 +802,182 @@ export function analyserOracleNegociations(corps: string): EntreeFlux[] {
   }).filter((e): e is EntreeFlux => e !== null);
 }
 
+/**
+ * Appels d'offres du portail national du Benin, par son API publique.
+ *
+ * Mesure du 2026-09-14 : tout ce que le portail affiche aux visiteurs passe
+ * par api.marches-publics.bj/v2/api/portail/, sans authentification. Le
+ * registre affirmait le contraire depuis le 2026-09-02 - les chemins testes
+ * alors n'avaient pas le prefixe portail/.
+ *
+ * status=1 rend les 51 avis EN COURS, tous dates et tous avec leur PDF - les
+ * memes 51 que le flux RSS, qui n'avait ni date limite ni reference.
+ *
+ * Jumeau de analyserApiDncmp() dans Json.gs.
+ */
+const DNCMP_LISTE = "https://www.marches-publics.bj/appels-doffres";
+
+/** Encode le chemin d'une adresse sans toucher au domaine ni a la requete. */
+export function encoderChemin(url: unknown): string {
+  const brut = String(url ?? "").trim();
+  const m = /^(https?:\/\/[^/?#]+)([^?#]*)(.*)$/i.exec(brut);
+  if (!m) return "";
+  const chemin = m[2].split("/").map((segment) => {
+    try {
+      return encodeURIComponent(decodeURIComponent(segment));
+    } catch {
+      return encodeURIComponent(segment);
+    }
+  }).join("/");
+  return m[1] + chemin + m[3];
+}
+
+export function analyserDncmp(corps: string): EntreeFlux[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const items = (donnees as { content?: unknown })?.content;
+  if (!Array.isArray(items)) return [];
+
+  const jour = (v: unknown) => {
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? "").trim());
+    return m ? m[1] : null;
+  };
+
+  return items.map((brut): EntreeFlux | null => {
+    const e = brut as Record<string, unknown>;
+    // Un avis que l'API declare expire n'entre pas.
+    if (e.expired === true) return null;
+
+    const ao = (e.appelsoffres ?? {}) as Record<string, unknown>;
+    const titre = retirerBalises(reparerCaracteres(
+      String(ao.apoObjet ?? e.dosDescriptif ?? ""))).trim();
+    if (!titre) return null;
+
+    const acheteur = (e.autoriteContractante ?? {}) as Record<string, unknown>;
+    const organisation = reparerCaracteres(String(acheteur.denomination ?? ""))
+      .replace(/\s*\n\s*/g, " ").trim();
+
+    const reference = String(e.dosReference ?? ao.apoReference ?? "").trim();
+    const lots = Number(e.dosNombreLots);
+    const type = String(((ao.typemarche ?? {}) as Record<string, unknown>)
+      .libelle ?? "").trim();
+
+    return {
+      titre,
+      lien: DNCMP_LISTE,
+      pdf: encoderChemin(e.dosFichier) || null,
+      organisation: organisation || null,
+      type: type || null,
+      deadline: jour(e.dosDateLimiteDepot),
+      publie: jour(e.dosDatePublication),
+      resume: [reference, lots > 1 ? `${lots} lots` : ""]
+        .filter(Boolean).join(" - "),
+    };
+  }).filter((x): x is EntreeFlux => x !== null);
+}
+
+/** Une ligne de l'onglet PLANS_DE_PASSATION. Jumeau de lignePlan_(). */
+export interface LignePlan {
+  reference: string;
+  autorite: string;
+  objet: string;
+  type: string;
+  mode: string;
+  montant: string;
+  lancement: string;
+  demarrage: string;
+  bailleur: string;
+  annee: string;
+}
+
+/**
+ * Les lignes d'un plan de passation dont le lancement est encore a venir.
+ *
+ * Un plan n'est pas un avis : ni dossier ni date de depot. Il dit ce qui VA
+ * sortir, et avec quel budget. Une ligne deja lancee est devenue un appel
+ * d'offres, ou n'aura pas lieu : elle est ecartee.
+ *
+ * Le moteur web n'a pas encore d'endroit ou ranger les plans : cette
+ * fonction existe pour que la logique soit la meme des deux cotes le jour
+ * ou il en aura un. Jumeau de analyserLignesPlan() dans Plans.gs.
+ */
+export function analyserLignesPlan(
+  corps: string, autorite: string, aujourdhui: string,
+): LignePlan[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const items = (donnees as { content?: unknown })?.content;
+  if (!Array.isArray(items)) return [];
+
+  const jour = (v: unknown) => {
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(v ?? "").trim());
+    return m ? m[1] : "";
+  };
+  const champ = (o: unknown, cle: string) =>
+    String(((o ?? {}) as Record<string, unknown>)[cle] ?? "").trim();
+
+  return items.map((brut): LignePlan | null => {
+    const l = brut as Record<string, unknown>;
+    if (l.utilisable === 0) return null;
+    const lancement = jour(l.datelancement);
+    if (!lancement || lancement < aujourdhui) return null;
+
+    const objet = retirerBalises(reparerCaracteres(String(l.libelle ?? "")))
+      .replace(/\s+/g, " ").trim();
+    const reference = String(l.reference ?? "").trim();
+    if (!objet || !reference) return null;
+
+    const mode = l.modepassation_ID as Record<string, unknown> | undefined;
+    const plan = (l.plan ?? {}) as Record<string, unknown>;
+    return {
+      reference,
+      autorite: reparerCaracteres(String(autorite ?? ""))
+        .replace(/\s*\n\s*/g, " ").trim(),
+      objet,
+      type: champ(l.typeMarche, "libelle"),
+      mode: String(mode?.description ?? mode?.code ?? "").trim(),
+      montant: formaterMontant(l.montantEstime),
+      lancement,
+      demarrage: jour(l.datedemarrage),
+      bailleur: champ(l.typesBailleurs, "libelle"),
+      annee: plan.annee ? String(plan.annee) : "",
+    };
+  }).filter((x): x is LignePlan => x !== null);
+}
+
+/**
+ * L'onglet existant, plus ce que ce passage apporte, fusionnes par reference.
+ * Ce qui est lance disparait ; le lancement le plus proche passe en haut.
+ * Jumeau de fusionnerPlans_() dans Plans.gs.
+ */
+export function fusionnerPlans(
+  existantes: LignePlan[], nouvelles: LignePlan[], aujourdhui: string,
+): LignePlan[] {
+  const parReference = new Map<string, LignePlan>();
+  for (const r of existantes) {
+    if (r?.reference && r.lancement && r.lancement >= aujourdhui) {
+      parReference.set(r.reference, r);
+    }
+  }
+  for (const r of nouvelles) {
+    if (r?.reference) parReference.set(r.reference, r);
+  }
+  return [...parReference.values()].sort((a, b) =>
+    a.lancement !== b.lancement
+      ? (a.lancement < b.lancement ? -1 : 1)
+      : a.reference.localeCompare(b.reference));
+}
+
 export const ANALYSEURS_JSON: Record<string, (corps: string) => EntreeFlux[]> = {
+  "marches-publics.bj": analyserDncmp,
   "oraclecloud.com": analyserOracleNegociations,
   "worldbank.org": analyserWorldBank,
   "fundpilote.com": analyserFundpilote,

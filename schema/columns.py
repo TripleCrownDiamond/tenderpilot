@@ -20,6 +20,10 @@ SHEETS = {
     "config": "CONFIG",
     "logs": "LOGS",
     "profil": "PAYS_ET_SECTEURS",
+    # Les plans de passation du portail beninois : ce qui VA sortir. Un plan
+    # n'est pas un avis - ni dossier, ni date de depot - et n'a donc rien a
+    # faire dans OPPORTUNITIES. Il a sa place a part, pour anticiper.
+    "plans": "PLANS_DE_PASSATION",
 }
 
 # --------------------------------------------------------------------------
@@ -294,6 +298,17 @@ LOGS = ["Date", "Source", "Action", "Statut", "Message"]
 # --------------------------------------------------------------------------
 PROFIL = ["Type", "Valeur", "Annonces", "Suivi"]
 
+# --------------------------------------------------------------------------
+# PLANS_DE_PASSATION - ce qu'une autorite contractante PREVOIT de lancer.
+#
+# Une ligne par marche prevu, et seulement ceux dont le lancement est encore
+# a venir : une ligne deja lancee est devenue un appel d'offres, ou n'aura
+# pas lieu. Le budget est l'estimation du plan, jamais un chiffre devine.
+# --------------------------------------------------------------------------
+PLANS = ["Reference", "Autorite", "Objet", "Type", "Mode", "Montant_Estime",
+         "Lancement_Prevu", "Demarrage_Prevu", "Bailleur", "Annee",
+         "Derniere_MAJ"]
+
 PROFIL_TYPE_PAYS = "Pays"
 PROFIL_TYPE_SECTEUR = "Secteur"
 LOG_STATUTS = ["SUCCESS", "ERROR", "SKIPPED", "DUPLICATE", "INFO"]
@@ -355,6 +370,18 @@ CONFIG = [
      "la main, et ce qui a ete lu est enregistre normalement - deadlines, "
      "couleurs et alertes comprises. Les sources non lues passent en tete "
      "au passage suivant, rien n'est oublie. Baissez-le si vos executions "
+     "sont trop longues."),
+    ("COLLECTER_PLANS", "true",
+     "Remplir l'onglet PLANS_DE_PASSATION avec les marches que les "
+     "autorites beninoises PREVOIENT de lancer, budget estime compris. Un "
+     "plan n'est pas un appel d'offres : il sert a anticiper, a preparer un "
+     "dossier avant que l'avis ne paraisse. Mettez false pour ne pas le "
+     "collecter."),
+    ("PLANS_AUTORITES_PAR_PASSAGE", "30",
+     "Le portail publie les plans autorite par autorite - pres de trois "
+     "cents. TenderPilot en lit ce nombre a chaque execution, et reprend "
+     "la ou il s'etait arrete a la suivante : l'onglet se complete sur deux "
+     "a trois jours, puis se tient a jour. Baissez-le si vos executions "
      "sont trop longues."),
     ("MAX_FICHES_PAR_PASSAGE", "12",
      "Certaines sources listent leurs avis sans date : l'echeance n'existe "

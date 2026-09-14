@@ -109,7 +109,12 @@ export function reparerCaracteres(texte: string): string {
   if (!texte) return "";
   return texte
     .replace(/([A-Za-zÀ-ÿ])�([A-Za-zÀ-ÿ])/g, "$1'$2")
-    .replace(/�/g, "");
+    .replace(/�/g, "")
+    // "UniversitÚ" : un e accentue enregistre en latin-1 puis relu en cp850,
+    // mesure le 2026-09-14 dans l'API du portail beninois. Regle etroite :
+    // "Ú" apres une MINUSCULE. "MINISTÈRES" est correct et reste intact.
+    // Jumeau de reparerCaracteres() dans Rss.gs.
+    .replace(/([a-zà-ÿ])Ú/g, "$1é");
 }
 
 /**

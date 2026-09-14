@@ -1,0 +1,116 @@
+{
+ "pageable": {
+  "sort": {
+   "sorted": true,
+   "unsorted": false,
+   "empty": false
+  },
+  "offset": 0,
+  "pageSize": 20,
+  "pageNumber": 0,
+  "paged": true,
+  "unpaged": false
+ },
+ "totalPages": 15,
+ "last": false,
+ "totalElements": 284,
+ "size": 20,
+ "number": 0,
+ "sort": {
+  "sorted": true,
+  "unsorted": false,
+  "empty": false
+ },
+ "first": true,
+ "numberOfElements": 3,
+ "empty": false,
+ "content": [
+  {
+   "id": 498188,
+   "denomination": "UniversitÚ Nationale des Sciences, Technologies, IngÚnierie et MathÚmatiques\n",
+   "email": "unstim@yahoo.fr",
+   "fax": null,
+   "flagTache": 0,
+   "idtype": null,
+   "logo": null,
+   "photoResponsable": null,
+   "responsable": null,
+   "sigle": "unstim",
+   "statutpart": "Non",
+   "telephone": "022975663333",
+   "typeautorite": {
+    "id": 2,
+    "code": "SAO",
+    "description": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "libelle": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "ordre": 2,
+    "autoritecontractantes": null,
+    "nbContent": 0
+   },
+   "unitedelaicomplementpieces": "",
+   "urlsiteweb": null,
+   "valeurdelaicomplementpieces": 0,
+   "annee": 2026,
+   "datePublication": "2026-04-09",
+   "services": null
+  },
+  {
+   "id": 498187,
+   "denomination": "UniversitÚ Nationale d'Agriculture\n",
+   "email": "una@yahoo.fr",
+   "fax": null,
+   "flagTache": 0,
+   "idtype": null,
+   "logo": null,
+   "photoResponsable": null,
+   "responsable": null,
+   "sigle": "una",
+   "statutpart": "Non",
+   "telephone": "022900101010",
+   "typeautorite": {
+    "id": 2,
+    "code": "SAO",
+    "description": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "libelle": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "ordre": 2,
+    "autoritecontractantes": null,
+    "nbContent": 0
+   },
+   "unitedelaicomplementpieces": "",
+   "urlsiteweb": null,
+   "valeurdelaicomplementpieces": 0,
+   "annee": 2026,
+   "datePublication": "2026-04-08",
+   "services": null
+  },
+  {
+   "id": 241417,
+   "denomination": "Université de Parakou",
+   "email": "univ_parakou@borgou.net",
+   "fax": "23610712",
+   "flagTache": 0,
+   "idtype": null,
+   "logo": null,
+   "photoResponsable": null,
+   "responsable": "",
+   "sigle": "UP",
+   "statutpart": null,
+   "telephone": "23610712",
+   "typeautorite": {
+    "id": 2,
+    "code": "SAO",
+    "description": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "libelle": "AGENCES, ET OFFICES DE L’ÉTAT",
+    "ordre": 2,
+    "autoritecontractantes": null,
+    "nbContent": 0
+   },
+   "unitedelaicomplementpieces": "",
+   "urlsiteweb": "",
+   "valeurdelaicomplementpieces": 0,
+   "annee": 2026,
+   "datePublication": "2026-03-03",
+   "services": null
+  }
+ ]
+}

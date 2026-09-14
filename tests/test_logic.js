@@ -308,10 +308,16 @@ function monde(options) {
 
   vm.createContext(ctx);
   ['Schema.gs', 'Core.gs', 'Rss.gs', 'Html.gs', 'Json.gs', 'Telegram.gs',
-   'Agenda.gs', 'Marque.gs',
+   'Agenda.gs', 'Marque.gs', 'Plans.gs',
    'Llm.gs', 'Run.gs'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(SCRIPT, f), 'utf8'), ctx, f);
   });
+  // Plans.gs est charge pour ses fonctions pures, mais un monde de test n'a
+  // pas d'onglet des plans : sans cette ligne, lirePlans_ irait interroger un
+  // faux classeur qui ne connait pas cet onglet. Un test qui veut des plans
+  // remplace ces deux fonctions.
+  ctx.lirePlans_ = () => null;
+  ctx.ecrirePlans_ = (rangees) => rangees.length;
   return { ctx, feuille, boite, salon, agenda };
 }
 
@@ -3917,6 +3923,205 @@ console.log('\n[Emails] L adresse du classeur est lue UNE fois par passage');
         hors.ctx.lienClasseur_() === '');
   check('et le pied de page reste lisible',
         hors.ctx.piedTexte_().indexOf('source officielle') !== -1);
+}
+
+// ==========================================================================
+console.log('\n[DNCMP] Le portail beninois par son API publique');
+{
+  // MESURE DU 2026-09-14 : le registre affirmait que le flux RSS etait la
+  // seule porte publique du portail. Faux - l'API portail/ repond sans
+  // authentification, et porte ce que le RSS n'avait pas : la date limite,
+  // la reference, et le PDF du dossier.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const brut = fs.readFileSync(path.join(R, 'dncmp-appelsoffres.json'), 'utf8');
+  // Les echeances de la fixture vieillissent : on les ramene dans le futur.
+  const corps = brut.replace(/"dosDateLimiteDepot"\s*:\s*"\d{4}-\d{2}-\d{2}"/g,
+                             '"dosDateLimiteDepot": "' + jourRelatif(20) + '"');
+  const C = monde({}).ctx;
+  const src = Object.assign(source('BJ-DNCMP', 'https://exemple.test/dncmp'),
+                            { country: 'Benin', sector: '', type: '' });
+  const n = JSON.parse(brut).content.length;
+
+  const lus = C.analyserApiDncmp(corps, src);
+  check('tous les avis de la fixture sont lus', lus.length === n,
+        lus.length + ' sur ' + n);
+  check('chacun porte sa date limite, au format ISO',
+        lus.every(o => /^\d{4}-\d{2}-\d{2}$/.test(o.deadline)));
+  check('et sa reference', lus.every(o => o.ref));
+  check('et le type de marche', lus.every(o => o.type));
+
+  // LE PDF EST CE QUE LE CLIENT DEMANDAIT. Son nom porte des espaces : un
+  // lien non encode se coupe au premier blanc dans un email.
+  check('chaque avis a son PDF', lus.every(o => o.pdf));
+  check('aucun PDF ne garde un espace brut',
+        lus.every(o => o.pdf.indexOf(' ') === -1),
+        lus.map(o => o.pdf).filter(u => u.indexOf(' ') !== -1)[0]);
+  check('les espaces sont encodes, pas supprimes',
+        lus.some(o => o.pdf.indexOf('%20') !== -1));
+  check('le domaine et le schema restent lisibles',
+        lus.every(o => o.pdf.indexOf('https://bi.marches-publics.bj/') === 0));
+
+  check('le lien mene a la liste publique du portail',
+        lus.every(o => o.url === 'https://www.marches-publics.bj/appels-doffres'));
+  check('le saut de ligne avant le sigle de l acheteur disparait',
+        lus.every(o => o.org.indexOf('\n') === -1));
+
+  // Un avis que l API declare expire n entre pas.
+  const donnees = JSON.parse(corps);
+  donnees.content[0].expired = true;
+  check('un avis declare expire est ecarte',
+        C.analyserApiDncmp(JSON.stringify(donnees), src).length === n - 1);
+
+  check('un corps illisible ne fait rien tomber',
+        C.analyserApiDncmp('pas du json', src).length === 0);
+  check('une page vide non plus',
+        C.analyserApiDncmp('{"content":[]}', src).length === 0);
+}
+
+// ==========================================================================
+console.log('\n[Accents] Le Ú du portail beninois, et seulement lui');
+{
+  // Un e accentue enregistre en latin-1 puis relu en cp850 : "UniversitÚ".
+  // Une reparation cp850 generique casserait "MINISTÈRES", qui est correct.
+  const C = monde({}).ctx;
+  check('UniversitÚ redevient Université',
+        C.reparerCaracteres('UniversitÚ Nationale') === 'Université Nationale');
+  check('au milieu d un mot aussi',
+        C.reparerCaracteres('IngÚnierie et MathÚmatiques')
+          === 'Ingénierie et Mathématiques');
+  check('MINISTÈRES reste intact',
+        C.reparerCaracteres('MINISTÈRES') === 'MINISTÈRES');
+  check('un Ú en debut de mot n est pas touche',
+        C.reparerCaracteres('Última hora') === 'Última hora');
+
+  // Et la fixture reelle des autorites porte bien le defaut.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const aut = JSON.parse(fs.readFileSync(
+    path.join(R, 'dncmp-plan-autorites.json'), 'utf8'));
+  check('la fixture reelle contient un nom casse',
+        aut.content.some(a => a.denomination.indexOf('Ú') !== -1));
+  check('et la reparation le corrige',
+        aut.content.every(a => C.reparerCaracteres(a.denomination).indexOf('Ú') === -1));
+}
+
+// ==========================================================================
+console.log('\n[Plans] Un plan annonce ce qui VA sortir, avec son budget');
+{
+  // MESURE DU 2026-09-14 : l'API portail/ du portail beninois publie les
+  // plans autorite par autorite, sans authentification. Un plan n'est pas un
+  // avis : ni dossier ni date de depot. Il dit ce qui va sortir, et combien.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const donnees = JSON.parse(fs.readFileSync(
+    path.join(R, 'dncmp-plan-realisations.json'), 'utf8'));
+  // La fixture vieillit : on met les deux premieres lignes dans le futur,
+  // les autres dans le passe.
+  donnees.content.forEach((l, i) => {
+    l.datelancement = i < 2 ? jourRelatif(10 + i) : jourRelatif(-30 - i);
+  });
+  const C = monde({}).ctx;
+  const auj = jourRelatif(0);
+  const attendues = donnees.content.filter((l, i) => i < 2 && l.reference
+                                                 && l.libelle).length;
+
+  const lus = C.analyserLignesPlan(JSON.stringify(donnees),
+                                   'UniversitÚ Nationale\n(UNSTIM)', auj);
+  check('seuls les lancements a venir sont gardes', lus.length === attendues,
+        lus.length + ' sur ' + attendues + ' attendues');
+  check('chaque ligne porte son budget estime, formate',
+        lus.every(r => /^\d{1,3}( \d{3})*$/.test(r.montant)),
+        lus.map(r => r.montant).join(' | '));
+  check('et sa reference', lus.every(r => r.reference));
+  check('et son mode de passation', lus.every(r => r.mode));
+  check('et sa date de lancement prevue', lus.every(r => r.lancement >= auj));
+  check('le nom de l autorite est repare et sur une ligne',
+        lus.every(r => r.autorite === 'Université Nationale (UNSTIM)'),
+        lus.map(r => r.autorite)[0]);
+
+  donnees.content[0].utilisable = 0;
+  check('une ligne marquee non utilisable est ecartee',
+        C.analyserLignesPlan(JSON.stringify(donnees), 'X', auj).length
+          === attendues - 1);
+  check('un corps illisible ne fait rien tomber',
+        C.analyserLignesPlan('pas du json', 'X', auj).length === 0);
+}
+
+// ==========================================================================
+console.log('\n[Plans] On fusionne par reference, on ne remplace pas');
+{
+  // Chaque passage ne voit qu'une tranche d'autorites : l'onglet garde ce que
+  // les passages precedents ont lu.
+  const C = monde({}).ctx;
+  const auj = jourRelatif(0);
+  const r = (ref, j, montant) => ({ reference: ref, lancement: jourRelatif(j),
+    montant: montant || '1 000', autorite: 'A', objet: 'O' });
+  const f = C.fusionnerPlans_(
+    [r('A-1', 5, '100'), r('A-2', 20), r('A-3', -2)],
+    [r('A-1', 6, '250'), r('B-1', 3)], auj);
+
+  check('les lignes des passages precedents restent',
+        f.some(x => x.reference === 'A-2'));
+  check('une ligne relue remplace son ancienne version',
+        f.filter(x => x.reference === 'A-1')[0].montant === '250');
+  check('un lancement passe disparait', !f.some(x => x.reference === 'A-3'));
+  check('le lancement le plus proche est en haut', f[0].reference === 'B-1',
+        f.map(x => x.reference).join(', '));
+  check('rien n est duplique',
+        new Set(f.map(x => x.reference)).size === f.length);
+}
+
+// ==========================================================================
+console.log('\n[Plans] Par tranches, et reprise la ou on s etait arrete');
+{
+  // 284 autorites a 1,25 s la requete : trop pour une execution. On en lit
+  // une tranche par passage, et on reprend a la suivante.
+  const m = monde({});
+  const cfg = { COLLECTER_PLANS: 'true', PLANS_AUTORITES_PAR_PASSAGE: '2' };
+  const autorites = [1, 2, 3, 4, 5].map(i => ({ id: i, denomination: 'Autorite ' + i }));
+  const lues = [];
+  m.ctx.UrlFetchApp.fetch = function (url) {
+    let corps;
+    if (url.indexOf('/autorites?') !== -1) {
+      corps = { content: autorites, last: true };
+    } else {
+      const id = Number(/plandepassations\/(\d+)\/realisations/.exec(url)[1]);
+      lues.push(id);
+      corps = { content: [{ reference: 'R-' + id, libelle: 'Objet ' + id,
+        datelancement: jourRelatif(10 + id), montantEstime: 1000000,
+        utilisable: 1 }], last: true };
+    }
+    return { getResponseCode: () => 200, getContentText: () => JSON.stringify(corps) };
+  };
+  let onglet = [];
+  m.ctx.lirePlans_ = () => onglet.slice();
+  m.ctx.ecrirePlans_ = (rangees) => { onglet = rangees.slice(); return rangees.length; };
+
+  m.ctx.collecterPlans_(cfg);
+  check('premier passage : deux autorites lues', lues.join(',') === '1,2',
+        lues.join(','));
+  check('et deux lignes dans l onglet', onglet.length === 2, onglet.length + '');
+
+  m.ctx.collecterPlans_(cfg);
+  check('second passage : on reprend a la troisieme', lues.join(',') === '1,2,3,4',
+        lues.join(','));
+  check('les lignes du premier passage sont gardees', onglet.length === 4,
+        onglet.length + '');
+
+  m.ctx.collecterPlans_(cfg);
+  check('troisieme passage : on boucle apres la derniere',
+        lues.join(',') === '1,2,3,4,5,1', lues.join(','));
+  check('une autorite relue ne double pas ses lignes', onglet.length === 5,
+        onglet.length + '');
+  check('le passage est journalise',
+        m.feuille.logs.some(l => l.action === 'Plans' && l.statut === 'SUCCESS'),
+        JSON.stringify(m.feuille.logs.filter(l => l.action === 'Plans').slice(-1)));
+
+  // Ce qui coupe la collecte, sans rien faire tomber.
+  const avant = lues.length;
+  m.ctx.collecterPlans_({ COLLECTER_PLANS: 'false' });
+  check('COLLECTER_PLANS a false : aucune requete', lues.length === avant);
+  m.ctx.lirePlans_ = () => null;
+  check('pas d onglet des plans : rien a faire, rien ne tombe',
+        m.ctx.collecterPlans_(cfg) === 0 && lues.length === avant);
 }
 
 // ==========================================================================

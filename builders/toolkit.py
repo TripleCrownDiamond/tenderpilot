@@ -32,7 +32,7 @@ MAX_ROWS = 2000
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
-                "Telegram.gs", "Agenda.gs", "Marque.gs",
+                "Telegram.gs", "Agenda.gs", "Marque.gs", "Plans.gs",
                 "Llm.gs",
                 "Run.gs"]
 
@@ -171,6 +171,23 @@ def feuille_profil(wb):
                   "valeurs qui vous interessent dans PAYS_SUIVIS et "
                   "SECTEURS_SUIVIS, onglet CONFIG.").font = F_MUTED
     ws.auto_filter.ref = f"A1:{get_column_letter(len(S.PROFIL))}{MAX_ROWS}"
+    return ws
+
+
+def feuille_plans(wb):
+    """Les plans de passation : ce qui VA sortir, avec son budget estime.
+
+    Livre vide, comme l'inventaire : il se remplit par tranches d'autorites
+    au fil des executions. Un plan n'est pas un avis - il vit a part des
+    opportunites, pour qu'on ne le confonde jamais avec un marche ouvert.
+    """
+    ws = wb.create_sheet(S.SHEETS["plans"])
+    entete(ws, S.PLANS)
+    ws.cell(row=2, column=1,
+            value="Rempli automatiquement, quelques dizaines d'autorites a "
+                  "chaque execution. Un plan annonce un marche A VENIR : "
+                  "il n'y a encore ni dossier ni date de depot.").font = F_MUTED
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(S.PLANS))}{MAX_ROWS}"
     return ws
 
 
@@ -390,6 +407,16 @@ def feuille_demarrage(wb):
                      "memes opportunites. Pensez au plafond "
                      "MAX_EMAILS_PAR_EXECUTION juste apres un vidage."),
         ("blank",    ""),
+        ("section",  "Les plans de passation"),
+        ("body",     "L onglet PLANS_DE_PASSATION montre ce que les autorites "
+                     "beninoises PREVOIENT de lancer : l objet, le budget "
+                     "estime, la date de lancement prevue. Ce ne sont pas des "
+                     "appels d offres - il n y a encore rien a deposer - mais "
+                     "ils vous donnent de l avance pour preparer votre dossier."),
+        ("body",     "L onglet se remplit par tranches d autorites a chaque "
+                     "execution : comptez deux a trois jours pour qu il soit "
+                     "complet. COLLECTER_PLANS a false le desactive."),
+        ("blank",    ""),
         ("section",  "Ce que TenderPilot ne fait pas"),
         ("body",     "Il ne remplit pas vos dossiers. Il n invente aucune "
                      "date limite : quand la source ne l ecrit pas, la case "
@@ -523,6 +550,9 @@ var SCHEMA = {{
   PROFIL_TYPE_PAYS: {js(S.PROFIL_TYPE_PAYS)},
   PROFIL_TYPE_SECTEUR: {js(S.PROFIL_TYPE_SECTEUR)},
 
+  /** Colonnes de l'onglet PLANS_DE_PASSATION. Voir Plans.gs. */
+  PLANS: {js(S.PLANS)},
+
   /**
    * Le catalogue de sources livre avec cette version.
    *
@@ -557,6 +587,7 @@ ROLES_SCRIPTS = {
     "Telegram": "notifications sur Telegram",
     "Marque": "le logo embarque dans les emails (GENERE)",
     "Agenda": "echeances suivies dans Google Agenda",
+    "Plans": "plans de passation du portail beninois",
     "Run": "collecte, deadlines, emails et menu",
 }
 
@@ -603,6 +634,7 @@ SOURCES -> COLLECTE -> DEDUPLICATION -> GOOGLE SHEETS
 | `Telegram.gs` | notifications sur Telegram |
 | `Marque.gs` | le logo embarque dans les emails - GENERE |
 | `Agenda.gs` | echeances suivies posees dans Google Agenda |
+| `Plans.gs` | plans de passation du portail beninois |
 | `Sources.gs` | synchronisation du catalogue de sources |
 | `Sheet.gs` | acces au classeur |
 | `Run.gs` | collecte, deadlines, emails, menu, declencheurs |
@@ -913,12 +945,14 @@ def build():
     feuille_sources(wb)
     feuille_config(wb)
     feuille_profil(wb)
+    feuille_plans(wb)
     feuille_logs(wb)
     # PAYS_ET_SECTEURS se lit juste apres CONFIG : on y regle son profil,
     # on vient ici verifier ce qui existe.
     wb._sheets = [wb[n] for n in ["LISEZ_MOI", S.SHEETS["opportunities"],
                                   S.SHEETS["sources"], S.SHEETS["config"],
-                                  S.SHEETS["profil"], S.SHEETS["logs"]]]
+                                  S.SHEETS["profil"], S.SHEETS["plans"],
+                                  S.SHEETS["logs"]]]
     wb.active = 0
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)

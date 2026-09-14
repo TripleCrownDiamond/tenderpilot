@@ -20,6 +20,7 @@
 
 /** Repertoire des analyseurs d'API, par nom de methode. */
 var ANALYSEURS_JSON = {
+  'marches-publics.bj': analyserApiDncmp,
   'oraclecloud.com': analyserApiOracleNegociations,
   'worldbank.org': analyserApiWorldBank,
   'fundpilote.com': analyserApiFundpilote,
@@ -805,6 +806,97 @@ function analyserApiOracleNegociations(corps, source) {
   return sortie.filter(function (o) { return o.title; });
 }
 
+/**
+ * Appels d'offres du portail national du Benin, par son API publique.
+ *
+ * CE QUI A CHANGE, ET POURQUOI C'EST UNE CORRECTION. Le registre affirmait
+ * depuis le 2026-09-02 que le flux RSS etait "la SEULE porte publique" et
+ * que "le reste de l'API repond 401". C'etait faux : les chemins testes
+ * alors - v2/api/... - n'avaient pas le prefixe portail/. Mesure du
+ * 2026-09-14, en lisant le code Angular du site : tout ce que le portail
+ * affiche aux visiteurs passe par api.marches-publics.bj/v2/api/portail/,
+ * et repond 200 SANS AUTHENTIFICATION.
+ *
+ *   GET .../portail/appelsoffres?page=0&size=100&search=&status=1
+ *   -> 51 avis ouverts, 51 avec date limite, 51 avec le PDF du dossier
+ *
+ * Le flux RSS portait EXACTEMENT les memes 51 avis - verifie par objet,
+ * dans les deux sens - mais sans date limite, sans reference et avec un
+ * lien vers la liste. L'API les porte tous : on ne perd rien, on gagne
+ * l'essentiel.
+ *
+ * status=1 est le filtre des avis EN COURS : sans lui, l'API rend 484
+ * avis, archives comprises.
+ *
+ * LE LIEN pointe la liste publique : le portail n'a pas de page par avis,
+ * le detail s'ouvre dans une fenetre. LE PDF, lui, est propre a chaque
+ * avis, et part dans sa colonne. Son nom porte des espaces - "Avis DAO 10
+ * _ Centres de collecte PRIMA.pdf" - qu'on encode, sans quoi le lien se
+ * coupe au premier blanc dans un email.
+ */
+var DNCMP_LISTE = 'https://www.marches-publics.bj/appels-doffres';
+
+/** Encode le chemin d'une adresse sans toucher au domaine ni a la requete. */
+function encoderChemin_(url) {
+  var brut = String(url || '').trim();
+  var m = /^(https?:\/\/[^\/?#]+)([^?#]*)(.*)$/i.exec(brut);
+  if (!m) return '';
+  var chemin = m[2].split('/').map(function (segment) {
+    try {
+      return encodeURIComponent(decodeURIComponent(segment));
+    } catch (e) {
+      return encodeURIComponent(segment);
+    }
+  }).join('/');
+  return m[1] + chemin + m[3];
+}
+
+function analyserApiDncmp(corps, source) {
+  var donnees;
+  try {
+    donnees = JSON.parse(corps);
+  } catch (e) {
+    return [];
+  }
+  var items = donnees && donnees.content;
+  if (!items || !items.length) return [];
+
+  var sortie = [];
+  items.forEach(function (e) {
+    // Un avis que l'API declare expire ne doit pas entrer, meme si
+    // status=1 l'a laisse passer.
+    if (e.expired === true) return;
+
+    var ao = e.appelsoffres || {};
+    var titre = stripTags(reparerCaracteres(String(ao.apoObjet
+                                                   || e.dosDescriptif || '')));
+    if (!titre) return;
+
+    var acheteur = e.autoriteContractante || {};
+    // La denomination porte parfois un saut de ligne avant le sigle.
+    var org = reparerCaracteres(String(acheteur.denomination || ''))
+      .replace(/\s*\n\s*/g, ' ').trim();
+
+    var reference = String(e.dosReference || ao.apoReference || '').trim();
+    var lots = Number(e.dosNombreLots);
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: DNCMP_LISTE,
+      pdf: encoderChemin_(e.dosFichier),
+      ref: reference,
+      org: org,
+      type: String(((ao.typemarche || {}).libelle) || '').trim(),
+      deadline: isoDepuis_(e.dosDateLimiteDepot),
+      published: isoDepuis_(e.dosDatePublication),
+      summary: [reference, lots > 1 ? lots + ' lots' : '']
+        .filter(function (v) { return v; }).join(' - ')
+    }, source));
+  });
+
+  return sortie.filter(function (o) { return o.title; });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     analyseurJson_: analyseurJson_,
@@ -818,6 +910,7 @@ if (typeof module !== 'undefined') {
     FRONTIERE_MULTIPART: FRONTIERE_MULTIPART,
     REQUETES_SOURCES: REQUETES_SOURCES,
     analyserApiOracleNegociations: analyserApiOracleNegociations,
+    analyserApiDncmp: analyserApiDncmp, encoderChemin_: encoderChemin_,
     ANALYSEURS_JSON: ANALYSEURS_JSON
   };
 }

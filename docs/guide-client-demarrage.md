@@ -271,6 +271,40 @@ la : un pays mal orthographie ne correspondra a rien, en silence.
 **L'ordre compte.** Si vous ecrivez `Benin, Niger, Togo`, vos alertes
 arrivent dans cet ordre : le Benin d'abord, a pertinence egale.
 
+## 5 ter. L'onglet PLANS_DE_PASSATION : ce qui va sortir
+
+Chaque autorite contractante beninoise publie en debut d'annee ce qu'elle
+**prevoit** d'acheter. TenderPilot les rassemble dans l'onglet
+`PLANS_DE_PASSATION`.
+
+| Colonne | Ce qu'elle dit |
+|---------|----------------|
+| Autorite | qui achetera |
+| Objet | ce qui sera achete |
+| Montant_Estime | le budget prevu, en FCFA |
+| Lancement_Prevu | quand l'avis devrait paraitre |
+| Mode | appel d'offres ouvert, demande de prix, consultation... |
+
+**Un plan n'est pas un appel d'offres.** Il n'y a encore ni dossier ni date
+de depot : vous ne pouvez rien envoyer aujourd'hui. C'est pour cela qu'il vit
+dans son propre onglet, et ne declenche aucune alerte.
+
+**Ce qu'il vous apporte, c'est de l'avance.** Un marche de 50 millions qui
+sortira dans six semaines, vous pouvez commencer a preparer vos references,
+vos attestations, vos partenaires. Quand l'avis paraitra, il arrivera dans
+OPPORTUNITIES comme les autres - et vous serez pret.
+
+L'onglet ne garde que les lancements **encore a venir**, le plus proche en
+haut. Il se remplit par tranches : environ trois cents autorites publient un
+plan, TenderPilot en lit `PLANS_AUTORITES_PAR_PASSAGE` (30) a chaque
+execution. Comptez deux a trois jours pour qu'il soit complet.
+
+Pour ne pas le collecter : `COLLECTER_PLANS` a `false`.
+
+> **Les appels d'offres du portail national arrivent maintenant avec leur
+> PDF.** La colonne PDF porte le lien direct vers le dossier de chaque avis,
+> et la colonne Deadline sa vraie date limite.
+
 ## 6. Suivre d'autres pays
 
 Au depart, **seul le Benin est coche**. C'est le reglage de sortie d'usine,

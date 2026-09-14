@@ -11,6 +11,7 @@
  */
 
 import { test } from "node:test";
+import { reparerCaracteres as reparerAccents } from "../src/lib/domain/rss";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,7 +28,8 @@ import {
 } from "../src/lib/domain/html";
 import {
   analyserEuropa, analyserFicheFundpilote, analyserFundpilote,
-  analyserOracleNegociations,
+  analyserOracleNegociations, analyserDncmp, encoderChemin,
+  analyserLignesPlan, fusionnerPlans, type LignePlan,
   analyserNigerMarches, analyserWorldBank,
   analyseurJson, budgetFourchette, budgetSimple, formeRequete,
 } from "../src/lib/domain/json";
@@ -1150,3 +1152,87 @@ test("Oracle : les avis annules sont ecartes, les pays sont nommes", () => {
   assert.equal(analyserOracleNegociations('{"items":[]}').length, 0);
 });
 
+
+// ==========================================================================
+// Le portail beninois par son API publique.
+//
+// Mesure du 2026-09-14 : le flux RSS n'etait pas la seule porte. L'API
+// portail/ repond sans authentification et porte la date limite, la
+// reference et le PDF du dossier.
+
+const dansJoursDncmp = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+test("DNCMP : date limite, reference et PDF encode pour chaque avis", () => {
+  const brut = lire("dncmp-appelsoffres.json");
+  const corps = brut.replace(/"dosDateLimiteDepot"\s*:\s*"\d{4}-\d{2}-\d{2}"/g,
+    `"dosDateLimiteDepot": "${dansJoursDncmp(20)}"`);
+  const n = JSON.parse(brut).content.length;
+  const entrees = analyserDncmp(corps);
+
+  assert.equal(entrees.length, n);
+  assert.ok(entrees.every((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.deadline ?? "")));
+  assert.ok(entrees.every((e) => e.resume.length > 0), "la reference ouvre le resume");
+  assert.ok(entrees.every((e) => e.pdf && !e.pdf.includes(" ")),
+            "un espace brut coupe le lien dans un email");
+  assert.ok(entrees.some((e) => (e.pdf ?? "").includes("%20")),
+            "les espaces sont encodes, pas supprimes");
+  assert.ok(entrees.every((e) => !(e.organisation ?? "").includes("\n")));
+  assert.ok(entrees.every((e) => e.lien === "https://www.marches-publics.bj/appels-doffres"));
+
+  const donnees = JSON.parse(corps);
+  donnees.content[0].expired = true;
+  assert.equal(analyserDncmp(JSON.stringify(donnees)).length, n - 1,
+               "un avis declare expire est ecarte");
+  assert.equal(analyserDncmp("pas du json").length, 0);
+});
+
+test("encoderChemin : le chemin seulement, jamais le domaine", () => {
+  assert.equal(encoderChemin("https://bi.marches-publics.bj/a b/Avis DAO.pdf"),
+               "https://bi.marches-publics.bj/a%20b/Avis%20DAO.pdf");
+  assert.equal(encoderChemin("https://x.bj/deja%20encode.pdf"),
+               "https://x.bj/deja%20encode.pdf", "pas de double encodage");
+  assert.equal(encoderChemin(""), "");
+});
+
+test("accents : le Ú du portail beninois, et seulement lui", () => {
+  assert.equal(reparerAccents("UniversitÚ Nationale"), "Université Nationale");
+  assert.equal(reparerAccents("IngÚnierie"), "Ingénierie");
+  assert.equal(reparerAccents("MINISTÈRES"), "MINISTÈRES",
+               "une reparation cp850 generique le casserait");
+});
+
+test("plans : seuls les lancements a venir, avec leur budget", () => {
+  const donnees = JSON.parse(lire("dncmp-plan-realisations.json"));
+  donnees.content.forEach((l: Record<string, unknown>, i: number) => {
+    l.datelancement = i < 2 ? dansJoursDncmp(10 + i) : dansJoursDncmp(-30 - i);
+  });
+  const auj = dansJoursDncmp(0);
+  const attendues = donnees.content.filter(
+    (l: Record<string, unknown>, i: number) => i < 2 && l.reference && l.libelle).length;
+  const lignes = analyserLignesPlan(JSON.stringify(donnees), "UniversitÚ\n(UNSTIM)", auj);
+
+  assert.equal(lignes.length, attendues);
+  assert.ok(lignes.every((l) => /^\d{1,3}( \d{3})*$/.test(l.montant)));
+  assert.ok(lignes.every((l) => l.reference && l.mode));
+  assert.ok(lignes.every((l) => l.autorite === "Université (UNSTIM)"));
+  assert.equal(analyserLignesPlan("pas du json", "X", auj).length, 0);
+});
+
+test("plans : fusion par reference, lancements passes retires, plus proche en haut", () => {
+  const auj = dansJoursDncmp(0);
+  const r = (reference: string, j: number, montant = "1 000"): LignePlan => ({
+    reference, lancement: dansJoursDncmp(j), montant, autorite: "A", objet: "O",
+    type: "", mode: "", demarrage: "", bailleur: "", annee: "",
+  });
+  const f = fusionnerPlans([r("A-1", 5, "100"), r("A-2", 20), r("A-3", -2)],
+                           [r("A-1", 6, "250"), r("B-1", 3)], auj);
+  assert.ok(f.some((x) => x.reference === "A-2"));
+  assert.equal(f.find((x) => x.reference === "A-1")?.montant, "250");
+  assert.ok(!f.some((x) => x.reference === "A-3"));
+  assert.equal(f[0].reference, "B-1");
+  assert.equal(new Set(f.map((x) => x.reference)).size, f.length);
+});

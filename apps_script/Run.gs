@@ -111,6 +111,7 @@ function verifierInstallation() {
     'Agenda.gs': 'synchroniserAgenda_',
     'Telegram.gs': 'envoyerTelegram_',
     'Marque.gs': 'logoEmail_',
+    'Plans.gs': 'collecterPlans_',
     'Sources.gs': 'synchroniserSources',
     'Llm.gs': 'testerLlm'
   };
@@ -1761,7 +1762,7 @@ function executerTenderPilot() {
   CONFIG_COURANTE = lireConfig();
   var config = CONFIG_COURANTE;
   var resume = { nouvelles: 0, misesAJour: 0, emails: 0, suivies: 0,
-                 agenda: 0 };
+                 agenda: 0, plans: 0 };
 
   try {
     // AVANT TOUT LE RESTE : les reglages nouveaux entrent dans l'onglet.
@@ -1809,6 +1810,20 @@ function executerTenderPilot() {
     // EN DERNIER, une fois toutes les ecritures faites : le tri deplace les
     // lignes, et plus rien ne doit les designer par leur numero apres lui.
     trierOpportunites_(toutes);
+
+    // LES PLANS DE PASSATION EN DERNIER, sur le temps qui reste. Ils ne
+    // touchent pas le tableau des opportunites, deja trie et enregistre : une
+    // panne ici ne doit rien defaire de ce qui precede. typeof, parce qu'un
+    // classeur qui a recolle Run.gs sans Plans.gs doit continuer de tourner -
+    // "Verifier l'installation" signale le fichier manquant. Voir Plans.gs.
+    if (typeof collecterPlans_ === 'function') {
+      try {
+        resume.plans = collecterPlans_(config);
+      } catch (e) {
+        logEvent('BJ-PLANS', 'Plans', 'ERROR',
+                 'Plans de passation non collectes : ' + e.message);
+      }
+    }
 
     logEvent('', 'Execution', 'SUCCESS',
       resume.nouvelles + ' nouvelle(s), ' + resume.misesAJour

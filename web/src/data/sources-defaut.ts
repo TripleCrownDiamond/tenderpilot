@@ -5,7 +5,7 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 115 sources : 71 flux RSS, 23 API JSON,
+ * 115 sources : 70 flux RSS, 24 API JSON,
  * 20 collectes HTML, 1 manuelle(s).
  * 55 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
@@ -84,13 +84,13 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
   {
     "code": "BJ-DNCMP",
     "nom": "Marches Publics du Benin - appels d'offres",
-    "methode": "RSS",
-    "url": "https://api.marches-publics.bj/v2/rss",
+    "methode": "JSON:marches-publics.bj",
+    "url": "https://api.marches-publics.bj/v2/api/portail/appelsoffres?page=0&size=100&search=&status=1",
     "paysDefaut": "Benin",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
     "active": true,
-    "statut": "Verifie le 2026-09-02 : 46 annonces. Le portail www.marches-publics.bj est une application Angular, vide cote serveur, et le reste de son API repond 401 : le flux RSS est la SEULE porte publique. Il ne porte AUCUNE echeance - ouvrir le lien pour la date limite - et tous ses titres valent 'Appel d'Offre' : l'objet reel est dans la description, l'acheteur dans <author> (SBEE, ASIN, agences territoriales)."
+    "statut": "Verifie le 2026-09-14 : API PUBLIQUE du portail, sans authentification - api.marches-publics.bj/v2/api/portail/. La note precedente affirmait que le flux RSS etait la seule porte et que le reste repondait 401 : c'etait faux, les chemins testes le 2026-09-02 n'avaient pas le prefixe portail/. status=1 rend 51 avis EN COURS, 51 avec date limite, 51 avec le PDF du dossier, 51 avec reference. Le flux RSS portait les memes 51 avis, verifie par objet dans les deux sens, mais sans echeance ni reference. Le lien pointe la liste publique - le portail n'a pas de page par avis - et le PDF part dans sa colonne, espaces du nom encodes."
   },
   {
     "code": "UNDP-BKF",

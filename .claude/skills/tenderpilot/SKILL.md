@@ -427,21 +427,79 @@ CFA dans une colonne de tableur ne voudrait rien dire. `formaterMontant`,
 rendent `""` dès qu'il n'y a rien à annoncer — un minimum à zéro compris,
 que l'API de Fundpilote pose par défaut sur la moitié de ses annonces.
 
-### Les plans de passation restent fermés
+### Le portail béninois s'ouvre par son API `portail/` — et je m'étais trompé
 
-La vérification a été refaite le 2026-09-02 sur le portail béninois, où le
-plan de passation porte les budgets prévisionnels :
-`www.marches-publics.bj/plan-de-passation` est une application Angular dont
-le HTML servi ne contient aucune donnée, et **toutes** les adresses de
-`api.marches-publics.bj/v2/api/` répondent `401` — y compris des chemins qui
-n'existent pas, la passerelle rejetant avant de router. Il n'existe pas de
-variante RSS pour les plans : `?type=plan` rend le flux des appels d'offres,
-inchangé, au même octet près.
+**Ce que ce guide affirmait du 2026-09-02 au 2026-09-14** : que le plan de
+passation était fermé, que « toutes les adresses de `api.marches-publics.bj/v2/api/`
+répondent `401` », et que le flux RSS était « la seule porte publique du
+portail ». **C'était faux.**
 
-Le flux `v2/rss` reste la seule porte publique du portail béninois. La
-conclusion de départ tient, et elle est maintenant mesurée plutôt que
-supposée.
+**Ce qui s'est passé.** Les chemins testés n'avaient pas le préfixe `portail/`.
+Or tout ce que le site affiche à un visiteur non connecté passe par
+`api.marches-publics.bj/v2/api/portail/…` — et répond `200` **sans
+authentification**. On l'a trouvé le 2026-09-14 en lisant le code Angular du
+site : l'intercepteur HTTP n'ajoute un jeton `Bearer` **que si l'utilisateur
+est connecté**. Une page publique qui affiche des données passe donc
+forcément par un point d'accès anonyme. C'est le réflexe à garder : **une
+page publique vide côté serveur n'est pas une porte fermée, c'est une porte
+dont on n'a pas encore lu l'adresse.**
 
+Le déclencheur, qui mérite d'être noté : un concurrent, AlerteMarché,
+annonçait « plus de 4 000 marchés actifs » au Bénin quand nous en avions 46.
+
+**Ce que l'API porte** (mesure du 2026-09-14, lue dans le module Angular
+chargé à la demande) :
+
+| Point d'accès | Contenu |
+|---|---|
+| `portail/appelsoffres?status=1` | **51 avis en cours**, tous datés, tous avec leur PDF et leur référence |
+| `portail/appelsoffres` sans `status` | 484 avis, archives comprises |
+| `portail/avisgeneraux` | 225 avis généraux — écartés, voir `estPlanDePassation_` |
+| `portail/plandepassations/autorites` | 284 autorités qui publient un plan |
+| `portail/plandepassations/<id>/realisations` | les lignes du plan : objet, **budget estimé**, date de lancement prévue, mode |
+
+**Les « 4 000 » d'AlerteMarché** sont les archives, les avis généraux et les
+plans additionnés. En avis réellement ouverts, le portail en porte 51.
+
+**`BJ-DNCMP` passe du RSS à l'API.** Le RSS portait **exactement** les mêmes
+51 avis — vérifié par objet, dans les deux sens — mais sans date limite,
+sans référence, et avec un lien vers la liste. L'API ne fait rien perdre et
+apporte l'essentiel. Deux pièges traités :
+
+- **Le PDF porte des espaces dans son nom** (« Avis DAO 10 _ Centres de
+  collecte PRIMA.pdf »). Non encodé, le lien se coupe au premier blanc dans
+  un email ; un premier test de disponibilité a même conclu à tort que le
+  serveur ne répondait pas, parce que l'adresse passée à `curl` était brute.
+  `encoderChemin_` encode le chemin, jamais le domaine.
+- **« UniversitÚ »** : quelques noms enregistrés en latin-1 puis relus en
+  cp850. Huit mots sur deux cent quatre-vingts. La réparation est étroite —
+  `Ú` après une minuscule — parce qu'une réparation cp850 générique
+  transformerait « MINISTÈRES », qui est correct, en « MINISTÔRES ».
+
+### Les plans de passation vivent à part, dans leur onglet
+
+Un plan n'est **pas** une opportunité : ni dossier ni date de dépôt, rien à
+quoi répondre aujourd'hui. Le mélanger au tableau ferait croire au client
+qu'il peut déposer — c'est ce qu'`estPlanDePassation_` empêche depuis le
+2026-09-09. Mais un plan dit **ce qui va sortir et avec quel budget**, et
+c'est ce qui permet de préparer un dossier avant que l'avis ne paraisse.
+D'où l'onglet `PLANS_DE_PASSATION`, rempli par `Plans.gs`.
+
+**La mesure qui fixe la forme du collecteur** : sur 25 autorités tirées,
+1 156 lignes dont **110 au lancement encore à venir, toutes budgétées**.
+Extrapolé : ~1 250 lancements à venir, et **~355 s** pour parcourir les 284
+autorités à 1,25 s la requête. D'où trois règles :
+
+1. **Par tranches.** `PLANS_AUTORITES_PAR_PASSAGE` (30) autorités par
+   exécution, avec sa propre mémoire de reprise. L'onglet se complète en deux
+   ou trois jours, puis se tient à jour.
+2. **Le filtre de date est chez nous.** L'API expose `startedAt` dans son code
+   mais l'ignore côté serveur — mesuré, même réponse avec ou sans.
+3. **On fusionne par référence.** Chaque passage ne voit qu'une tranche :
+   l'onglet garde le reste, remplace ce qui a été relu, retire ce qui est lancé.
+
+Les plans passent **en dernier**, sur le temps restant, avec un budget de
+60 s, et une panne ne défait rien de ce qui précède.
 
 ## L'onglet PAYS_ET_SECTEURS : on ne configure pas de mémoire
 
@@ -495,6 +553,7 @@ qu'oubliée :
 | Emails HTML, couleurs du tableau, logo | oui | **non** — texte brut |
 | Récapitulatif des rappels | oui | **non** — un mail par rappel |
 | Rappels urgents à l'unité | oui | **non** |
+| Onglet des plans de passation | oui | **non** — l'analyseur jumeau existe, pas le stockage |
 
 Rien de cela ne touche la collecte : les deux moteurs ramènent et classent
 les mêmes annonces. C'est le produit vendu — le classeur — qui a été servi
@@ -1590,6 +1649,31 @@ diagnostic qui n'a pas ete mesure est une supposition, meme quand il est
 formule avec assurance et qu'il figure deja dans ce guide. « Refuse sans
 session » etait faux ; il suffisait d'un POST pour le voir.
 
+
+### UNGM, 2026-09-14 : fermé à un robot honnête, ouvert à un compte API
+
+Remesuré à la demande du propriétaire. **UNGM répond désormais `403` à un
+agent qui s'annonce comme robot sur absolument tout** — la recherche, la page
+publique des avis, les conditions d'utilisation, et jusqu'au `robots.txt`.
+
+Il existe en revanche une **API OData officielle**, `https://www.ungm.org/API`,
+dont le catalogue répond `200` : 54 ensembles, dont les référentiels
+(`NoticeTypes`, `Countries`, `UNSPSCs`…) en lecture libre. Mais **`/API/Notices`
+répond `401 Authorization has been denied`**. Ses champs sont connus par
+`$metadata` : titre, référence, description, pays en ISO3, date de
+publication, **date limite**, statut, codes UNSPSC, type de mise en
+concurrence — et un `ApiClientId`, qui dit qu'on y accède avec un compte
+client.
+
+**La conclusion est donc tranchée**, et elle ne dépend plus d'une décision
+sur l'agent utilisateur : la seule façon honnête de collecter UNGM est de
+**demander un accès à son API**. Se déguiser en navigateur pour contourner un
+filtre qui vise les robots, c'est contourner une détection de robots — ce
+produit ne le fait pas. `UNGM-CEDEAO` reste inactive, son analyseur en place.
+
+Un concurrent, AlerteMarché, affiche des « marchés privés » qu'il dit
+« collectés depuis UNGM ». Comment il y accède ne nous est pas connu ; ce
+n'est pas une raison de le faire autrement que proprement.
 ### Ou chercher ensuite, par rapport effort/resultat
 
 1. **Un fournisseur avec un flux par pays** deja identifie - c'est ce qui a
