@@ -299,6 +299,9 @@ haut. Il se remplit par tranches : environ trois cents autorites publient un
 plan, TenderPilot en lit `PLANS_AUTORITES_PAR_PASSAGE` (30) a chaque
 execution. Comptez deux a trois jours pour qu'il soit complet.
 
+**Rien a creer.** Si votre classeur n'a pas encore l'onglet, TenderPilot le
+cree tout seul a la prochaine execution, avec ses colonnes.
+
 Pour ne pas le collecter : `COLLECTER_PLANS` a `false`.
 
 > **Les appels d'offres du portail national arrivent maintenant avec leur

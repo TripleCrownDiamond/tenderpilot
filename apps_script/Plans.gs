@@ -183,9 +183,42 @@ function lireAutoritesPlans_() {
   return autorites;
 }
 
-/** L'onglet des plans, lu en rangees ; null s'il n'existe pas. */
+/**
+ * L'onglet des plans, cree s'il manque.
+ *
+ * UN CLASSEUR EN SERVICE N'A PAS CET ONGLET. Recoller Plans.gs apporte le
+ * code, pas l'onglet - la meme lecon que completerConfig_ le 2026-09-09 pour
+ * les reglages : ce que le script doit poser dans le classeur doit pouvoir
+ * arriver sans reimporter le fichier. Sans creation, la collecte des plans
+ * ne ferait rien, en silence, chez tous les clients deja equipes.
+ *
+ * On n'arrive ici que si COLLECTER_PLANS est actif : un client qui a coupe
+ * les plans ne voit pas apparaitre un onglet vide.
+ */
+function feuillePlans_() {
+  var classeur = SpreadsheetApp.getActive();
+  var feuille = classeur.getSheetByName(SCHEMA.SHEETS.plans);
+  if (feuille) return feuille;
+
+  feuille = classeur.insertSheet(SCHEMA.SHEETS.plans);
+  feuille.getRange(1, 1, 1, SCHEMA.PLANS.length).setValues([SCHEMA.PLANS])
+    .setFontWeight('bold');
+  feuille.setFrozenRows(1);
+  logEvent('BJ-PLANS', 'Plans', 'SUCCESS',
+           'Onglet ' + SCHEMA.SHEETS.plans + ' cree : ce classeur ne l avait '
+           + 'pas encore. Il se remplira par tranches d autorites, au fil des '
+           + 'executions.');
+  return feuille;
+}
+
+/** L'onglet des plans, lu en rangees ; null s'il est impossible a ouvrir. */
 function lirePlans_() {
-  var feuille = SpreadsheetApp.getActive().getSheetByName(SCHEMA.SHEETS.plans);
+  var feuille;
+  try {
+    feuille = feuillePlans_();
+  } catch (e) {
+    return null;
+  }
   if (!feuille) return null;
   var dernier = feuille.getLastRow();
   if (dernier < 2) return [];
@@ -232,7 +265,7 @@ function collecterPlans_(config) {
   if (!estVrai(reglages.COLLECTER_PLANS)) return 0;
 
   var existantes = lirePlans_();
-  // Classeur d'avant la fonctionnalite : pas d'onglet, rien a faire.
+  // Onglet ni trouve ni creable : rien a faire, et rien ne tombe.
   if (existantes === null) return 0;
 
   var debut = new Date().getTime();
@@ -289,6 +322,7 @@ if (typeof module !== 'undefined') {
   module.exports = {
     lignePlan_: lignePlan_, analyserLignesPlan: analyserLignesPlan,
     fusionnerPlans_: fusionnerPlans_, collecterPlans_: collecterPlans_,
+    feuillePlans_: feuillePlans_,
     CLES_PLANS: CLES_PLANS
   };
 }

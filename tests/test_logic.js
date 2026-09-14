@@ -4125,6 +4125,48 @@ console.log('\n[Plans] Par tranches, et reprise la ou on s etait arrete');
 }
 
 // ==========================================================================
+console.log('\n[Plans] L onglet se cree tout seul dans un classeur en service');
+{
+  // Recoller Plans.gs apporte le code, pas l onglet. Sans creation, la
+  // collecte des plans ne ferait rien - en silence - chez tous les clients
+  // deja equipes. Meme lecon que completerConfig_ pour les reglages.
+  const m = monde({});
+  const crees = [];
+  let entete = null;
+  let gelees = 0;
+  const ongletFactice = {
+    getRange: () => ({
+      setValues: (v) => { entete = v[0]; return { setFontWeight: () => {} }; }
+    }),
+    setFrozenRows: (n) => { gelees = n; }
+  };
+  const onglets = {};
+  m.ctx.SpreadsheetApp.getActive = () => ({
+    getSheetByName: (nom) => onglets[nom] || null,
+    insertSheet: (nom) => { crees.push(nom); onglets[nom] = ongletFactice;
+                            return ongletFactice; },
+    toast: () => {},
+    getUrl: () => ''
+  });
+
+  m.ctx.feuillePlans_();
+  check('l onglet manquant est cree, sous son nom exact',
+        crees.length === 1 && crees[0] === m.ctx.SCHEMA.SHEETS.plans,
+        crees.join(', '));
+  check('avec les colonnes du schema, dans l ordre',
+        JSON.stringify(entete) === JSON.stringify(m.ctx.SCHEMA.PLANS),
+        JSON.stringify(entete));
+  check('et sa ligne d en-tete figee', gelees === 1, gelees + '');
+  check('la creation est dite au journal',
+        m.feuille.logs.some(l => l.action === 'Plans'
+                                 && l.message.indexOf('cree') !== -1));
+
+  m.ctx.feuillePlans_();
+  check('un second passage ne recree rien', crees.length === 1,
+        crees.length + ' creation(s)');
+}
+
+// ==========================================================================
 console.log('\n' + '-'.repeat(58));
 if (echecs.length) {
   console.log('ECHEC : ' + echecs.length + ' verification(s) en echec');

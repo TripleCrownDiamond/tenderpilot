@@ -501,6 +501,13 @@ autorités à 1,25 s la requête. D'où trois règles :
 Les plans passent **en dernier**, sur le temps restant, avec un budget de
 60 s, et une panne ne défait rien de ce qui précède.
 
+**L'onglet se crée tout seul.** Un classeur déjà en service ne l'a pas :
+recoller `Plans.gs` apporte le code, pas l'onglet. Sans `feuillePlans_`, la
+collecte des plans n'aurait rien fait — en silence — chez tous les clients
+existants. L'onglet est créé au premier passage, en-tête figé, et seulement
+si `COLLECTER_PLANS` est actif : un client qui a coupé les plans ne voit pas
+apparaître un onglet vide.
+
 ## L'onglet PAYS_ET_SECTEURS : on ne configure pas de mémoire
 
 `PAYS_SUIVIS` et `SECTEURS_SUIVIS` se remplissent à la main. **Une valeur
@@ -1330,7 +1337,9 @@ classeur voyage **avec le script**.
 se demander : *comment cela arrive-t-il chez un client déjà en service ?* Si
 la réponse est « il réimporte le classeur », ce n'est pas une réponse — il y
 perdrait ses données. Les colonnes n'ont pas encore leur équivalent : elles
-sont signalées par « Vérifier l'installation », à ajouter à la main.
+sont signalées par « Vérifier l'installation », à ajouter à la main. Les **onglets**, eux,
+peuvent se créer : `feuillePlans_` pose l'onglet des plans au premier passage
+— c'est le modèle à suivre pour tout nouvel onglet.
 
 ## `onOpen` n'a pas toujours d'interface
 
