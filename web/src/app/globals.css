@@ -164,6 +164,17 @@ label.champ input, label.champ select, label.champ textarea {
   background: var(--surface); border: 1px solid var(--trait-doux);
   border-radius: var(--rayon); padding: 16px 18px;
 }
+.banniere-vente {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; margin-bottom: 28px; padding: 18px 20px;
+  background: var(--marine); color: var(--sur-marine);
+  border-radius: var(--rayon); box-shadow: var(--ombre);
+}
+.banniere-vente .aide { color: color-mix(in srgb, var(--sur-marine) 78%, transparent); }
+.banniere-vente .bouton { background: var(--sur-marine); color: var(--marine); white-space: nowrap; }
+@media (max-width: 620px) {
+  .banniere-vente { align-items: flex-start; flex-direction: column; }
+}
 .indicateurs {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
   gap: 10px; margin-bottom: 28px;

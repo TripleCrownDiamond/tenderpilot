@@ -174,6 +174,52 @@ export function retirerBalises(texte: unknown): string {
     .trim();
 }
 
+/**
+ * Comme la suppression des balises, mais un paragraphe reste une ligne.
+ *
+ * Remplacer chaque balise par une espace faisait de "<p>Contexte</p><p>IB
+ * bank lance...</p>" une seule phrase sans ponctuation, que plus rien ne
+ * sait redecouper. Pour un resume, la frontiere entre deux paragraphes est
+ * une information : on la garde, et resumeLisible en fait une phrase.
+ */
+export function texteAvecLignes(html: unknown): string {
+  if (!html) return "";
+  const t = String(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|li|h[1-6]|tr|ul|ol|blockquote|section|article)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "\n");
+  return reparerCaracteres(decoderEntites(t.replace(/<[^>]*>/g, " ")))
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * Le premier bloc d'un texte decoupe par intertitres a pictogramme.
+ *
+ * Fundpilote redige ses fiches par sections - "Description", "Zones
+ * ciblees", "Date limite", chacune precedee d'un pictogramme - et son API
+ * coupe le texte elle-meme, souvent au milieu de la troisieme. La premiere
+ * section dit de quoi il s'agit ; les suivantes, tronquees, finissaient le
+ * resume au milieu d'un mot. Un texte sans intertitre est rendu entier.
+ */
+export function premiereSection(texte: unknown): string {
+  const garde: string[] = [];
+  for (const brut of String(texte ?? "").split(/\n\s*\n/)) {
+    const bloc = brut.trim();
+    if (!bloc) continue;
+    const intertitre = bloc.length <= 60 && !bloc.includes("\n")
+      && /^[^A-Za-z0-9À-ÿ\s«"(]/.test(bloc);
+    if (intertitre) {
+      if (garde.length) break;
+      continue;
+    }
+    garde.push(bloc);
+  }
+  return garde.join("\n");
+}
+
 function contenuBalise(xml: string, balise: string): string {
   const m = new RegExp(
     `<${balise}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${balise}>`, "i").exec(xml);
@@ -274,7 +320,7 @@ export function lireDateFlux(texte: unknown): string | null {
 }
 
 /** Mois francais et anglais, entiers ou abreges. */
-const MOIS: Record<string, number> = {
+export const MOIS: Record<string, number> = {
   janvier: 0, janv: 0, jan: 0, january: 0,
   fevrier: 1, fevr: 1, feb: 1, february: 1,
   mars: 2, mar: 2, march: 2,
@@ -471,7 +517,7 @@ export function analyserFlux(xml: unknown): EntreeFlux[] {
 
   const entrees: EntreeFlux[] = blocs.map((bloc) => {
     const titre = retirerBalises(contenuBalise(bloc, "title"));
-    const resume = retirerBalises(
+    const resume = texteAvecLignes(
       contenuBalise(bloc, "description")
       || contenuBalise(bloc, "summary")
       || contenuBalise(bloc, "content"));
@@ -485,7 +531,7 @@ export function analyserFlux(xml: unknown): EntreeFlux[] {
         || contenuBalise(bloc, "published")
         || contenuBalise(bloc, "updated")
         || contenuBalise(bloc, "dc:date")),
-      resume: tronquer(resume),
+      resume,
       deadline: extraireDeadline(`${titre} ${resume}`),
     };
   }).filter((e) => e.titre);

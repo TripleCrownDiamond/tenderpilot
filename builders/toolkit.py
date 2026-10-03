@@ -11,7 +11,9 @@ Un seul builder : le produit tient en un classeur et un script.
 
 import csv
 import datetime as dt
+import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -27,8 +29,139 @@ OUT_DIR = ROOT / "dist" / "TenderPilot"
 OUT_XLSX = OUT_DIR / "TenderPilot.xlsx"
 SCHEMA_GS = SCRIPT_DIR / "Schema.gs"
 
-VERSION = "1.0.0"
+VERSION_BASE = "1.0.1"
 MAX_ROWS = 2000
+
+# ------------------------------------------------------------------ version --
+# La version n est plus ecrite a la main. Elle se resout a l import : une
+# empreinte des entrees du produit est comparee a celle du dernier build
+# (dist/VERSION.json). Rien n a change : la version reste. Quelque chose a
+# change : elle monte toute seule (patch par defaut), et l ancienne reste
+# archivee dans dist/ARCHIVES/vX.Y.Z.
+#
+#   TP_VERSION=1.2.0     force une version precise
+#   TP_BUMP=minor|major  monte un cran au lieu du patch
+#
+# Les fichiers GENERE par le build sont exclus de l empreinte (Schema.gs,
+# Marque.gs, data/marque/rendu) : ils derivent des entrees, les compter
+# ferait monter la version pour rien a chaque build.
+MANIFESTE_VERSIONS = ROOT / "dist" / "VERSION.json"
+EMPREINTE_EXCLUS = {"__pycache__", "Schema.gs", "Marque.gs", "rendu"}
+
+
+def _entrees_empreinte():
+    cibles = [ROOT / "data" / "sources.csv",
+              ROOT / "data" / "livraison.json",
+              ROOT / "schema" / "columns.py",
+              ROOT / "docs",
+              ROOT / "apps_script",
+              ROOT / "data" / "marque",
+              ROOT / "builders"]
+    entrees = []
+    for c in cibles:
+        if c.is_file():
+            entrees.append(c)
+        elif c.is_dir():
+            for p in c.rglob("*"):
+                if not p.is_file():
+                    continue
+                if any(seg in EMPREINTE_EXCLUS for seg in p.parts):
+                    continue
+                entrees.append(p)
+    return sorted(entrees, key=lambda p: str(p.relative_to(ROOT)))
+
+
+def empreinte_produit():
+    h = hashlib.sha256()
+    for p in _entrees_empreinte():
+        rel = str(p.relative_to(ROOT))
+        try:
+            donnees = p.read_bytes()
+        except OSError:
+            continue
+        h.update(rel.encode("utf-8"))
+        h.update(len(donnees).to_bytes(8, "big"))
+        h.update(donnees)
+    return h.hexdigest()
+
+
+def version_suivante(actuelle, niveau):
+    majeur, mineur, patch = (int(x) for x in actuelle.split("."))
+    if niveau == "major":
+        return f"{majeur + 1}.0.0"
+    if niveau == "minor":
+        return f"{majeur}.{mineur + 1}.0"
+    return f"{majeur}.{mineur}.{patch + 1}"
+
+
+def resoudre_version():
+    """Version du prochain build : idempotente, ou bump si le produit change.
+
+    La version suit le CONTENU, pas l horloge :
+      - le produit actuel a deja une empreinte dans l historique -> on reprend
+        sa version (restaurer un fichier ne cree pas une version nouvelle) ;
+      - l empreinte est celle du dernier build -> on garde la version ;
+      - sinon on monte (patch par defaut), en sautant tout numero de version
+        deja pris par un contenu different.
+    """
+    empr = empreinte_produit()
+    man = {}
+    if MANIFESTE_VERSIONS.exists():
+        try:
+            man = json.loads(MANIFESTE_VERSIONS.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            man = {}
+
+    force = os.environ.get("TP_VERSION", "").strip()
+    version = None
+    if not force:
+        for h in man.get("historique", []):
+            if h.get("empreinte") == empr:
+                version = h["version"]
+                break
+
+    if version is None and man.get("empreinte") == empr:
+        version = man.get("version")
+
+    if version is None:
+        if force:
+            version = force
+        elif not man:
+            # Premier build suivi : on adopte la version de base sans monter.
+            # Un rebuild a l identique doit produire le meme nom de zip.
+            version = VERSION_BASE
+        else:
+            niveau = os.environ.get("TP_BUMP", "patch").strip() or "patch"
+            pris = {h["version"] for h in man.get("historique", [])} | {
+                man.get("version")}
+            version = version_suivante(man["version"], niveau)
+            while version in pris:
+                version = version_suivante(version, "patch")
+        historique = man.get("historique", [])
+        historique.append({"version": version, "empreinte": empr,
+                           "genere_le": dt.date.today().isoformat(),
+                           "depuis": man.get("version")})
+        man = {"version": version, "empreinte": empr,
+               "genere_le": dt.date.today().isoformat(),
+               "historique": historique[-200:]}
+        MANIFESTE_VERSIONS.parent.mkdir(parents=True, exist_ok=True)
+        MANIFESTE_VERSIONS.write_text(
+            json.dumps(man, ensure_ascii=False, indent=2), encoding="utf-8")
+        return version
+
+    # Version retrouvee (historique ou memoire) : le manifeste doit la porter,
+    # sinon resolution et trace se desynchronisent.
+    if man.get("version") != version:
+        man["version"] = version
+        man["empreinte"] = empr
+        man["genere_le"] = dt.date.today().isoformat()
+        MANIFESTE_VERSIONS.parent.mkdir(parents=True, exist_ok=True)
+        MANIFESTE_VERSIONS.write_text(
+            json.dumps(man, ensure_ascii=False, indent=2), encoding="utf-8")
+    return version
+
+
+VERSION = resoudre_version()
 
 SCRIPT_FILES = ["appsscript.json", "Schema.gs", "Core.gs", "Rss.gs",
                 "Html.gs", "Json.gs", "Sheet.gs", "Sources.gs",
@@ -63,6 +196,10 @@ WIDTHS = {
     "Cle": 26, "Valeur": 24, "Description": 68,
     "Date": 17, "Action": 20, "Message": 62,
     "Type": 12, "Valeur": 34, "Annonces": 12, "Suivi": 10,
+    # Onglet des plans : les memes largeurs que mettreEnFormePlans_ (Plans.gs).
+    "Reference": 16, "Autorite": 34, "Objet": 60, "Mode": 30,
+    "Montant_Estime": 16, "Lancement_Prevu": 15, "Demarrage_Prevu": 15,
+    "Bailleur": 22, "Annee": 8,
 }
 
 def lire_sources():
@@ -783,13 +920,14 @@ Onglet `SOURCES`, une ligne par source :
 | `Pays_Defaut`, `Secteur_Defaut`, `Type_Defaut` | valeurs appliquees aux annonces de cette source |
 | `Active` | `OUI` pour l'inclure dans la collecte |
 
-Quatre methodes existent :
+Cinq methodes existent :
 
 | Methode | Ce que c'est |
 |---------|--------------|
 | `RSS` | un flux RSS ou Atom. **La seule que vous pouvez ajouter vous-meme.** |
 | `HTML:<site>` | une page lue par un analyseur dedie, ecrit pour ce site |
 | `JSON:<site>` | une API publique lue par un adaptateur dedie |
+| `PLANS:<site>` | un calendrier d'achats, range dans l'onglet `PLANS_DE_PASSATION` et non dans les opportunites |
 | `MANUAL` | rien n'est collecte, la saisie est manuelle |
 
 Vous pouvez ajouter librement une source `RSS`. Pour trouver son flux :

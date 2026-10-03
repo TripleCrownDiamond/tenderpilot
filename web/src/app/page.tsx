@@ -20,6 +20,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const LIEN_PAIEMENT = "https://takacode.store/prd_n2wrx3qc/checkout";
+
 interface Etape {
   titre: string;
   pret: boolean;
@@ -82,6 +84,23 @@ export default async function Accueil() {
 
   return (
     <>
+      <section className="banniere-vente" aria-label="Acheter TenderPilot">
+        <div>
+          <strong>TenderPilot pour votre veille des appels d&apos;offres</strong>
+          <p className="aide">
+            Centralisez les opportunités, les échéances et les alertes dans un
+            seul outil.
+          </p>
+        </div>
+        <a
+          className="bouton"
+          href={LIEN_PAIEMENT}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Acheter maintenant
+        </a>
+      </section>
       <h1 style={{ fontSize: 28, marginBottom: 6 }}>Tableau de bord</h1>
       <p className="aide" style={{ marginBottom: 24 }}>
         {restant.length === 0

@@ -236,7 +236,12 @@ METHODES = ["RSS", "MANUAL"]
 # dernier recours - une extraction de page casse des que le site change.
 METHODE_HTML_PREFIXE = "HTML:"
 METHODE_JSON_PREFIXE = "JSON:"
-METHODE_PREFIXES = (METHODE_HTML_PREFIXE, METHODE_JSON_PREFIXE)
+# "PLANS:<site>" : la page se lit comme une source HTML:<site>, mais ce
+# qu'elle porte - un calendrier d'achats, sans date de depot - va dans
+# l'onglet des plans de passation, jamais dans les opportunites.
+METHODE_PLANS_PREFIXE = "PLANS:"
+METHODE_PREFIXES = (METHODE_HTML_PREFIXE, METHODE_JSON_PREFIXE,
+                    METHODE_PLANS_PREFIXE)
 
 
 # --------------------------------------------------------------------------
@@ -305,8 +310,8 @@ PROFIL = ["Type", "Valeur", "Annonces", "Suivi"]
 # a venir : une ligne deja lancee est devenue un appel d'offres, ou n'aura
 # pas lieu. Le budget est l'estimation du plan, jamais un chiffre devine.
 # --------------------------------------------------------------------------
-PLANS = ["Reference", "Autorite", "Objet", "Type", "Mode", "Montant_Estime",
-         "Lancement_Prevu", "Demarrage_Prevu", "Bailleur", "Annee",
+PLANS = ["Reference", "Source", "Autorite", "Objet", "Type", "Mode", "Montant_Estime",
+         "Lancement_Prevu", "Demarrage_Prevu", "Bailleur", "Annee", "Lien",
          "Derniere_MAJ"]
 
 PROFIL_TYPE_PAYS = "Pays"
@@ -406,12 +411,14 @@ CONFIG = [
      "Poser chaque echeance dans votre Google Agenda. Un evenement d'une "
      "journee a la date limite, avec des rappels automatiques : vous voyez "
      "vos depots a venir dans l'agenda de votre telephone, sans rien "
-     "installer. Seules les annonces retenues par NOTIFIER_PERTINENCE y "
-     "sont posees."),
+     "installer. Seules les lignes ou vous avez ecrit OUI dans la colonne "
+     "SUIVI y sont posees - c'est vous qui choisissez, pas la pertinence."),
     ("AGENDA_ID",  "",
-     "Agenda qui recoit les echeances. Vide = votre agenda principal. Pour "
-     "un agenda dedie, creez-le dans Google Agenda et collez son "
-     "identifiant (Parametres de l'agenda > Integrer l'agenda)."),
+     "Agenda qui recoit les echeances. Vide = votre agenda principal, et "
+     "c'est le cas le plus courant. Pour un agenda dedie : dans Google "
+     "Agenda, survolez son nom a gauche, trois points > Parametres et "
+     "partage > section Integrer l'agenda > ID de l'agenda. Il n'est PAS "
+     "dans les reglages generaux ouverts par la roue dentee."),
     ("AGENDA_RAPPELS_JOURS", "7, 1",
      "Combien de jours avant l'echeance Google doit vous prevenir. "
      "Plusieurs valeurs separees par des virgules. Vide = aucun rappel, "

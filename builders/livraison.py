@@ -61,12 +61,32 @@ Si vous hesitez entre deux fichiers, prenez celui de A_VENDRE.
 # de l'envoyer a un client qui le demande APRES la vente.
 GUIDES_CLIENT = [
     "1_Guide_Demarrage.pdf",
+    "2_Lire_le_tableau.pdf",
+    "3_Plans_de_passation.pdf",
+    "4_Telegram.pdf",
+    "5_Google_Agenda.pdf",
+]
+
+# LES BONUS DE L'OFFRE. La page de vente les promet : ils partent avec
+# chaque vente, a plat a cote du guide. Les modeles de lettres existent aussi
+# en Word, parce qu'une lettre sert a etre modifiee. Aucun ne contient une
+# piece du produit : ni script, ni classeur.
+BONUS_CLIENT = [
+    "Bonus_1_Configuration_faite_avec_vous.pdf",
+    "Bonus_2_Profils_metier.pdf",
+    "Bonus_3_Checklist_du_dossier.pdf",
+    "Bonus_4_Modeles_de_lettres.pdf",
+    "Bonus_4_Modeles_de_lettres.docx",
 ]
 
 # L'operateur, lui, garde tout - dont le catalogue.
 GUIDES_CLIENT_ARCHIVE = [
     "1_Guide_Demarrage.pdf",
-    "2_Catalogue_des_Sources.pdf",
+    "2_Lire_le_tableau.pdf",
+    "3_Plans_de_passation.pdf",
+    "4_Telegram.pdf",
+    "5_Google_Agenda.pdf",
+    "6_Catalogue_des_Sources.pdf",
 ]
 GUIDES_OPERATEUR = [
     "1_Guide_Operateur.pdf",
@@ -122,10 +142,54 @@ CE QUE CONTIENT CETTE ARCHIVE
 ====================================================================
 
 1_Guide_Demarrage.pdf
-    Les quatre etapes ci-dessus, en detail, avec Telegram et l'agenda.
+    Les quatre etapes ci-dessus, en detail.
 
-Les {nb_sources} sources surveillees sont listees dans l'onglet SOURCES de
-votre classeur, avec leur type, leur secteur et leur pays.
+2_Lire_le_tableau.pdf
+    Les colonnes, les couleurs, la colonne Suivi qui est a vous.
+
+3_Plans_de_passation.pdf
+    Les marches a venir, des semaines avant l'avis.
+
+4_Telegram.pdf
+    Creer le bot, trouver l'identifiant du salon, regler le classeur.
+
+5_Google_Agenda.pdf
+    Vos echeances dans l'agenda de votre telephone, avec leurs rappels.
+
+====================================================================
+VOS VIDEOS
+====================================================================
+
+Huit videos, une heure et quart en tout. Le PDF sert a chercher une
+reponse precise, la video a se lancer la premiere fois :
+
+    {videos}
+
+====================================================================
+VOS BONUS
+====================================================================
+
+Bonus_1_Configuration_faite_avec_vous.pdf
+    Vingt minutes sur WhatsApp pour regler votre veille avec nous.
+    Reserve aux 50 premiers acheteurs.
+
+Bonus_2_Profils_metier.pdf
+    Les reglages prets a coller pour votre metier.
+
+Bonus_3_Checklist_du_dossier.pdf
+    Les pieces d'une offre, de la recevabilite a la signature.
+
+Bonus_4_Modeles_de_lettres.pdf et Bonus_4_Modeles_de_lettres.docx
+    Eclaircissements, manifestation d'interet, habilitation,
+    transmission de l'offre, CV d'expert. Le fichier Word se modifie.
+
+Bonus 5 - le groupe WhatsApp prive TenderPilot :
+    {groupe}
+
+Les {nb_actives} sources actives sont listees dans l'onglet SOURCES de votre
+classeur, avec leur type, leur secteur et leur pays. Le catalogue en compte
+{nb_sources} : les autres y attendent, en veille, qu'un portail rouvre ou
+qu'une extraction soit reparee.
 
 ====================================================================
 CE QU'IL VOUS FAUT
@@ -156,6 +220,27 @@ Un blocage a l'installation ? Ecrivez-moi, je m'en occupe :
 
     {contact}
 """
+
+
+def liens_videos(conf):
+    """Retourne chaque vidéo avec son titre et son lien direct."""
+    liens = conf.get("lien_videos") or []
+    if not liens:
+        return "demandez le lien a votre vendeur"
+    videos = [
+        ("00 - Commencez ici", "8 min"),
+        ("IMPORTANT - Autorisations Google", "4 min"),
+        ("01 - Prise en main", "30 min"),
+        ("02 - Alertes email", "8 min"),
+        ("03 - Telegram", "8 min"),
+        ("04 - Google Agenda", "3 min"),
+        ("05 - Classement intelligent", "4 min"),
+        ("06 - Onglet OPPORTUNITIES", "13 min"),
+    ]
+    manquant = "demandez le lien a votre vendeur"
+    return "\n".join(
+        f"    {titre} ({duree}) : {liens[i] if i < len(liens) else manquant}"
+        for i, (titre, duree) in enumerate(videos))
 
 ACCUEIL_OPERATEUR = """TENDERPILOT - DOSSIER OPERATEUR
 Version {version}
@@ -234,6 +319,19 @@ def nombre_de_sources():
         return sum(1 for r in csv.DictReader(f) if (r["Source_ID"] or "").strip())
 
 
+def nombre_de_sources_actives():
+    """Celles qui collectent vraiment.
+
+    Le catalogue compte les sources en veille ; le client, lui, ne voit
+    arriver que les actives. Annoncer le total lui promettrait plus que ce
+    qu'il recoit - mesure du 2026-09-16 : 61 actives sur 120.
+    """
+    with (RACINE / "data" / "sources.csv").open(encoding="utf-8", newline="") as f:
+        return sum(1 for r in csv.DictReader(f)
+                   if (r["Source_ID"] or "").strip()
+                   and (r["Active"] or "").strip().upper() == "OUI")
+
+
 def livraison():
     """Lien de vente et contact, renseignes dans data/livraison.json."""
     import json
@@ -262,10 +360,16 @@ def construire_client(nom):
         z.writestr(nom + "/COMMENCEZ_ICI.txt", ACCUEIL_CLIENT.format(
             version=VERSION,
             nb_sources=nombre_de_sources(),
+            nb_actives=nombre_de_sources_actives(),
             lien=conf["lien_copie"],
-            contact=conf["contact"]))
+            contact=conf["contact"],
+            groupe=conf.get("groupe_whatsapp")
+            or "demandez le lien a votre vendeur",
+            videos=liens_videos(conf)))
         for guide in GUIDES_CLIENT:
             z.write(LIVRABLE / "guides" / "client" / guide, nom + "/" + guide)
+        for bonus in BONUS_CLIENT:
+            z.write(LIVRABLE / "guides" / "bonus" / bonus, nom + "/" + bonus)
 
     return archive
 
@@ -299,6 +403,9 @@ def construire_operateur(nom):
         for guide in GUIDES_CLIENT_ARCHIVE:
             z.write(LIVRABLE / "guides" / "client" / guide,
                     nom + "/docs_client/" + guide)
+        for bonus in BONUS_CLIENT:
+            z.write(LIVRABLE / "guides" / "bonus" / bonus,
+                    nom + "/docs_client/" + bonus)
 
     return archive
 
@@ -337,6 +444,21 @@ def construire():
             print("Guides manquants : " + ", ".join(manquants))
             return None
 
+    absents = [b for b in BONUS_CLIENT
+               if not (LIVRABLE / "guides" / "bonus" / b).exists()]
+    if absents:
+        print("Bonus manquants : " + ", ".join(absents))
+        return None
+
+    # La version change toute seule a chaque modification du produit.
+    # On ne garde dans A_VENDRE et PRIVE que la version courante : les
+    # precedentes restent archivees dans dist/ARCHIVES/vX.Y.Z.
+    for dossier, prefixe in ((VENTE, "TenderPilot_Sheets_v"),
+                             (PRIVE, "TenderPilot_OPERATEUR_v")):
+        if dossier.is_dir():
+            for ancien in dossier.glob(prefixe + "*.zip"):
+                ancien.unlink()
+
     # Le client recoit un nom de produit propre, pas un nom de fichier
     # interne : "TenderPilot_Sheets_v1.0.0.zip" se presente mieux dans une
     # conversation WhatsApp que "..._CLIENT.zip".
@@ -374,7 +496,7 @@ def verifier(archive):
         if interdits:
             raise RuntimeError("Contenu interdit dans l'archive client : "
                                + ", ".join(sorted(interdits)[:4]))
-        for guide in GUIDES_CLIENT:
+        for guide in GUIDES_CLIENT + BONUS_CLIENT:
             if not any(n.endswith(guide) for n in noms):
                 raise RuntimeError(guide + " absent de " + archive.name)
         # ET CE QUI NE DOIT PAS Y ETRE. Le catalogue liste les sources une

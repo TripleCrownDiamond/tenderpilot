@@ -8,6 +8,26 @@ avant chaque date limite.
 
 Comptez cinq minutes.
 
+## Tout est aussi en video
+
+Huit videos, une heure et quart en tout. Le PDF sert a chercher une reponse
+precise ; la video sert a se lancer la premiere fois, en regardant faire.
+
+| Video | Ce qu'elle montre | Duree |
+|-------|-------------------|-------|
+| [{video_01_title}]({video_01}) | Ce que fait TenderPilot, et par ou prendre | 8 min |
+| [{video_02_title}]({video_02}) | L'ecran d'avertissement de Google, et pourquoi il est normal | 4 min |
+| [{video_03_title}]({video_03}) | L'installation complete, du lien jusqu'a la premiere collecte | 30 min |
+| [{video_04_title}]({video_04}) | NOTIFICATION_EMAIL, les rappels, le recapitulatif | 8 min |
+| [{video_05_title}]({video_05}) | Le bot, le jeton, l'identifiant du salon | 8 min |
+| [{video_06_title}]({video_06}) | SEND_AGENDA, la colonne SUIVI, les rappels | 3 min |
+| [{video_07_title}]({video_07}) | La cle Mistral, et ce que le modele n'a pas le droit de faire | 4 min |
+| [{video_08_title}]({video_08}) | Lire le tableau, les couleurs, la pertinence | 13 min |
+
+Si une seule doit etre regardee avant de commencer, c'est
+**IMPORTANT - Autorisations Google** : c'est l'etape ou l'on croit s'etre
+trompe alors que tout est normal.
+
 ## 1. Creer votre classeur
 
 Ouvrez ce lien :
@@ -302,6 +322,15 @@ execution. Comptez deux a trois jours pour qu'il soit complet.
 **Rien a creer.** Si votre classeur n'a pas encore l'onglet, TenderPilot le
 cree tout seul a la prochaine execution, avec ses colonnes.
 
+**Les calendriers d'achats de l'UNICEF** y sont aussi (medicaments,
+education, nutrition, eau et assainissement...). Ils n'ont pas de date de
+lancement : ils sont ranges apres les marches dates. La colonne `Source` dit
+d'ou vient chaque ligne, la colonne `Lien` ouvre le calendrier.
+
+Si votre tableau `OPPORTUNITIES` contient encore des lignes
+« UNICEF Supply - ... tender calendar », vous pouvez les supprimer : elles
+vivent desormais dans cet onglet.
+
 Pour ne pas le collecter : `COLLECTER_PLANS` a `false`.
 
 > **Les appels d'offres du portail national arrivent maintenant avec leur
@@ -310,36 +339,43 @@ Pour ne pas le collecter : `COLLECTER_PLANS` a `false`.
 
 ## 6. Suivre d'autres pays
 
-Au depart, **seul le Benin est coche**. C'est le reglage de sortie d'usine,
-pas une limite : votre classeur porte deja des sources pour toute l'Afrique
-de l'Ouest, et d'autres au-dela.
+Au depart, `PAYS_SUIVIS` vaut **Benin**. C'est le reglage de sortie
+d'usine, pas une limite : votre classeur surveille deja huit pays, et des
+bailleurs qui publient bien au-dela.
 
-Beaucoup d'entreprises beninoises repondent a des marches hors du Benin -
-dans la sous-region, parfois dans le monde entier. TenderPilot ne vous en
-empeche jamais.
+**Pour suivre vos pays :**
 
-**Pour ouvrir a un autre pays :**
+1. Onglet **CONFIG**, ligne `PAYS_SUIVIS` : ecrivez vos pays, du plus
+   important au moins important. Exemple : `Togo, Benin, Niger`.
+2. Menu **TenderPilot > Executer maintenant**.
 
-1. Menu **TenderPilot > Afficher / masquer l'onglet SOURCES**.
-2. Trouvez les lignes du pays voulu dans la colonne **Pays_Defaut**.
-3. Mettez **OUI** dans la colonne **Active**.
-4. Menu **TenderPilot > Executer maintenant**.
+Ecrivez les pays comme dans la colonne Pays du tableau : `Benin`, `Togo`,
+`Niger`, `Burkina Faso`, `Cote d'Ivoire`, `Senegal`, `Mali`, `Cameroun`.
 
-Pour cesser de suivre un pays, remettez **NON**. Rien n'est perdu : les
-opportunites deja collectees restent dans votre tableau.
+Pour un pays dont les sources sont desactivees, menu **TenderPilot >
+Afficher / masquer l'onglet SOURCES**, mettez **OUI** dans la colonne
+**Active** des lignes de ce pays, puis executez. Pour cesser de suivre un
+pays, remettez **NON** : les opportunites deja collectees restent.
 
 ### Ce que vous trouverez, pays par pays
 
-| Zone | Ce qui est couvert |
-|------|--------------------|
-| **Benin** | portails nationaux, SBEE, SONEB, ABE, DEDRAS, plus PNUD et Banque mondiale |
-| **Reste de la CEDEAO** | PNUD et Banque mondiale pour chaque pays |
-| **Afrique et international** | bailleurs, fondations, appels a projets et subventions |
+| Pays | Ce qui est surveille |
+|------|----------------------|
+| **Benin** | portail des marches publics et plans de passation, portail national, SBEE, SONEB, ABE, DEDRAS, Enabel, Banque mondiale, PNUD |
+| **Togo** | DNCCP (portail officiel des avis), Banque mondiale, PNUD |
+| **Niger** | Niger Marches, Banque mondiale, PNUD |
+| **Cameroun** | ARMP (appels d'offres nationaux et internationaux), Banque mondiale, PNUD |
+| **Burkina Faso, Cote d'Ivoire, Senegal, Mali** | Banque mondiale et PNUD |
+| **Partout** | Union europeenne, GIZ, AFD, Expertise France, fondations et appels internationaux |
 
-Soyons clairs sur la difference : le Benin est couvert en profondeur, avec
-ses portails nationaux. Les autres pays le sont par les grands bailleurs
-seulement. C'est deja beaucoup - la Banque mondiale et le PNUD publient
-l'essentiel des marches finances - mais ce n'est pas la meme densite.
+Soyons clairs sur la difference. Le Benin est couvert en profondeur. Le
+Togo, le Niger et le Cameroun ont un portail national en plus des
+bailleurs. Le Burkina Faso, la Cote d'Ivoire, le Senegal et le Mali sont
+couverts par les grands bailleurs seulement : leurs portails nationaux
+publient en PDF, sans date limite, ou ne repondent pas a un programme.
+
+Les avis du Togo arrivent sans date limite : le portail ne l'ecrit que dans
+le PDF de l'avis. Ils sont marques DATE A VERIFIER.
 
 **Les appels ouverts a tous les pays vous sont montres de toute facon.** Une
 bourse mondiale, un appel a projets international : vous pouvez y candidater

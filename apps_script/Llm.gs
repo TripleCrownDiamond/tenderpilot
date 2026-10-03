@@ -489,6 +489,9 @@ function appelerLlm_(c, invite) {
     lireReponseLlm_(c.dialecte, reponse.getContentText()));
 }
 
+/** Temps a garder pour la suite du passage avant chaque appel au modele. */
+var MARGE_CLASSEMENT_MS = 100 * 1000;
+
 /**
  * Fait juger les annonces par le modele, quand il est configure.
  *
@@ -510,6 +513,12 @@ function classerAnnonces_(annonces, config) {
   var jugees = [];
 
   enLots_(annonces, c.tailleLot).forEach(function (lot) {
+    // Plus assez de temps pour un appel ET pour la suite du passage : le
+    // lot entre sans jugement, comme sans cle. Voir LIMITE_EXECUTION_MS.
+    if (typeof tempsEpuise_ === 'function' && tempsEpuise_(MARGE_CLASSEMENT_MS)) {
+      jugees = jugees.concat(lot);
+      return;
+    }
     if (etat.n >= c.maxAppelsJour) {
       // Plafond atteint : le reste passe sans classement plutot que de
       // faire exploser la facture du client.

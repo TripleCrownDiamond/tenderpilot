@@ -192,6 +192,20 @@ export function normaliser(v: unknown): string {
     .trim();
 }
 
+/**
+ * Une source "PLANS:<site>" alimente l'onglet des plans, pas le tableau.
+ *
+ * Un calendrier d'achats - l'UNICEF publie les siens par categorie - dit ce
+ * qui VA etre lance. Ce n'est pas un avis : ni dossier ni date de depot.
+ * Range parmi les opportunites, il n'avait jamais d'echeance, ne partait
+ * jamais en alerte et restait en bas du tableau pour toujours. La page se
+ * lit avec l'analyseur du site, comme une source HTML:<site> ; seul change
+ * l'endroit ou elle est rangee.
+ */
+export function estMethodePlans(methode: unknown): boolean {
+  return /^PLANS:/i.test(String(methode ?? "").trim());
+}
+
 /** Resume tronque proprement. Pas d'IA : on coupe, c'est tout. */
 export function tronquer(texte: unknown, maximum = RESUME_MAX): string {
   const t = String(texte ?? "").replace(/\s+/g, " ").trim();
@@ -199,6 +213,65 @@ export function tronquer(texte: unknown, maximum = RESUME_MAX): string {
   const coupe = t.slice(0, maximum);
   const espace = coupe.lastIndexOf(" ");
   return (espace > maximum * 0.6 ? coupe.slice(0, espace) : coupe) + "...";
+}
+
+const PICTOGRAMMES =
+  /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
+
+/**
+ * Un resume qui se lit : des phrases entieres, ponctuees, sans bruit.
+ *
+ * MESURE DU 2026-09-14, sur 204 annonces des 55 sources actives, apres
+ * qu'un client a trouve les resumes de ses mails "incomprehensibles" :
+ * 21 coupes au milieu d'un mot, 164 sans ponctuation finale, des
+ * paragraphes soudes, des morceaux relies par " - " sans point, des
+ * "Read more" et des "The post ... appeared first on".
+ *
+ * - Une ligne de la source (paragraphe, element de liste) devient une
+ *   phrase ; un " - " devant une majuscule separe deux morceaux. Devant un
+ *   chiffre il reste : "29 juillet 2026 - 9 octobre 2026" est une periode.
+ * - On coupe a la derniere phrase entiere quand elle garde l'essentiel,
+ *   sinon a un mot, et "..." le dit. Un texte deja coupe par la source
+ *   ("depends on ...") est traite de la meme facon.
+ * - Une ligne qui repete le titre est retiree : le titre est juste au-dessus.
+ * - IDEMPOTENT. La fiche d'une annonce complete son resume APRES la
+ *   normalisation, et il repasse ici : le repasser ne doit rien changer.
+ */
+export function resumeLisible(
+  texte: unknown, titre?: unknown, maximum = RESUME_MAX,
+): string {
+  const brut = String(texte ?? "")
+    .replace(PICTOGRAMMES, " ")
+    .replace(/The post[\s\S]*?appeared first on[^\n]*/gi, " ")
+    .replace(/\b(?:Read more|Continue reading|Lire la suite|En savoir plus)\b[ \t.»›→]*/gi, " ")
+    .replace(/\[(?:…|\.\.\.)\]/g, "...")
+    .replace(/[ \t]*[•▪◦●][ \t]*/g, "\n")
+    // Le tiret SIMPLE seulement : c'est lui que les analyseurs posent entre
+    // deux morceaux. Le tiret long vit dans les references.
+    .replace(/[ \t]+-[ \t]+(?=[A-ZÀ-Ý])/g, "\n");
+
+  const cleTitre = normaliser(String(titre ?? ""));
+  let t = brut.split(/\n+/)
+    .map((l) => l.replace(/\s+/g, " ").trim().replace(/[,;]$/, ""))
+    .filter((l) => l && !/^[\s.…-]+$/.test(l)
+      && !(cleTitre && normaliser(l) === cleTitre))
+    .map((l) => (/[.!?:…]$/.test(l) ? l : `${l}.`))
+    .join(" ");
+
+  const coupeeALaSource = /(?:\.{3}|…)$/.test(t);
+  if (coupeeALaSource) t = t.replace(/\s*(?:\.{3,}|…)+$/, "");
+  if (coupeeALaSource || t.length > maximum) {
+    let coupe = t.slice(0, maximum);
+    let fin = -1;
+    for (const m of coupe.matchAll(/[.!?](?=\s|$)/g)) fin = m.index ?? fin;
+    if (fin >= maximum * 0.3) return coupe.slice(0, fin + 1);
+    if (t.length > maximum) {
+      const espace = coupe.lastIndexOf(" ");
+      if (espace > maximum * 0.6) coupe = coupe.slice(0, espace);
+    }
+    return coupe.replace(/[\s,;:(«"'–-]+$/, "") + "...";
+  }
+  return t.replace(/\s*:$/, ".");
 }
 
 // ----------------------------------------------------------------- dates --
@@ -1018,7 +1091,8 @@ export const NOTIFICATIONS: RegleNotification[] = [
 export function estSuivie(o: Opportunite): boolean {
   const v = o.suivi;
   if (v === true) return true;
-  return ["true", "vrai", "oui", "yes", "1"]
+  // X comme dans Core.gs : le guide promet OUI, X ou VRAI.
+  return ["true", "vrai", "oui", "yes", "1", "x"]
     .includes(String(v ?? "").trim().toLowerCase());
 }
 

@@ -44,7 +44,8 @@ const METHODES = {
 function methodeDe(s: SourceDefaut): keyof typeof METHODES {
   const m = s.methode.toUpperCase();
   if (m.startsWith("JSON:")) return "api";
-  if (m.startsWith("HTML:")) return "html";
+  // Une source PLANS: est une page lue par un analyseur, rangee ailleurs.
+  if (m.startsWith("HTML:") || m.startsWith("PLANS:")) return "html";
   return "rss";
 }
 

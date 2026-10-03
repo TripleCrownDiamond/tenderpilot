@@ -11,6 +11,27 @@
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "page-vente",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4173",
+        "--directory",
+        "/Users/musimapsdev/Desktop/Tenderpilot/tenderpilot/site"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "site-php",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/musimapsdev/Desktop/Tenderpilot/tenderpilot/site && exec /opt/homebrew/bin/php -S localhost:4180 router.php"
+      ],
+      "port": 4180
     }
   ]
 }

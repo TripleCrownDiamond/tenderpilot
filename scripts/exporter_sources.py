@@ -57,14 +57,17 @@ def verifier(sources):
         if not s["url"] and s["methode"].upper() != "MANUAL":
             erreurs.append(s["code"] + " : aucune URL")
         m = s["methode"].upper()
-        if not (m in ("RSS", "MANUAL") or m.startswith(("HTML:", "JSON:"))):
+        if not (m in ("RSS", "MANUAL")
+                or m.startswith(("HTML:", "JSON:", "PLANS:"))):
             erreurs.append(s["code"] + " : methode inconnue " + s["methode"])
     return erreurs
 
 
 def compter(sources):
     rss = sum(1 for s in sources if s["methode"].upper() == "RSS")
-    html = sum(1 for s in sources if s["methode"].upper().startswith("HTML:"))
+    # Une source PLANS: est une page lue par un analyseur : elle compte ici.
+    html = sum(1 for s in sources
+               if s["methode"].upper().startswith(("HTML:", "PLANS:")))
     api = sum(1 for s in sources if s["methode"].upper().startswith("JSON:"))
     manuel = sum(1 for s in sources if s["methode"].upper() == "MANUAL")
     actives = sum(1 for s in sources if s["active"])
@@ -95,7 +98,8 @@ export type MethodeSource =
   | "RSS"
   | "MANUAL"
   | `HTML:@@DOLLAR@@{string}`
-  | `JSON:@@DOLLAR@@{string}`;
+  | `JSON:@@DOLLAR@@{string}`
+  | `PLANS:@@DOLLAR@@{string}`;
 
 export interface SourceDefaut {
   code: string;

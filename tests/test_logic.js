@@ -96,7 +96,10 @@ function monde(options) {
 
     // --- couche classeur, en memoire -----------------------------------
     CONFIG_COURANTE: {},
-    lireConfig: () => feuille.config,
+    // Le vrai lireConfig construit un NOUVEL objet a chaque lecture. Rendre
+    // l'objet vivant masquait le defaut du 2026-09-15 : un reglage ajoute
+    // par completerConfig_ apparaissait dans une config lue AVANT lui.
+    lireConfig: () => Object.assign({}, feuille.config),
     lireSources: () => feuille.sources,
     // Le vrai Sheet.gs relit la feuille et construit de nouveaux objets :
     // il ne rend jamais la liste vivante. On copie donc le tableau.
@@ -2016,6 +2019,40 @@ console.log('\n[Complements] Statuts, couleurs, dates, resume');
         C.clesDedup({ title: 'Développement', org: 'ONU', deadline: '2026-01-01' })[0]
         === C.clesDedup({ title: 'developpement', org: 'onu', deadline: '2026-01-01' })[0]);
   check('le resume est tronque', C.tronquer('mot '.repeat(300)).length <= 404);
+
+  // MESURE DU 2026-09-14 : des resumes coupes au milieu d'un mot, sans
+  // ponctuation, soudes, dans les mails d'un client. Un resume se lit.
+  const longue = 'Appel a propositions pour des cooperatives agricoles du Benin, '
+    + 'du Togo et du Niger, avec un accompagnement technique, un budget de dix '
+    + 'millions et un suivi sur trois ans.';
+  const R = C.resumeLisible;
+  check('coupe a la source : on revient a la derniere phrase entiere',
+        R(longue + ' Les candidats doivent depends on ...') === longue,
+        R(longue + ' Les candidats doivent depends on ...'));
+  check('trop long sans phrase : coupe a un mot, et le dit',
+        /\w\.\.\.$/.test(R('mot '.repeat(300)))
+        && R('mot '.repeat(300)).length <= 403);
+  check('deux morceaux relies par " - " deviennent deux phrases',
+        R('Type : Marche de fournitures - DAO n°378 du 26/08/2026')
+        === 'Type : Marche de fournitures. DAO n°378 du 26/08/2026.',
+        R('Type : Marche de fournitures - DAO n°378 du 26/08/2026'));
+  check('un tiret long, dans une reference, ne coupe pas',
+        R('Please use reference PIN_CO_26_004 – ICT Materials in all communications')
+        === 'Please use reference PIN_CO_26_004 – ICT Materials in all communications.');
+  check('une periode garde son tiret',
+        R('Periode : 29 juillet 2026 - 9 octobre 2026')
+        === 'Periode : 29 juillet 2026 - 9 octobre 2026.');
+  check('un paragraphe est une phrase, et la fin est ponctuee',
+        R('Contexte\nIB bank lance un appel') === 'Contexte. IB bank lance un appel.');
+  check('le bruit de publication part',
+        R('Texte utile.\nThe post Texte appeared first on Site.\nRead more')
+        === 'Texte utile.', R('Texte utile.\nThe post Texte appeared first on Site.\nRead more'));
+  check('les pictogrammes partent', R('\u{1F4DD} Programme de recherche').indexOf('\u{1F4DD}') === -1);
+  check('une ligne qui repete le titre part',
+        R('Mon titre\nDetail utile', 'Mon titre') === 'Detail utile.');
+  check('un resume deja lisible ne change pas',
+        [longue + ' coupe ...', 'mot '.repeat(300), 'A - B : c', 'x:', '']
+          .every(function (s) { return R(R(s)) === R(s); }));
   check('un champ vide n ecrase pas une valeur existante',
         Object.keys(C.champsModifies({ title: 'Ancien' }, { title: '' })).length === 0);
   check('identifiant au-dela de 999999',
@@ -2767,6 +2804,192 @@ console.log('\n[Agenda] Ce qui l empeche de poser, et qui ne casse rien');
   check('et le passage aboutit quand meme',
         m.feuille.logs.some(l => l.action === 'Execution'
                                  && l.statut === 'SUCCESS'));
+}
+
+// ==========================================================================
+console.log('\n[Agenda] Une croix suffit, une echeance passee ne se pose pas');
+{
+  // Mesure du 2026-09-19 : le guide promet OUI, X ou VRAI, et X n'etait
+  // pas reconnu. Une ligne cochee d'une croix n'entrait jamais dans l'agenda.
+  const C = monde({}).ctx;
+  check('X et x valent OUI dans Suivi',
+        C.estSuivie_({ suivi: 'X' }) && C.estSuivie_({ suivi: ' x ' }));
+  check('mais X ne vaut pas vrai dans CONFIG', C.estVrai('X') === false);
+
+  const m = monde({ config: { SEND_AGENDA: 'true' } });
+  const posees = m.ctx.synchroniserAgenda_([
+    { suivi: 'OUI', deadline: jourRelatif(-2), agenda: '', title: 'Echue' }
+  ], { SEND_AGENDA: 'true' });
+  check('une echeance deja passee n entre pas dans l agenda',
+        posees === 0 && m.agenda.length === 0, m.agenda.length + ' evenements');
+}
+
+// ==========================================================================
+console.log('\n[Temps] Une seule horloge borne tout le passage');
+{
+  const url = 'https://exemple.test/flux-horloge';
+  const m = monde({
+    sources: [source('SRC-001', url)],
+    flux: { [url]: fluxRss([
+      { titre: 'Avis horloge', lien: 'https://exemple.test/h1',
+        description: 'Date limite : ' + enFrancais(jourRelatif(20)) }
+    ]) },
+    config: { SEND_NEW_OPPORTUNITY: 'false', SEND_AGENDA: 'true' }
+  });
+  const C = m.ctx;
+  check('hors passage, le temps ne manque jamais',
+        C.tempsRestantMs_() === Infinity && !C.tempsEpuise_(60000));
+
+  C.executerTenderPilot();
+  check('l horloge est rendue a la fin du passage',
+        C.DEBUT_EXECUTION === 0 && C.FIN_COLLECTE === 0);
+  const fin = m.feuille.logs.filter(l => l.action === 'Execution'
+                                         && l.statut === 'SUCCESS').pop();
+  check('le journal dit combien de temps le passage a pris',
+        fin && / en \d+ s\.$/.test(fin.message), fin && fin.message);
+  const reserve = C.reserveSuiteMs_();
+  check('la duree de la suite est mesuree, et la reserve bornee',
+        reserve >= C.SUITE_MIN_MS && reserve <= C.SUITE_MAX_MS, reserve);
+
+  // Il ne reste que 20 secondes : on simule un passage qui a deja dure
+  // presque toute sa limite.
+  C.DEBUT_EXECUTION = Date.now() - C.LIMITE_EXECUTION_MS + 20 * 1000;
+  const canal = { envoyes: 0, plafond: Infinity };
+  check('sans temps, un canal sans plafond s arrete quand meme',
+        C.plafondAtteint_(canal, 1) === true && canal.parTemps === true);
+
+  const suivie = m.feuille.opps.filter(o => o.title === 'Avis horloge')[0];
+  suivie.suivi = 'OUI';
+  const avant = m.agenda.length;
+  const posees = C.synchroniserAgenda_(m.feuille.opps, { SEND_AGENDA: 'true' });
+  check('sans temps, l agenda ne pose rien et laisse la colonne vide',
+        posees === 0 && m.agenda.length === avant && !suivie.agenda);
+  check('et il dit qu il reporte',
+        m.feuille.logs.some(l => l.action === 'Agenda'
+          && /reportee\(s\) au prochain passage/.test(l.message)));
+  C.DEBUT_EXECUTION = 0;
+
+  // Au passage normal suivant, l'echeance reportee est posee.
+  C.executerTenderPilot();
+  check('au passage suivant, l echeance reportee est posee',
+        m.agenda.length === avant + 1 && String(suivie.agenda).indexOf('evt-') === 0);
+}
+
+// ==========================================================================
+console.log('\n[Suivi] Aucun rappel ne fuit quand rien n est suivi');
+{
+  // PLAINTE DU 2026-09-28 : "j ai RAPPELS_SUIVIS_SEULEMENT a true et je
+  // recois quand meme plein de rappels". On ne teste donc pas la fonction
+  // de decision isolee - elle est deja couverte - mais L EXECUTION
+  // ENTIERE : c est le seul moyen de voir une fuite ailleurs dans la
+  // chaine (recapitulatif groupe, envoi unitaire, second canal).
+  const url = 'https://exemple.test/flux-fuite-rappels';
+  const avis = [];
+  for (let i = 0; i < 6; i++) {
+    avis.push({ titre: 'Avis urgent ' + i, lien: 'https://exemple.test/f' + i,
+      description: 'Date limite : ' + enFrancais(jourRelatif(2)) });
+  }
+  const m = monde({
+    sources: [source('SRC-001', url)], flux: { [url]: fluxRss(avis) },
+    config: { RAPPELS_SUIVIS_SEULEMENT: 'true', SEND_NEW_OPPORTUNITY: 'true',
+              SEND_J7: 'true', SEND_J3: 'true', SEND_J1: 'true',
+              DIGEST_THRESHOLD: '5' }
+  });
+
+  // Premier passage : les nouveautes s annoncent (digest), rien d autre.
+  m.ctx.executerTenderPilot();
+  const rappels1 = m.boite.filter(e => /echeance|URGENT|RAPPEL/i.test(e.sujet));
+  check('premier passage : aucun rappel, seulement les nouveautes',
+        rappels1.length === 0, m.boite.map(e => e.sujet).join(' | '));
+
+  // Deuxieme passage : les lignes sont connues, leurs echeances sont a
+  // deux jours - c est la que les rappels partiraient.
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('deuxieme passage : toujours aucun rappel, rien n est suivi',
+        m.boite.length === 0, m.boite.map(e => e.sujet).join(' | '));
+
+  // Le client coche UNE ligne : elle seule doit donner un rappel.
+  const suivie = m.feuille.opps[0];
+  suivie.suivi = 'OUI';
+  m.boite.length = 0;
+  m.ctx.executerTenderPilot();
+  check('une seule ligne cochee, un seul rappel',
+        m.boite.length === 1, m.boite.map(e => e.sujet).join(' | '));
+  check('et c est bien celle-la',
+        m.boite.length === 1
+        && m.boite[0].corps.indexOf(suivie.title) !== -1,
+        m.boite.map(e => e.sujet).join(' | '));
+}
+
+// ==========================================================================
+console.log('\n[Diagnostic] Pourquoi aucune alerte ne part');
+{
+  // MESURE DU 2026-09-28, chez un client : il reserve les rappels aux
+  // offres suivies, n en suit aucune, et ne recoit plus rien - pas meme
+  // les nouveautes. Trois filtres se succedent et aucun ne dit ce qu il
+  // retient. Le diagnostic doit nommer le coupable.
+  const C = monde({}).ctx;
+  const ligne = (o) => Object.assign({
+    title: 'Avis', pertinence: '1 - POSSIBLE', deadline: jourRelatif(5),
+    days: 5, suivi: '', notifNew: '', notifJ7: '', notifJ3: '', notifJ1: '',
+    notifExpire: ''
+  }, o);
+  const base = { SEND_NEW_OPPORTUNITY: 'true', SEND_J7: 'true',
+                 SEND_J3: 'true', SEND_J1: 'true', SEND_EXPIRED: 'false' };
+
+  // 1. Tout ouvert : la ligne part.
+  let d = C.diagnosticNotifications_([ligne({})], base);
+  check('sans filtre, l alerte part', d.aEnvoyer === 1, JSON.stringify(d));
+
+  // 2. NOTIFIER_PERTINENCE trop etroit : ecartee, et c est dit.
+  d = C.diagnosticNotifications_([ligne({})],
+    Object.assign({}, base, { NOTIFIER_PERTINENCE: '3 - PRIORITAIRE' }));
+  check('le filtre de pertinence est nomme',
+        d.aEnvoyer === 0 && d.ecarteesPertinence === 1, JSON.stringify(d));
+
+  // 3. Rappels reserves aux suivies, ligne deja annoncee : c est la
+  //    restriction qui retient, pas la pertinence.
+  d = C.diagnosticNotifications_([ligne({ notifNew: 'email' })],
+    Object.assign({}, base, { RAPPELS_SUIVIS_SEULEMENT: 'true' }));
+  check('la restriction aux suivies est nommee',
+        d.aEnvoyer === 0 && d.rappelsReserves === 1 && d.suivies === 0,
+        JSON.stringify(d));
+
+  // 4. La meme ligne, cochee Suivi : le rappel repart.
+  d = C.diagnosticNotifications_([ligne({ notifNew: 'email', suivi: 'OUI' })],
+    Object.assign({}, base, { RAPPELS_SUIVIS_SEULEMENT: 'true' }));
+  check('cochee, elle repart', d.aEnvoyer === 1 && d.suivies === 1,
+        JSON.stringify(d));
+
+  // 5. Deja notifiee partout : rien a envoyer, et ce n est la faute
+  //    d aucun reglage.
+  d = C.diagnosticNotifications_([ligne({
+    notifNew: 'email', notifJ7: 'email', notifJ3: 'email', notifJ1: 'email'
+  })], base);
+  check('une ligne deja servie est comptee comme telle',
+        d.aEnvoyer === 0 && d.dejaNotifiees === 1, JSON.stringify(d));
+
+  // 6. Nouveautes coupees et echeance lointaine : aucun declencheur, et ce
+  //    n est ni une panne ni un filtre - la ligne attend simplement son tour.
+  d = C.diagnosticNotifications_([ligne({ deadline: jourRelatif(90), days: 90 })],
+    Object.assign({}, base, { SEND_NEW_OPPORTUNITY: 'false' }));
+  check('une echeance lointaine n est pas un probleme',
+        d.aEnvoyer === 0 && d.sansDeclencheur === 1, JSON.stringify(d));
+
+  // 7. Le cas du client : rappels reserves, rien de suivi, et une ligne
+  //    jamais annoncee. La nouveaute part quand meme - c est la regle.
+  d = C.diagnosticNotifications_([ligne({})],
+    Object.assign({}, base, { RAPPELS_SUIVIS_SEULEMENT: 'true' }));
+  check('la restriction aux suivies ne coupe jamais les nouveautes',
+        d.aEnvoyer === 1, JSON.stringify(d));
+
+  // LE DIAGNOSTIC NE MODIFIE RIEN. Il lit la configuration du client et ne
+  // doit pas la toucher : sinon il changerait ce qu il mesure.
+  const conf = Object.assign({}, base, { RAPPELS_SUIVIS_SEULEMENT: 'true' });
+  C.diagnosticNotifications_([ligne({})], conf);
+  check('la configuration n est pas modifiee par le diagnostic',
+        conf.RAPPELS_SUIVIS_SEULEMENT === 'true');
 }
 
 // ==========================================================================
@@ -4125,6 +4348,23 @@ console.log('\n[Plans] Par tranches, et reprise la ou on s etait arrete');
 }
 
 // ==========================================================================
+console.log('\n[Plans] Un reglage ajoute par completerConfig_ vaut des ce passage');
+{
+  // Mesure du 2026-09-15 sur le classeur maitre : COLLECTER_PLANS ajoute a
+  // l onglet CONFIG, mais la config du passage avait ete lue AVANT. Les plans
+  // sautaient au premier passage de chaque classeur mis a jour, et l onglet
+  // des plans n apparaissait pas.
+  const m = monde({});
+  delete m.feuille.config.COLLECTER_PLANS;
+  let vu = 'jamais appele';
+  m.ctx.collecterPlans_ = (cfg) => { vu = cfg.COLLECTER_PLANS; return 0; };
+  m.ctx.executerTenderPilot();
+  check('COLLECTER_PLANS est ajoute a l onglet CONFIG',
+        (m.feuille.configAjoutees || []).indexOf('COLLECTER_PLANS') !== -1);
+  check('et la collecte des plans le voit des ce passage', vu === 'true', String(vu));
+}
+
+// ==========================================================================
 console.log('\n[Plans] L onglet se cree tout seul dans un classeur en service');
 {
   // Recoller Plans.gs apporte le code, pas l onglet. Sans creation, la
@@ -4134,11 +4374,21 @@ console.log('\n[Plans] L onglet se cree tout seul dans un classeur en service');
   const crees = [];
   let entete = null;
   let gelees = 0;
+  // La plage factice se chaine comme la vraie, et garde ce que la mise en
+  // forme lui fait : couleur d en-tete, largeurs, nombre de passages.
+  const styles = { fond: '#ffffff', largeurs: {}, miseEnForme: 0 };
+  const plage = {
+    setValues: (v) => { entete = v[0]; return plage; },
+    setFontWeight: () => plage, setFontColor: () => plage,
+    setBackground: (c) => { styles.fond = c; styles.miseEnForme++; return plage; },
+    setHorizontalAlignment: () => plage, setVerticalAlignment: () => plage,
+    getBackground: () => styles.fond
+  };
   const ongletFactice = {
-    getRange: () => ({
-      setValues: (v) => { entete = v[0]; return { setFontWeight: () => {} }; }
-    }),
-    setFrozenRows: (n) => { gelees = n; }
+    getRange: () => plage,
+    setFrozenRows: (n) => { gelees = n; },
+    setRowHeight: () => {},
+    setColumnWidth: (i, w) => { styles.largeurs[i] = w; }
   };
   const onglets = {};
   m.ctx.SpreadsheetApp.getActive = () => ({
@@ -4164,6 +4414,181 @@ console.log('\n[Plans] L onglet se cree tout seul dans un classeur en service');
   m.ctx.feuillePlans_();
   check('un second passage ne recree rien', crees.length === 1,
         crees.length + ' creation(s)');
+
+  // Mesure du 2026-09-15 : un onglet cree sans mise en forme coupait
+  // l autorite et l objet au premier mot.
+  const iObjet = m.ctx.SCHEMA.PLANS.indexOf('Objet') + 1;
+  check('l en-tete prend la couleur du classeur', styles.fond === '#1f3a5f',
+        styles.fond);
+  check('l objet a la place d etre lu', styles.largeurs[iObjet] >= 300,
+        String(styles.largeurs[iObjet]));
+  check('un onglet deja mis en forme n est pas retouche',
+        styles.miseEnForme === 1, styles.miseEnForme + '');
+
+  styles.fond = '#ffffff';
+  styles.largeurs = {};
+  m.ctx.feuillePlans_();
+  check('un onglet cree avant la mise en forme la recoit',
+        styles.fond === '#1f3a5f' && styles.largeurs[iObjet] >= 300);
+  m.ctx.feuillePlans_();
+  check('et une seule fois', styles.miseEnForme === 2, styles.miseEnForme + '');
+}
+
+// ==========================================================================
+console.log('\n[TED] Les marches europeens executes en Afrique de l Ouest');
+{
+  // MESURE DU 2026-09-14 : l'API TED repond sans compte et se destine a la
+  // reutilisation. La GIZ et Enabel au Benin sont deja suivis directement.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const donnees = JSON.parse(fs.readFileSync(path.join(R, 'ted-notices.json'), 'utf8'));
+  // Les echeances de la fixture vieillissent : on les ramene dans le futur.
+  donnees.notices.forEach(n => {
+    n['deadline-receipt-tender-date-lot'] =
+      (n['deadline-receipt-tender-date-lot'] || []).map(() => jourRelatif(20) + '+01:00');
+  });
+  const C = monde({}).ctx;
+  const src = Object.assign(source('TED-AFRIQUE-OUEST', 'https://api.ted.europa.eu/v3/notices/search'),
+                            { country: "Afrique de l'Ouest", sector: '', type: "Appel d'offres" });
+  const lus = C.analyserApiTed(JSON.stringify(donnees), src);
+  const giz = donnees.notices.filter(n => /Internationale Zusammenarbeit/.test(JSON.stringify(n['buyer-name']))).length;
+
+  check('des avis sont lus', lus.length > 0, lus.length + '');
+  check('la GIZ, deja lue en entier par GIZ-VERGABE, est ecartee',
+        giz > 0 && !lus.some(o => /Internationale Zusammenarbeit/.test(o.org)));
+  check('un marche execute dans vingt pays est ecarte',
+        !lus.some(o => /Krajowy/.test(o.org)));
+  check('chaque avis a son lien TED, sa reference et sa date limite',
+        lus.every(o => /^https:\/\/ted\.europa\.eu\//.test(o.url) && o.ref
+                       && /^\d{4}-\d{2}-\d{2}$/.test(o.deadline)));
+  check('le pays d execution devient un pays du registre',
+        lus.some(o => o.country === 'Benin'), lus.map(o => o.country).join(', '));
+  check('le titre perd son prefixe "pays – categorie –"',
+        !lus.some(o => / – /.test(o.title.slice(0, 40)) && /^(Allemagne|Belgique|France|Suisse|Bénin) – /.test(o.title)),
+        lus.map(o => o.title)[0]);
+  check('l acheteur est lu dans une langue, pas en objet',
+        lus.every(o => o.org && o.org.indexOf('{') === -1));
+  const requete = C.formeRequete_('JSON:ted.europa.eu', 1);
+  const corps = JSON.parse(requete.corps);
+  check('TED est interroge en POST, sur les echeances a venir',
+        requete.methode === 'post' && corps.query.indexOf(
+          'deadline-receipt-tender-date-lot>=' + new Date().toISOString().slice(0, 10).replace(/-/g, '')) !== -1,
+        corps.query);
+}
+
+// ==========================================================================
+console.log('\n[ONU] Les manifestations d interet de la Division des achats');
+{
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const MOIS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const enLettres = (iso) => { const p = iso.split('-'); return Number(p[2]) + ' ' + MOIS_EN[Number(p[1]) - 1] + ' ' + p[0]; };
+  const brut = fs.readFileSync(path.join(R, 'unpd-eoi.csv'), 'utf8');
+  // Les dates de la fixture vieillissent : debut avant-hier, fin dans 15 jours.
+  const corps = brut.replace(/"\d{1,2} [A-Z][a-z]+ \d{4}","\d{1,2} [A-Z][a-z]+ \d{4}"/g,
+    '"' + enLettres(jourRelatif(-2)) + '","' + enLettres(jourRelatif(15)) + '"');
+  const C = monde({}).ctx;
+  const src = Object.assign(source('UNPD-EOI', 'https://www.un.org/procurement/eoi.csv'),
+                            { country: 'International', sector: '', type: 'AMI' });
+  const lus = C.analyserCsvNationsUnies(corps, src);
+  const n = C.lireCsv_(brut).length - 1;
+
+  check('chaque manifestation d interet est lue', lus.length === n && n > 0, lus.length + ' sur ' + n);
+  check('une virgule dans un titre entre guillemets ne coupe pas la ligne',
+        lus.some(o => o.title.indexOf(',') !== -1));
+  check('la date limite est lue sans reculer d un jour',
+        lus.every(o => o.deadline === jourRelatif(15)), lus.map(o => o.deadline)[0]);
+  check('chaque avis a son PDF et sa reference',
+        lus.every(o => /\.pdf$/.test(o.pdf) && /^EOI/.test(o.ref)));
+  check('une page HTML n est pas un CSV',
+        C.analyserCsvNationsUnies('<html><body>x</body></html>', src).length === 0);
+  check('"18 Sep 2026" et "30 September 2026" sont lus, "31 Feb" ne l est pas',
+        C.dateEnToutesLettres_('18 Sep 2026') === '2026-09-18'
+        && C.dateEnToutesLettres_('30 September 2026') === '2026-09-30'
+        && C.dateEnToutesLettres_('31 Feb 2026') === null);
+}
+
+// ==========================================================================
+console.log('\n[Plans] Un calendrier d achats vit dans l onglet des plans');
+{
+  // Les calendriers de l'UNICEF n'ont jamais de date de depot : parmi les
+  // opportunites ils ne partaient jamais en alerte et encombraient le bas du
+  // tableau. Ils annoncent ce qui VA etre lance : c'est un plan.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const C = monde({}).ctx;
+  const src = Object.assign(source('UNICEF-SUPPLY', 'https://www.unicef.org/supply/tender-calendars'),
+                            { method: 'PLANS:unicef.org/supply', name: 'UNICEF Supply Division',
+                              country: 'International' });
+  const annonces = C.analyserPageUnicefSupply(
+    fs.readFileSync(path.join(R, 'unicef-tenders.html'), 'utf8'), src);
+  const lignes = C.plansDepuisAnnonces_(annonces, src);
+
+  check('chaque calendrier devient une ligne de plan',
+        lignes.length > 0 && lignes.length === annonces.length, lignes.length + ' sur ' + annonces.length);
+  check('avec sa source et son lien',
+        lignes.every(r => r.source === 'UNICEF-SUPPLY' && /^https:\/\//.test(r.lien)));
+  check('et une reference stable, sans doublon',
+        new Set(lignes.map(r => r.reference)).size === lignes.length);
+  check('une methode PLANS: est reconnue, HTML: ne l est pas',
+        C.estMethodePlans('PLANS:unicef.org/supply') && !C.estMethodePlans('HTML:unicef.org/supply'));
+
+  const auj = jourRelatif(0);
+  const f = C.fusionnerPlans_([
+    { reference: 'D-1', source: 'BJ-DNCMP', lancement: jourRelatif(5), objet: 'O' },
+    { reference: 'D-0', lancement: jourRelatif(9), objet: 'avant la colonne Source' },
+    { reference: 'UNICEF-SUPPLY-retire', source: 'UNICEF-SUPPLY', lancement: '', objet: 'retire du site' },
+    { reference: 'X-1', source: 'AUTRE-CALENDRIER', lancement: '', objet: 'non relu' }
+  ], lignes, auj, ['UNICEF-SUPPLY']);
+  check('une source relue en entier remplace ses anciennes lignes',
+        !f.some(r => r.reference === 'UNICEF-SUPPLY-retire'));
+  check('un calendrier que ce passage n a pas relu reste', f.some(r => r.reference === 'X-1'));
+  check('une ligne d avant la colonne Source reste', f.some(r => r.reference === 'D-0'));
+  check('les lancements dates passent devant les calendriers',
+        f[0].lancement && !f[f.length - 1].lancement, f.map(r => r.reference).slice(0, 3).join(', '));
+
+  const vieux = C.SCHEMA.PLANS.filter(nom => nom !== 'Source' && nom !== 'Lien');
+  const rangee = vieux.map(nom => nom === 'Reference' ? 'R-9'
+    : nom === 'Lancement_Prevu' ? jourRelatif(3) : nom === 'Objet' ? 'Objet 9' : '');
+  const relues = C.rangeesPlans_(vieux, [rangee]);
+  check('un onglet d avant les colonnes Source et Lien se relit sans decalage',
+        relues.length === 1 && relues[0].objet === 'Objet 9'
+        && relues[0].lancement === jourRelatif(3) && relues[0].source === '',
+        JSON.stringify(relues[0]));
+}
+
+// ==========================================================================
+console.log('\n[Pays] Cameroun et Togo : les portails nationaux');
+{
+  // MESURE DU 2026-09-15 : on vend dans huit pays. L'ARMP du Cameroun melange
+  // appels d'offres, communiques et decisions ; la DNCCP du Togo publie un
+  // flux RSS officiel.
+  const R = path.join(path.resolve(__dirname), 'fixtures');
+  const brut = fs.readFileSync(path.join(R, 'armp-cameroun-aoi.html'), 'utf8');
+  const futur = jourRelatif(20).split('-').reverse().join('-');
+  const corps = brut.replace(
+    /(Date de cl[ôo]ture\s*:\s*<\/div>\s*<div class="d-table-cell">\s*)\d{2}-\d{2}-\d{4}/g, '$1' + futur);
+  const attendus = corps.split('list-group-item-action').slice(1).filter(b =>
+    /details\?type_publication=AO&/.test(b)
+    && /Date de cl[ôo]ture\s*:\s*<\/div>\s*<div class="d-table-cell">\s*\d/.test(b)).length;
+  const C = monde({}).ctx;
+  const src = Object.assign(source('CM-ARMP-AOI', 'https://armp.cm/filtres?type=avis&val=4&page=1'),
+                            { country: 'Cameroun', sector: '', type: "Appel d'offres" });
+  const lus = C.analyserPageArmpCameroun(corps, src);
+
+  check('Cameroun : seuls les appels d offres dates sont lus',
+        attendus > 0 && lus.length === attendus, lus.length + ' sur ' + attendus);
+  check('Cameroun : communiques, decisions et additifs ecartes',
+        lus.every(o => /type_publication=AO&/.test(o.url)));
+  check('Cameroun : la date de cloture est lue, en ISO',
+        lus.every(o => o.deadline === jourRelatif(20)), lus.map(o => o.deadline)[0]);
+  check('Cameroun : le pays et l acheteur sont poses',
+        lus.every(o => o.country === 'Cameroun' && o.org));
+  check('Cameroun : le montant annonce devient le budget',
+        lus.some(o => /FCFA/.test(o.budget)));
+  check('Cameroun : la date factice 01-01-1970 ne vaut rien',
+        C.dateArmp_('01-01-1970') === null && C.dateArmp_('23-09-2026') === '2026-09-23');
+
+  const flux = fs.readFileSync(path.join(R, 'dnccp-togo.xml'), 'utf8');
+  check('Togo : le flux de la DNCCP se lit', C.parseFeedXml(flux).length === 10,
+        C.parseFeedXml(flux).length + '');
 }
 
 // ==========================================================================

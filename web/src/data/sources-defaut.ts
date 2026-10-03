@@ -5,9 +5,9 @@
  * Relancer `python scripts/exporter_sources.py` apres modification du CSV.
  * Toute retouche faite ici sera perdue a la prochaine generation.
  *
- * 115 sources : 70 flux RSS, 24 API JSON,
- * 20 collectes HTML, 1 manuelle(s).
- * 55 actives par defaut. Chaque source a ete recuperee et verifiee :
+ * 120 sources : 71 flux RSS, 25 API JSON,
+ * 23 collectes HTML, 1 manuelle(s).
+ * 61 actives par defaut. Chaque source a ete recuperee et verifiee :
  * la propriete `statut` porte la date du controle et ce qui a ete trouve
  * ce jour-la.
  *
@@ -22,7 +22,8 @@ export type MethodeSource =
   | "RSS"
   | "MANUAL"
   | `HTML:${string}`
-  | `JSON:${string}`;
+  | `JSON:${string}`
+  | `PLANS:${string}`;
 
 export interface SourceDefaut {
   code: string;
@@ -276,8 +277,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Cameroun",
     "secteurDefaut": null,
     "typeDefaut": "Appel d'offres",
-    "active": false,
-    "statut": "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+    "active": true,
+    "statut": "Verifie le 2026-09-15 : flux valide, avis en cours a Maroua. Activee le 2026-09-15 : TenderPilot se vend au Cameroun."
   },
   {
     "code": "UNDP-PRC",
@@ -1024,8 +1025,8 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "paysDefaut": "Cameroun",
     "secteurDefaut": null,
     "typeDefaut": null,
-    "active": false,
-    "statut": "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+    "active": true,
+    "statut": "Verifie le 2026-09-15 : 5183 avis Cameroun au total, aucun ouvert parmi les 300 derniers. Activee le 2026-09-15 : TenderPilot se vend au Cameroun. Meme adaptateur que WB-BEN, filtre sur le pays."
   },
   {
     "code": "OTF-GRANTS",
@@ -1162,13 +1163,13 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
   {
     "code": "UNICEF-SUPPLY",
     "nom": "UNICEF Supply Division - tender calendars",
-    "methode": "HTML:unicef.org/supply",
+    "methode": "PLANS:unicef.org/supply",
     "url": "https://www.unicef.org/supply/tender-calendars",
     "paysDefaut": "International",
     "secteurDefaut": "Sante",
     "typeDefaut": "Appel d'offres",
     "active": true,
-    "statut": "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
+    "statut": "Verifie le 2026-09-14 : 13 calendriers d'achats lus (Medicines, Education, Medical Devices, Nutrition, SIE, WASH, Vaccines). Ils alimentent desormais l'onglet PLANS_DE_PASSATION (methode PLANS:) : ce sont des previsions d'achats sans date de depot, qui encombraient le tableau des opportunites sans jamais alerter."
   },
   {
     "code": "SUBVENTIONS-INTL",
@@ -1301,5 +1302,60 @@ export const SOURCES_DEFAUT: SourceDefaut[] = [
     "typeDefaut": null,
     "active": true,
     "statut": "Verifie le 2026-09-09 : API Oracle Fusion PUBLIQUE, sans jeton ni cookie. 200 avis rendus, dont 13 encore ouverts. Neuf unites d'achat cohabitent sur l'instance - Nairobi, Ghana, Tanzanie, Malawi, Burkina Faso, Rwanda, Mali, Mozambique, USA - et le finder NE FILTRE PAS : il rend toute l'instance, donc une ligne couvre les neuf pays, chacun nomme dans la colonne Pays. RFP et RFQ de consultance agricole, en anglais. Les avis annules sont ecartes par l'analyseur : ils gardent une date de cloture future et entreraient sinon dans le tableau."
+  },
+  {
+    "code": "TED-AFRIQUE-OUEST",
+    "nom": "TED - marches europeens executes en Afrique de l'Ouest",
+    "methode": "JSON:ted.europa.eu",
+    "url": "https://api.ted.europa.eu/v3/notices/search",
+    "paysDefaut": "Afrique de l'Ouest",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-14 : API de recherche TED, anonyme et destinee a la reutilisation. 16 avis ouverts executes en Afrique de l'Ouest (Enabel, GIZ, ADET Benin, cooperation suisse, Expertise France...). La GIZ est ecartee, deja lue en entier par GIZ-VERGABE, et Enabel au seul Benin, deja lu par ENABEL-BEN."
+  },
+  {
+    "code": "UNPD-EOI",
+    "nom": "Nations Unies - Division des achats (manifestations d'interet)",
+    "methode": "HTML:un.org/procurement",
+    "url": "https://www.un.org/procurement/eoi.csv",
+    "paysDefaut": "International",
+    "secteurDefaut": null,
+    "typeDefaut": "AMI",
+    "active": false,
+    "statut": "Verifie le 2026-09-14 : export CSV officiel, autorise par robots.txt. 39 manifestations d'interet ouvertes, toutes datees, dont 2 seulement liees a l'Afrique de l'Ouest : surtout des missions de paix et des contrats mondiaux. Livree inactive. Repondre passe par un compte UNGM."
+  },
+  {
+    "code": "TG-DNCCP",
+    "nom": "DNCCP Togo - avis d'appel d'offres",
+    "methode": "RSS",
+    "url": "https://dnccp.gouv.tg/dnccp/category/avis-d-appel-d-offres/feed/",
+    "paysDefaut": "Togo",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-15 : flux RSS officiel de la Direction nationale du controle de la commande publique, 10 avis de juillet a septembre 2026, sans le spam present sur le site. La date limite n'est pas dans le flux, seulement dans le PDF : les avis arrivent en DATE A VERIFIER."
+  },
+  {
+    "code": "CM-ARMP-AON",
+    "nom": "ARMP Cameroun - appels d'offres nationaux",
+    "methode": "HTML:armp.cm",
+    "url": "https://armp.cm/filtres?type=avis&val=1&page={page}",
+    "paysDefaut": "Cameroun",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-15 : liste publique de l'ARMP, 10 avis par page, robots.txt ouvert. Communiques, decisions et additifs ecartes : 1 a 4 vrais appels d'offres dates par page, avec acheteur, region et montant."
+  },
+  {
+    "code": "CM-ARMP-AOI",
+    "nom": "ARMP Cameroun - appels d'offres internationaux",
+    "methode": "HTML:armp.cm",
+    "url": "https://armp.cm/filtres?type=avis&val=4&page={page}",
+    "paysDefaut": "Cameroun",
+    "secteurDefaut": null,
+    "typeDefaut": "Appel d'offres",
+    "active": true,
+    "statut": "Verifie le 2026-09-15 : 6 appels d'offres internationaux ouverts sur la premiere page, 3 sur la deuxieme, tous avec date de cloture et montant."
   }
 ];

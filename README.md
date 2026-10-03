@@ -36,10 +36,31 @@ un moteur la collecte et l'autre l'ignore en silence.
 
     python build.py                     genere le livrable Sheets et lance les tests
     python build.py --no-test           genere seulement
+    TP_VERSION=1.1.0 python build.py    force une version precise
+    TP_BUMP=minor|major python build.py monte un cran au lieu du patch
     python scripts/exporter_sources.py  regenere le registre de l'app web depuis le CSV
     cd web && npm run dev               lance l'application web
 
 Prerequis : Python 3.10+ avec `openpyxl`, et Node pour les tests et le web.
+
+## La version est auto
+
+`VERSION` n'est plus ecrite a la main. A chaque build, une empreinte des
+entrees du produit (`data/sources.csv`, `data/livraison.json`,
+`schema/columns.py`, `apps_script/`, `docs/`, `data/marque/`, `builders/`)
+est comparee a celle du dernier build, gardee dans `dist/VERSION.json` :
+
+- rien n'a change -> la meme version est republiee (un rebuild a
+  l'identique ne cree pas une version nouvelle) ;
+- le produit a change -> la version monte (patch par defaut), les archives
+  de la precedente restent dans `dist/ARCHIVES/vX.Y.Z` ;
+- un fichier restaure a son etat d'origine -> la version d'origine
+  reapparait (la version suit le contenu, pas l'horloge).
+
+`TP_VERSION` force une version precise, `TP_BUMP` change le cran. Les
+fichiers generes par le build (`Schema.gs`, `Marque.gs`,
+`data/marque/rendu/`) sont exclus de l'empreinte : ils derivent des entrees,
+les compter ferait monter la version pour rien a chaque build.
 
 ## Structure
 

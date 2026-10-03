@@ -104,6 +104,54 @@ function stripTags(text) {
     .trim();
 }
 
+/**
+ * Comme la suppression des balises, mais un paragraphe reste une ligne.
+ *
+ * Remplacer chaque balise par une espace faisait de "<p>Contexte</p><p>IB
+ * bank lance...</p>" une seule phrase sans ponctuation, que plus rien ne
+ * sait redecouper. Pour un resume, la frontiere entre deux paragraphes est
+ * une information : on la garde, et resumeLisible en fait une phrase.
+ */
+function texteAvecLignes_(html) {
+  if (!html) return '';
+  var t = String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|li|h[1-6]|tr|ul|ol|blockquote|section|article)>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '\n');
+  return reparerCaracteres(decodeEntities(t.replace(/<[^>]*>/g, ' ')))
+    .split('\n')
+    .map(function (l) { return l.replace(/\s+/g, ' ').trim(); })
+    .filter(function (l) { return l; })
+    .join('\n');
+}
+
+/**
+ * Le premier bloc d'un texte decoupe par intertitres a pictogramme.
+ *
+ * Fundpilote redige ses fiches par sections - "Description", "Zones
+ * ciblees", "Date limite", chacune precedee d'un pictogramme - et son API
+ * coupe le texte elle-meme, souvent au milieu de la troisieme. La premiere
+ * section dit de quoi il s'agit ; les suivantes, tronquees, finissaient le
+ * resume au milieu d'un mot. Un texte sans intertitre est rendu entier.
+ */
+function premiereSection_(texte) {
+  var garde = [];
+  var blocs = String(texte === null || texte === undefined ? '' : texte)
+    .split(/\n\s*\n/);
+  for (var i = 0; i < blocs.length; i++) {
+    var bloc = blocs[i].trim();
+    if (!bloc) continue;
+    var intertitre = bloc.length <= 60 && bloc.indexOf('\n') === -1
+      && /^[^A-Za-z0-9À-ÿ\s«"(]/.test(bloc);
+    if (intertitre) {
+      if (garde.length) break;
+      continue;
+    }
+    garde.push(bloc);
+  }
+  return garde.join('\n');
+}
+
 function tagContent_(xml, tag) {
   var match = new RegExp('<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)<\\/' + tag + '>',
                          'i').exec(xml);
@@ -443,7 +491,7 @@ function parseFeedXml(xml) {
 
   var entrees = blocks.map(function (block) {
     var title = stripTags(tagContent_(block, 'title'));
-    var summary = stripTags(tagContent_(block, 'description')
+    var summary = texteAvecLignes_(tagContent_(block, 'description')
                             || tagContent_(block, 'summary')
                             || tagContent_(block, 'content'));
     return {
@@ -466,6 +514,7 @@ function parseFeedXml(xml) {
 if (typeof module !== 'undefined') {
   module.exports = {
     decodeEntities: decodeEntities,
+    texteAvecLignes_: texteAvecLignes_, premiereSection_: premiereSection_,
     nettoyerLien: nettoyerLien,
     reparerCaracteres: reparerCaracteres,
     stripTags: stripTags,

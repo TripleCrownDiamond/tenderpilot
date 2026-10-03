@@ -11,8 +11,8 @@
  * un analyseur que pour un site qui le merite, jamais un extracteur generique.
  */
 
-import { EntreeFlux, extraireDeadline, lireDateFlux, reparerCaracteres, decoderEntites, nettoyerLien, retirerBalises } from "./rss";
-import { analyserFicheFundpilote } from "./json";
+import { EntreeFlux, extraireDeadline, lireDateFlux, reparerCaracteres, decoderEntites, nettoyerLien, retirerBalises, texteAvecLignes, MOIS } from "./rss";
+import { analyserFicheFundpilote, encoderChemin } from "./json";
 
 /** Nettoie un fragment HTML en texte lisible. */
 export function nettoyerHtml(fragment: string): string {
@@ -49,7 +49,9 @@ export function analyserGouvBj(html: string): EntreeFlux[] {
       titre,
       lien: nettoyerLien(lien[1]),
       publie: null,
-      resume: texte.slice(0, 400),
+      // Le resume n'est PAS le bloc entier : il repetait la rubrique, le
+      // titre et "En savoir plus". Seule la cloture apprend quelque chose.
+      resume: /Cl[oô]ture\s*:?[\s\S]*?(?=En savoir|$)/i.exec(texte)?.[0].trim() ?? "",
       deadline: extraireDeadline(texte),
     };
   }).filter((e): e is EntreeFlux => e !== null && Boolean(e.titre));
@@ -132,7 +134,7 @@ export function analyserEnabel(html: string): EntreeFlux[] {
       lien,
       publie: null,
       resume: [pays && `Pays : ${pays}`, cloture && `Closing date : ${cloture}`,
-               nettoyerHtml(carte).slice(0, 300)].filter(Boolean).join(" - "),
+               nettoyerHtml(carte)].filter(Boolean).join(" - "),
       // extraireDeadline sait deja lire "Closing date : 02 September 2026".
       deadline: cloture ? extraireDeadline(`closing date ${cloture}`) : null,
     };
@@ -990,7 +992,9 @@ export function analyserPlanInternational(html: string): EntreeFlux[] {
       titre,
       lien: PLAN_PAGE,
       publie: null,
-      resume: texte.slice(0, 400),
+      // Pas de coupe ici : a 400 caracteres pile, resumeLisible ne voyait
+      // plus que la phrase etait coupee ("gender equality and.").
+      resume: texte,
       deadline: extraireDeadline(texte),
       organisation: "Plan International",
       pdf: dossier ? nettoyerLien(dossier) : null,
@@ -1190,12 +1194,18 @@ export function analyserFicheJobrelais(html: string): Partial<EntreeFlux> {
     }
     if (donnees["@type"] !== "JobPosting") continue;
 
-    const description = retirerBalises(
-      reparerCaracteres(String(donnees.description ?? "")));
+    // LE TEXTE DE LA PAGE, PAS CELUI DU BALISAGE, pour le seul resume. Le
+    // site a retire les balises du JSON-LD sans rien mettre a leur place :
+    // "APPEL A CANDIDATURESAmnesty International TogoTheme". Le bloc
+    // description-content porte le meme texte avec ses paragraphes. Les
+    // dates, elles, restent lues dans le balisage.
+    const page = /<div[^>]*description-content[^>]*>([\s\S]*?)<\/div>/i.exec(html);
+    const description = page ? texteAvecLignes(page[1])
+      : retirerBalises(reparerCaracteres(String(donnees.description ?? "")));
     return {
       deadline: enIsoFiche(donnees.validThrough),
       publie: enIsoFiche(donnees.datePosted),
-      resume: description.slice(0, 400),
+      resume: description,
     };
   }
   return {};
@@ -1205,6 +1215,170 @@ export function analyserFicheJobrelais(html: string): Partial<EntreeFlux> {
 function enIsoFiche(valeur: unknown): string | null {
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(valeur ?? "").trim());
   return m ? m[1] : null;
+}
+
+/**
+ * Un CSV en lignes de champs (RFC 4180) : guillemets, virgules et sauts de
+ * ligne DANS un champ compris. Un simple split(',') couperait "Provision
+ * of Freight Services ..., from Genoa Port" en deux colonnes, et decalerait
+ * la date limite d'autant.
+ */
+export function lireCsv(texte: unknown): string[][] {
+  const t = String(texte ?? "").replace(/^\uFEFF/, "");
+  const lignes: string[][] = [];
+  let ligne: string[] = [];
+  let champ = "";
+  let entreGuillemets = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charAt(i);
+    if (entreGuillemets) {
+      if (c === '"') {
+        if (t.charAt(i + 1) === '"') { champ += '"'; i++; }
+        else entreGuillemets = false;
+      } else {
+        champ += c;
+      }
+    } else if (c === '"') {
+      entreGuillemets = true;
+    } else if (c === ",") {
+      ligne.push(champ);
+      champ = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && t.charAt(i + 1) === "\n") i++;
+      ligne.push(champ);
+      champ = "";
+      if (ligne.length > 1 || ligne[0] !== "") lignes.push(ligne);
+      ligne = [];
+    } else {
+      champ += c;
+    }
+  }
+  if (champ !== "" || ligne.length) {
+    ligne.push(champ);
+    lignes.push(ligne);
+  }
+  return lignes;
+}
+
+/**
+ * "18 Sep 2026" ou "30 September 2026" -> "2026-09-18". Rien d'autre.
+ *
+ * new Date("18 Sep 2026") place la date a minuit LOCAL : relue en UTC depuis
+ * le fuseau du Benin, elle recule d'un jour. On lit donc les trois morceaux.
+ */
+export function dateEnToutesLettres(valeur: unknown): string | null {
+  const m = /^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})$/.exec(String(valeur ?? "").trim());
+  if (!m) return null;
+  const mois = MOIS[m[2].toLowerCase()];
+  if (mois === undefined) return null;
+  const jourDuMois = Number(m[1]);
+  const d = new Date(Date.UTC(Number(m[3]), mois, jourDuMois));
+  if (d.getUTCMonth() !== mois || d.getUTCDate() !== jourDuMois) return null;
+  return `${m[3]}-${String(mois + 1).padStart(2, "0")}-${String(jourDuMois).padStart(2, "0")}`;
+}
+
+/**
+ * Manifestations d'interet de la Division des achats des Nations unies.
+ *
+ * MESURE DU 2026-09-14. La page publique rend sa liste cote serveur et
+ * propose un export CSV officiel, /procurement/eoi.csv, que robots.txt
+ * n'interdit pas : 39 manifestations d'interet ouvertes, toutes datees.
+ * Livree INACTIVE : 2 seulement touchaient l'Afrique de l'Ouest, le reste
+ * sert les missions de paix et des contrats mondiaux. Le bouton "Express
+ * Interest" mene a UNGM : repondre demande un compte UNGM.
+ *
+ * Les colonnes sont reperees par leur NOM, pas par leur rang : un export
+ * qui gagne une colonne ne doit pas decaler toutes les dates.
+ */
+const ONU_PAGE = "https://www.un.org/procurement/solicitations-opportunities";
+
+export function analyserNationsUniesEoi(texte: string): EntreeFlux[] {
+  const lignes = lireCsv(texte);
+  if (lignes.length < 2) return [];
+  const entete = lignes[0].map((x) => String(x).trim());
+  const colonne = (motif: RegExp) => entete.findIndex((nom) => motif.test(nom));
+  const cRef = colonne(/^EOI No\.?$/i);
+  const cTitre = colonne(/^title$/i);
+  const cCategorie = colonne(/^commodity group$/i);
+  const cDebut = colonne(/^start date$/i);
+  const cFin = colonne(/^expiry date$/i);
+  const cPdf = colonne(/^EOI details$/i);
+  if (cRef < 0 || cTitre < 0 || cFin < 0) return [];
+
+  return lignes.slice(1).map((l): EntreeFlux | null => {
+    const champ = (i: number) => (i < 0 ? "" : String(l[i] ?? "").trim());
+    const titre = reparerCaracteres(champ(cTitre));
+    const reference = champ(cRef);
+    if (!titre || !reference) return null;
+    const pdf = /^https?:\/\//i.test(champ(cPdf)) ? encoderChemin(champ(cPdf)) : "";
+    const categorie = champ(cCategorie);
+    return {
+      titre,
+      lien: pdf || ONU_PAGE,
+      pdf: pdf || null,
+      organisation: "Nations Unies - Division des achats",
+      type: "AMI",
+      publie: dateEnToutesLettres(champ(cDebut)),
+      deadline: dateEnToutesLettres(champ(cFin)),
+      resume: [categorie && `Categorie : ${categorie}`, `Reference : ${reference}`]
+        .filter(Boolean).join(" - "),
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
+}
+
+/**
+ * Appels d'offres de l'Agence de regulation des marches publics du Cameroun.
+ *
+ * MESURE DU 2026-09-15. armp.cm sert ses listes cote serveur, paginees par
+ * dix (filtres?type=avis&val=<type>&page=N), et son robots.txt n'interdit
+ * rien. Deux pieges, qui font la forme de cet analyseur :
+ *
+ * 1. UNE LISTE "APPELS D'OFFRES" MELANGE LES NATURES. Communiques de
+ *    resultats, decisions d'attribution, additifs : sur les premieres pages,
+ *    1 a 6 vrais appels d'offres pour 10 blocs. La nature est dans le lien de
+ *    la fiche - type_publication=AO - pas dans la colonne Type, qui dit la
+ *    procedure (national, international, restreint).
+ * 2. UNE DATE ABSENTE S'ECRIT 01-01-1970, dans un bloc masque (d-none).
+ *    On ne lit que la cellule visible ; un appel d'offres sans vraie date de
+ *    cloture n'entre pas.
+ */
+function dateArmp(texte: string): string | null {
+  const m = /(\d{2})-(\d{2})-(\d{4})/.exec(texte);
+  if (!m || m[3] === "1970") return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function champArmp(bloc: string, motif: RegExp): string {
+  const m = new RegExp(
+    `${motif.source}\\s*:?\\s*</div>\\s*<div class="d-table-cell[^"]*">\\s*([^<]*?)\\s*</div>`, "i")
+    .exec(bloc);
+  return m ? nettoyerHtml(m[1]) : "";
+}
+
+export function analyserArmpCameroun(html: string): EntreeFlux[] {
+  if (!html) return [];
+  return html.split("list-group-item-action").slice(1).map((bloc): EntreeFlux | null => {
+    const lien = /details\?type_publication=(\w+)&(?:amp;)?id_publication=(\d+)/.exec(bloc);
+    if (!lien || lien[1] !== "AO") return null;
+    const titre = nettoyerHtml(/<strong[^>]*title="([^"]+)"/i.exec(bloc)?.[1] ?? "");
+    const deadline = dateArmp(champArmp(bloc, /(?:Date de cl[ôo]ture|Closing date)/));
+    if (!titre || !deadline) return null;
+    const procedure = champArmp(bloc, /Type/);
+    const region = champArmp(bloc, /(?:R[ée]gion|Region)/);
+    const pdf = /href="(https?:\/\/pridesoft\.armp\.cm\/+0903_publications_dl\?[^"]+)"/i.exec(bloc)?.[1] ?? "";
+    return {
+      titre,
+      lien: `https://armp.cm/details?type_publication=AO&id_publication=${lien[2]}`,
+      pdf: pdf ? pdf.replace(/&amp;/g, "&") : null,
+      organisation: champArmp(bloc, /(?:MO\/AC|PO\/CA)/) || null,
+      pays: "Cameroun",
+      budget: champArmp(bloc, /(?:Montant|Amount)/) || null,
+      publie: dateArmp(champArmp(bloc, /(?:Publi[ée] le|Published on the)/)),
+      deadline,
+      resume: [procedure && `Procedure : ${procedure}`, region && `Region : ${region}`]
+        .filter(Boolean).join(" - "),
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
 }
 
 export const ANALYSEURS_HTML: Record<string, (html: string) => EntreeFlux[]> = {
@@ -1228,6 +1402,8 @@ export const ANALYSEURS_HTML: Record<string, (html: string) => EntreeFlux[]> = {
   "plan-international.org": analyserPlanInternational,
   "jobrelais.com": analyserJobrelais,
   "ungm.org": analyserUngm,
+  "un.org/procurement": analyserNationsUniesEoi,
+  "armp.cm": analyserArmpCameroun,
 };
 
 /** Retourne l'analyseur d'une methode "HTML:<nom>", ou null. */

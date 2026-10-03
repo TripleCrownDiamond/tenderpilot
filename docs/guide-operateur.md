@@ -278,32 +278,86 @@ qu'il **trie et resume**, pas qu'il decide.
 
 ## 10. Le prix
 
-**{prix_lancement} pour les {lancement_quantite} premiers, puis {prix}.**
+**{prix_lancement} pour les premiers acheteurs, puis {prix}.** Paiement unique.
 
 C'est une vente unique : le client copie le classeur, il est a lui, il
 tourne sur son compte Google et ne vous coute rien ensuite. Pas
 d'abonnement a facturer, pas de serveur a payer.
 
-**Pourquoi un prix de lancement, et pourquoi il s'arrete.** Les
-{lancement_quantite} premiers ne paient pas le meme produit que les
-suivants : ils achetent quelque chose que personne n'a encore utilise, et
-c'est eux qui vous diront ce qui manque. La moitie du prix est le juste
-echange. Annoncez le compteur, et **tenez-le** : un prix de lancement qui
-ne finit jamais est une remise permanente, et le prix normal devient une
-fiction que personne ne paie.
+**Le prix barre reste affiche a 50 000 FCFA**, c'est le prix de reference
+de la page, quel que soit l'etat des ventes. Un seul palier le remplace :
+
+1. **Les 50 premieres places** au prix de lancement {prix_lancement}.
+2. **A la cinquantieme vente**, le prix passe reellement a {prix} ; la
+   mention de lancement disparait de la page.
+
+Le palier intermediaire (50 places, puis 100) a ete retire le 2026-09-28 :
+deux seuils pour une seule offre, ni le client ni le vendeur ne suivaient.
+
+Le compteur (total, vendues, prix reel) est tenu cote serveur dans
+`payment/places.json`, incremente par le webhook a chaque vente reelle, et
+lu par la homepage via `/places`. La page affiche le prix reel en vigueur
+mais garde toujours le prix barre a 50 000 FCFA.
 
 **Ce que {prix} represente pour l'acheteur.** Un seul marche remporte
 couvre le prix des centaines de fois. Un seul marche **rate faute de
 l'avoir vu** coute infiniment plus. Vous ne vendez pas un tableur, vous
 vendez de ne plus ouvrir quinze portails a la main chaque matin.
 
-> **Ne bradez pas au-dessous de {prix_lancement}.** En dessous, l'acheteur
-> cesse de croire que le produit vaut quelque chose - et c'est le seul
-> argument que vous ne pouvez pas reconstruire apres coup.
+**L'argument du journal.** Beaucoup d'acheteurs cherchent encore les avis
+en achetant le journal chaque matin. Au Benin, l'abonnement d'un an au
+quotidien La Nation coute 83 200 FCFA pour une entreprise privee (tarif
+releve sur lanation.bj le 2026-09-15) : plus de quatre fois TenderPilot,
+a payer chaque annee, pour un seul pays et un seul titre. Et la loi
+n° 2020-26, article 53, oblige a publier un avis d'appel a concurrence
+a la fois dans le quotidien de service public **et** sur le portail web
+national des marches publics - celui que TenderPilot lit trois fois par
+jour. Hors du Benin, ne dites pas que le journal est remplace : le
+portail national n'est pas lu partout (voir Vendre hors du Benin).
+
+**Les bonus partent avec chaque vente**, dans l'archive de `A_VENDRE`. Un
+seul est limite : la **configuration faite avec le client**, vingt minutes
+sur WhatsApp, reservee aux premiers acheteurs. Tenez le compte des ventes
+et retirez la mention de la page a la fin du lancement : une limite qui
+ne s'arrete jamais n'en est pas une.
+
+**Le compteur de places.** La page de vente affiche les places restantes au
+prix de lancement. Mettez `PLACES_VENDUES` a jour dans le script, en bas de la
+page, apres chaque vente. Un compteur fige a 50 se remarque, et une limite qui
+ne s'arrete jamais n'en est pas une. Quand il ne reste plus de place, le bloc
+disparait de lui-meme : retirez alors le prix de lancement de la page.
+
+Pendant l'appel, le client partage son ecran et **garde la main**. Ne
+demandez jamais son mot de passe Google ni le jeton de son bot Telegram.
+
+> **Ne bradez pas.** En dessous de {prix_lancement}, l'acheteur cesse de croire que
+> le produit vaut quelque chose - et c'est le seul argument que vous ne
+> pouvez pas reconstruire apres coup.
 
 Le prix vit dans `data/livraison.json`, avec le lien de vente et vos
 contacts. Changez-le la, relancez `python builders/guides.py`, et les
 guides sont a jour.
+
+## Vendre hors du Benin
+
+TenderPilot se vend dans huit pays : **Benin, Togo, Niger, Burkina Faso,
+Cote d'Ivoire, Senegal, Mali et Cameroun**. Chariow y encaisse en mobile
+money local et par carte (couverture relevee le 2026-09-15).
+
+**Dites a chaque acheteur ce que son pays recoit**, avant la vente :
+
+| Pays | Ce qui est surveille |
+|------|----------------------|
+| Benin | portails nationaux et plans de passation |
+| Togo, Niger, Cameroun | un portail national, plus les bailleurs |
+| Burkina Faso, Cote d'Ivoire, Senegal, Mali | les bailleurs seulement |
+
+Un acheteur du Senegal qui croit recevoir son portail national se sentira
+trompe. Un acheteur qui sait qu'il recoit la Banque mondiale, le PNUD et les
+bailleurs europeens achete en connaissance de cause.
+
+Apres la copie, l'acheteur ecrit ses pays dans `PAYS_SUIVIS` : c'est ce qui
+range ses annonces en tete. Le bonus 1 le fait avec lui.
 
 ## 11. Ce qu'il vous reste a preparer
 

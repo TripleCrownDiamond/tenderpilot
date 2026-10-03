@@ -21,6 +21,7 @@
 /** Repertoire des analyseurs d'API, par nom de methode. */
 var ANALYSEURS_JSON = {
   'marches-publics.bj': analyserApiDncmp,
+  'ted.europa.eu': analyserApiTed,
   'oraclecloud.com': analyserApiOracleNegociations,
   'worldbank.org': analyserApiWorldBank,
   'fundpilote.com': analyserApiFundpilote,
@@ -257,8 +258,8 @@ function analyserApiFundpilote(corps, source) {
     var eligibilite = String(a.eligibility || '').trim();
 
     var morceaux = [];
-    if (description) morceaux.push(description.slice(0, 200));
-    if (eligibilite) morceaux.push('Eligibilite : ' + eligibilite.slice(0, 120));
+    if (description) morceaux.push(description);
+    if (eligibilite) morceaux.push('Eligibilite : ' + eligibilite);
     if (pays.length) morceaux.push('Pays eligibles : ' + pays.join(', '));
 
     var typeBrut = String(a.funding_type || '').trim();
@@ -319,12 +320,14 @@ function analyserFicheFundpilote(corps) {
     fiche.source = domaineDe_(lien);
   }
 
-  var description = String(d.description || '').trim();
-  var comment = String(d.how_to_apply || '').trim();
+  // Premiere section seulement, et pas de coupe ici : resumeLisible
+  // coupe a la fin d'une phrase, la ou slice coupait au milieu d'un mot.
+  var description = premiereSection_(d.description);
+  var comment = premiereSection_(d.how_to_apply);
   var morceaux = [];
-  if (description) morceaux.push(description.slice(0, 300));
-  if (comment) morceaux.push('Candidature : ' + comment.slice(0, 150));
-  if (morceaux.length) fiche.summary = morceaux.join(' - ').slice(0, 500);
+  if (description) morceaux.push(description);
+  if (comment) morceaux.push('Candidature : ' + comment);
+  if (morceaux.length) fiche.summary = morceaux.join('\n');
 
   return fiche;
 }
@@ -690,9 +693,144 @@ function requeteUngm_(page) {
   };
 }
 
+/**
+ * TED, le journal officiel des marches publics europeens.
+ *
+ * MESURE DU 2026-09-14. L'API de recherche repond sans authentification, et
+ * sa documentation la destine explicitement a la reutilisation - plateformes
+ * commerciales comprises. Un POST JSON portant une requete "experte" :
+ *
+ *   place-of-performance IN (BEN TGO ...)
+ *     AND deadline-receipt-tender-date-lot>=<aujourd'hui>
+ *
+ * -> 16 avis ouverts executes en Afrique de l'Ouest.
+ *
+ * CE QU'ON ECARTE, ET POURQUOI.
+ * - La GIZ (5 avis sur 16) : GIZ-VERGABE lit deja tout son portail. La
+ *   garder ferait arriver deux fois la meme alerte, sous deux titres.
+ * - Enabel quand le seul pays est le Benin : ENABEL-BEN le lit deja. Enabel
+ *   au Niger, en Mauritanie ou au Senegal n'est suivi nulle part ailleurs.
+ * - Un marche execute dans plus de dix pays : une agence polonaise en
+ *   listait 27, dont le Nigeria, pour du transport de marchandises.
+ *   L'Afrique de l'Ouest n'y est qu'une escale.
+ *
+ * LE TITRE. TED compose "Pays de l'acheteur – categorie CPV – titre" : on
+ * garde le titre, la categorie part au resume. Chaque texte existe en
+ * plusieurs langues : le francais, sinon l'anglais, sinon la premiere.
+ */
+var TED_PAYS = {
+  BEN: 'Benin', BFA: 'Burkina Faso', CPV: 'Cap-Vert', CIV: "Cote d'Ivoire",
+  GMB: 'Gambie', GHA: 'Ghana', GIN: 'Guinee', GNB: 'Guinee-Bissau',
+  LBR: 'Liberia', MLI: 'Mali', MRT: 'Mauritanie', NER: 'Niger',
+  NGA: 'Nigeria', SEN: 'Senegal', SLE: 'Sierra Leone', TGO: 'Togo'
+};
+
+var TED_CHAMPS = ['publication-number', 'notice-title', 'publication-date',
+  'deadline-receipt-tender-date-lot', 'buyer-name', 'buyer-country',
+  'notice-type', 'place-of-performance', 'links'];
+
+var TED_DEJA_SUIVIS = [
+  { acheteur: /Deutsche Gesellschaft f(?:ü|ue)r Internationale Zusammenarbeit/i, seulPays: '' },
+  { acheteur: /^Enabel$/i, seulPays: 'BEN' }
+];
+
+/** Requete TED : les avis a echeance future, executes en Afrique de l'Ouest. */
+function requeteTed_() {
+  var jour = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return {
+    methode: 'post',
+    contentType: 'application/json',
+    corps: JSON.stringify({
+      query: 'place-of-performance IN (' + Object.keys(TED_PAYS).join(' ')
+        + ') AND deadline-receipt-tender-date-lot>=' + jour
+        + ' AND notice-type IN (cn-standard cn-social cn-desg)',
+      fields: TED_CHAMPS,
+      limit: 100,
+      page: 1,
+      scope: 'ACTIVE'
+    })
+  };
+}
+
+/** Un texte TED multilingue : francais, sinon anglais, sinon le premier. */
+function texteTed_(valeur) {
+  if (valeur === null || valeur === undefined) return '';
+  if (Object.prototype.toString.call(valeur) === '[object Array]') {
+    return String(valeur[0] === undefined ? '' : valeur[0]).trim();
+  }
+  if (typeof valeur !== 'object') return String(valeur).trim();
+  var cles = Object.keys(valeur);
+  var v = valeur.fra || valeur.eng || (cles.length ? valeur[cles[0]] : '');
+  return texteTed_(v);
+}
+
+function analyserApiTed(corps, source) {
+  var donnees;
+  try {
+    donnees = JSON.parse(corps);
+  } catch (e) {
+    return [];
+  }
+  var avis = donnees && donnees.notices;
+  if (!avis || !avis.length) return [];
+  var aujourdhui = new Date().toISOString().slice(0, 10);
+
+  var sortie = [];
+  avis.forEach(function (n) {
+    var lieux = [];
+    (n['place-of-performance'] || []).forEach(function (c) {
+      var code = String(c || '').trim();
+      if (code && code !== 'anyw' && lieux.indexOf(code) === -1) lieux.push(code);
+    });
+    var ouest = lieux.filter(function (c) { return TED_PAYS[c]; });
+    if (!ouest.length || lieux.length > 10) return;
+
+    var acheteur = texteTed_(n['buyer-name']);
+    var dejaSuivi = TED_DEJA_SUIVIS.some(function (r) {
+      return r.acheteur.test(acheteur)
+        && (!r.seulPays || (lieux.length === 1 && lieux[0] === r.seulPays));
+    });
+    if (dejaSuivi) return;
+
+    var brut = reparerCaracteres(texteTed_(n['notice-title']));
+    var parties = brut.split(' – ');
+    var titre = parties.length >= 3 ? parties.slice(2).join(' – ')
+      : brut.replace(/^[^:–]{2,40}:\s*/, '');
+    var categorie = parties.length >= 3 ? parties[1] : '';
+
+    var html = (n.links || {}).html || {};
+    var cles = Object.keys(html);
+    var lien = String(html.FRA || html.ENG || (cles.length ? html[cles[0]] : '') || '');
+    var numero = String(n['publication-number'] || '').trim();
+    if (!titre || !lien || !numero) return;
+
+    var echeances = (n['deadline-receipt-tender-date-lot'] || [])
+      .map(function (d) { return String(d || '').slice(0, 10); })
+      .filter(function (d) { return /^\d{4}-\d{2}-\d{2}$/.test(d); })
+      .sort();
+    var avenir = echeances.filter(function (d) { return d >= aujourdhui; });
+
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: nettoyerLien(lien),
+      ref: numero,
+      org: acheteur,
+      country: ouest.length === lieux.length
+        ? (lieux.length === 1 ? TED_PAYS[lieux[0]] : "Afrique de l'Ouest")
+        : 'International',
+      published: String(n['publication-date'] || '').slice(0, 10) || null,
+      deadline: avenir[0] || echeances[0] || null,
+      summary: [categorie ? 'Categorie : ' + categorie : '', 'Avis TED : ' + numero]
+        .filter(function (v) { return v; }).join(' - ')
+    }, source));
+  });
+  return sortie;
+}
+
 /** Formes de requete, par hote. Les autres sources restent en GET. */
 var REQUETES_SOURCES = {
   'ec.europa.eu': requeteEuropa_,
+  'ted.europa.eu': requeteTed_,
   'grants.gov': requeteGrantsGov_,
   'ungm.org': requeteUngm_
 };
@@ -889,7 +1027,8 @@ function analyserApiDncmp(corps, source) {
       type: String(((ao.typemarche || {}).libelle) || '').trim(),
       deadline: isoDepuis_(e.dosDateLimiteDepot),
       published: isoDepuis_(e.dosDatePublication),
-      summary: [reference, lots > 1 ? lots + ' lots' : '']
+      summary: [reference ? 'Reference : ' + reference : '',
+                lots > 1 ? 'En ' + lots + ' lots' : '']
         .filter(function (v) { return v; }).join(' - ')
     }, source));
   });

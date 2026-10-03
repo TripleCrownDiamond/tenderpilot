@@ -20,7 +20,7 @@ import {
   normaliser, parPertinence, pertinence, pertinenceNotifiable,
   SECTEUR_INCONNU, deduireSecteur, normaliserType, notificationsAEnvoyer,
   prochainId,
-  statutDelai, tronquer, trouverDoublon,
+  estMethodePlans, resumeLisible, statutDelai, trouverDoublon,
 } from "./domain/regles";
 import { analyserFlux, estFluxXml, type EntreeFlux } from "./domain/rss";
 import {
@@ -465,7 +465,7 @@ export async function collecterSource(
       pdf: entree.pdf ?? null,
       datePublication: entree.publie,
       deadline: entree.deadline,
-      resume: tronquer(entree.resume),
+      resume: resumeLisible(entree.resume, entree.titre),
     }))
     .filter((o) => o.titre);
 }
@@ -487,6 +487,14 @@ export async function collecterToutesSources(
     if (!source.active) {
       await depot.journaliser(source.code, "Collecte", "SKIPPED",
                               "Source desactivee");
+      continue;
+    }
+    // Une source PLANS: alimente l'onglet des plans de passation, que le
+    // moteur web ne porte pas encore : la lire ici la ferait passer pour
+    // cassee ("RIEN LU") a chaque execution.
+    if (estMethodePlans(source.methode)) {
+      await depot.journaliser(source.code, "Collecte", "SKIPPED",
+        "Calendrier d'achats : alimente les plans de passation, pas encore portes par le moteur web");
       continue;
     }
     try {

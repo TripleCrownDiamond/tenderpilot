@@ -216,12 +216,12 @@ var SCHEMA = {
   [
     "SEND_AGENDA",
     "false",
-    "Poser chaque echeance dans votre Google Agenda. Un evenement d'une journee a la date limite, avec des rappels automatiques : vous voyez vos depots a venir dans l'agenda de votre telephone, sans rien installer. Seules les annonces retenues par NOTIFIER_PERTINENCE y sont posees."
+    "Poser chaque echeance dans votre Google Agenda. Un evenement d'une journee a la date limite, avec des rappels automatiques : vous voyez vos depots a venir dans l'agenda de votre telephone, sans rien installer. Seules les lignes ou vous avez ecrit OUI dans la colonne SUIVI y sont posees - c'est vous qui choisissez, pas la pertinence."
   ],
   [
     "AGENDA_ID",
     "",
-    "Agenda qui recoit les echeances. Vide = votre agenda principal. Pour un agenda dedie, creez-le dans Google Agenda et collez son identifiant (Parametres de l'agenda > Integrer l'agenda)."
+    "Agenda qui recoit les echeances. Vide = votre agenda principal, et c'est le cas le plus courant. Pour un agenda dedie : dans Google Agenda, survolez son nom a gauche, trois points > Parametres et partage > section Integrer l'agenda > ID de l'agenda. Il n'est PAS dans les reglages generaux ouverts par la roue dentee."
   ],
   [
     "AGENDA_RAPPELS_JOURS",
@@ -473,6 +473,7 @@ var SCHEMA = {
   /** Colonnes de l'onglet PLANS_DE_PASSATION. Voir Plans.gs. */
   PLANS: [
   "Reference",
+  "Source",
   "Autorite",
   "Objet",
   "Type",
@@ -482,6 +483,7 @@ var SCHEMA = {
   "Demarrage_Prevu",
   "Bailleur",
   "Annee",
+  "Lien",
   "Derniere_MAJ"
 ],
 
@@ -758,9 +760,9 @@ var SCHEMA = {
     "Cameroun",
     "",
     "Appel d'offres",
-    "NON",
+    "OUI",
     "",
-    "Verifie le 2026-08-30 : 2 annonce(s). Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+    "Verifie le 2026-09-15 : flux valide, avis en cours a Maroua. Activee le 2026-09-15 : TenderPilot se vend au Cameroun."
   ],
   [
     "UNDP-PRC",
@@ -1574,9 +1576,9 @@ var SCHEMA = {
     "Cameroun",
     "",
     "",
-    "NON",
+    "OUI",
     "",
-    "Verifie le 2026-09-01 : 0 avis encore ouverts. Meme adaptateur que WB-BEN, filtre sur le pays. Le volume ouvert varie fortement d'un mois a l'autre. Livree inactive : hors zone CEDEAO. Activez-la si vous prospectez ce marche."
+    "Verifie le 2026-09-15 : 5183 avis Cameroun au total, aucun ouvert parmi les 300 derniers. Activee le 2026-09-15 : TenderPilot se vend au Cameroun. Meme adaptateur que WB-BEN, filtre sur le pays."
   ],
   [
     "OTF-GRANTS",
@@ -1725,14 +1727,14 @@ var SCHEMA = {
   [
     "UNICEF-SUPPLY",
     "UNICEF Supply Division - tender calendars",
-    "HTML:unicef.org/supply",
+    "PLANS:unicef.org/supply",
     "https://www.unicef.org/supply/tender-calendars",
     "International",
     "Sante",
     "Appel d'offres",
     "OUI",
     "",
-    "Verifie le 2026-09-01 : page principale avec 4 PDFs (Education, Medical Devices, Medicines, Nutrition) et 3 sous-pages HTML (SIE, Vaccines, WASH). 10 entrees extraites. Calendriers indicative, dates a verifier sur chaque sous-page."
+    "Verifie le 2026-09-14 : 13 calendriers d'achats lus (Medicines, Education, Medical Devices, Nutrition, SIE, WASH, Vaccines). Ils alimentent desormais l'onglet PLANS_DE_PASSATION (methode PLANS:) : ce sont des previsions d'achats sans date de depot, qui encombraient le tableau des opportunites sans jamais alerter."
   ],
   [
     "SUBVENTIONS-INTL",
@@ -1877,6 +1879,66 @@ var SCHEMA = {
     "OUI",
     "",
     "Verifie le 2026-09-09 : API Oracle Fusion PUBLIQUE, sans jeton ni cookie. 200 avis rendus, dont 13 encore ouverts. Neuf unites d'achat cohabitent sur l'instance - Nairobi, Ghana, Tanzanie, Malawi, Burkina Faso, Rwanda, Mali, Mozambique, USA - et le finder NE FILTRE PAS : il rend toute l'instance, donc une ligne couvre les neuf pays, chacun nomme dans la colonne Pays. RFP et RFQ de consultance agricole, en anglais. Les avis annules sont ecartes par l'analyseur : ils gardent une date de cloture future et entreraient sinon dans le tableau."
+  ],
+  [
+    "TED-AFRIQUE-OUEST",
+    "TED - marches europeens executes en Afrique de l'Ouest",
+    "JSON:ted.europa.eu",
+    "https://api.ted.europa.eu/v3/notices/search",
+    "Afrique de l'Ouest",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-14 : API de recherche TED, anonyme et destinee a la reutilisation. 16 avis ouverts executes en Afrique de l'Ouest (Enabel, GIZ, ADET Benin, cooperation suisse, Expertise France...). La GIZ est ecartee, deja lue en entier par GIZ-VERGABE, et Enabel au seul Benin, deja lu par ENABEL-BEN."
+  ],
+  [
+    "UNPD-EOI",
+    "Nations Unies - Division des achats (manifestations d'interet)",
+    "HTML:un.org/procurement",
+    "https://www.un.org/procurement/eoi.csv",
+    "International",
+    "",
+    "AMI",
+    "NON",
+    "",
+    "Verifie le 2026-09-14 : export CSV officiel, autorise par robots.txt. 39 manifestations d'interet ouvertes, toutes datees, dont 2 seulement liees a l'Afrique de l'Ouest : surtout des missions de paix et des contrats mondiaux. Livree inactive. Repondre passe par un compte UNGM."
+  ],
+  [
+    "TG-DNCCP",
+    "DNCCP Togo - avis d'appel d'offres",
+    "RSS",
+    "https://dnccp.gouv.tg/dnccp/category/avis-d-appel-d-offres/feed/",
+    "Togo",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-15 : flux RSS officiel de la Direction nationale du controle de la commande publique, 10 avis de juillet a septembre 2026, sans le spam present sur le site. La date limite n'est pas dans le flux, seulement dans le PDF : les avis arrivent en DATE A VERIFIER."
+  ],
+  [
+    "CM-ARMP-AON",
+    "ARMP Cameroun - appels d'offres nationaux",
+    "HTML:armp.cm",
+    "https://armp.cm/filtres?type=avis&val=1&page={page}",
+    "Cameroun",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-15 : liste publique de l'ARMP, 10 avis par page, robots.txt ouvert. Communiques, decisions et additifs ecartes : 1 a 4 vrais appels d'offres dates par page, avec acheteur, region et montant."
+  ],
+  [
+    "CM-ARMP-AOI",
+    "ARMP Cameroun - appels d'offres internationaux",
+    "HTML:armp.cm",
+    "https://armp.cm/filtres?type=avis&val=4&page={page}",
+    "Cameroun",
+    "",
+    "Appel d'offres",
+    "OUI",
+    "",
+    "Verifie le 2026-09-15 : 6 appels d'offres internationaux ouverts sur la premiere page, 3 sur la deuxieme, tous avec date de cloture et montant."
   ]
 ]
 };

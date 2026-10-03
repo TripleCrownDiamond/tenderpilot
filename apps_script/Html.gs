@@ -63,10 +63,14 @@ function analyserPageGouvBj(html, source) {
     // "Cloture : 14 Jul 2026" - extractDeadline sait deja lire "14 Jul 2026".
     var deadline = extractDeadline(texte);
 
+    // Le resume n'est PAS le bloc entier : il repetait la rubrique, le
+    // titre et "En savoir plus". Seule la cloture apprend quelque chose.
+    var cloture = /Cl[oô]ture\s*:?[\s\S]*?(?=En savoir|$)/i.exec(texte);
+
     resultats.push(normalizeOpportunity({
       title: titre,
       url: nettoyerLien(lienMatch[1]),
-      summary: texte,
+      summary: cloture ? cloture[0].trim() : '',
       deadline: deadline
     }, source));
   });
@@ -151,7 +155,7 @@ function analyserPageEnabel(html, source) {
     var morceaux = [];
     if (pays) morceaux.push('Pays : ' + pays);
     if (cloture) morceaux.push('Closing date : ' + cloture);
-    morceaux.push(nettoyerHtml(carte).slice(0, 300));
+    morceaux.push(nettoyerHtml(carte));
 
     resultats.push(normalizeOpportunity({
       title: titre,
@@ -984,7 +988,9 @@ function analyserPagePlanInternational(html, source) {
     resultats.push(normalizeOpportunity({
       title: titre,
       url: PLAN_PAGE,
-      summary: texte.slice(0, 400),
+      // Pas de coupe ici : a 400 caracteres pile, resumeLisible ne voyait
+      // plus que la phrase etait coupee ("gender equality and.").
+      summary: texte,
       deadline: extractDeadline(texte),
       org: 'Plan International',
       pdf: dossier ? nettoyerLien(dossier[1]) : ''
@@ -1094,6 +1100,180 @@ function analyserPassationCoraf(html, source) {
   return sortie.filter(function (o) { return o.title; });
 }
 
+/**
+ * Un CSV en lignes de champs (RFC 4180) : guillemets, virgules et sauts de
+ * ligne DANS un champ compris. Un simple split(',') couperait "Provision
+ * of Freight Services ..., from Genoa Port" en deux colonnes, et decalerait
+ * la date limite d'autant.
+ */
+function lireCsv_(texte) {
+  var t = String(texte === null || texte === undefined ? '' : texte)
+    .replace(/^\uFEFF/, '');
+  var lignes = [];
+  var ligne = [];
+  var champ = '';
+  var entreGuillemets = false;
+  for (var i = 0; i < t.length; i++) {
+    var c = t.charAt(i);
+    if (entreGuillemets) {
+      if (c === '"') {
+        if (t.charAt(i + 1) === '"') { champ += '"'; i++; }
+        else entreGuillemets = false;
+      } else {
+        champ += c;
+      }
+    } else if (c === '"') {
+      entreGuillemets = true;
+    } else if (c === ',') {
+      ligne.push(champ);
+      champ = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && t.charAt(i + 1) === '\n') i++;
+      ligne.push(champ);
+      champ = '';
+      if (ligne.length > 1 || ligne[0] !== '') lignes.push(ligne);
+      ligne = [];
+    } else {
+      champ += c;
+    }
+  }
+  if (champ !== '' || ligne.length) {
+    ligne.push(champ);
+    lignes.push(ligne);
+  }
+  return lignes;
+}
+
+/**
+ * "18 Sep 2026" ou "30 September 2026" -> "2026-09-18". Rien d'autre.
+ *
+ * new Date("18 Sep 2026") place la date a minuit LOCAL : relue en UTC depuis
+ * le fuseau du Benin, elle recule d'un jour. On lit donc les trois morceaux.
+ */
+function dateEnToutesLettres_(valeur) {
+  var m = /^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})$/
+    .exec(String(valeur === null || valeur === undefined ? '' : valeur).trim());
+  if (!m) return null;
+  var mois = MOIS[m[2].toLowerCase()];
+  if (mois === undefined) return null;
+  if (!buildDate_(Number(m[3]), mois, Number(m[1]))) return null;
+  return m[3] + '-' + ('0' + (mois + 1)).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+}
+
+/**
+ * Manifestations d'interet de la Division des achats des Nations unies.
+ *
+ * MESURE DU 2026-09-14. La page publique rend sa liste cote serveur et
+ * propose un export CSV officiel, /procurement/eoi.csv, que robots.txt
+ * n'interdit pas : 39 manifestations d'interet ouvertes, toutes datees.
+ * Livree INACTIVE : 2 seulement touchaient l'Afrique de l'Ouest, le reste
+ * sert les missions de paix et des contrats mondiaux. Le bouton "Express
+ * Interest" mene a UNGM : repondre demande un compte UNGM.
+ *
+ * Les colonnes sont reperees par leur NOM, pas par leur rang : un export
+ * qui gagne une colonne ne doit pas decaler toutes les dates.
+ */
+var ONU_PAGE = 'https://www.un.org/procurement/solicitations-opportunities';
+
+function analyserCsvNationsUnies(texte, source) {
+  var lignes = lireCsv_(texte);
+  if (lignes.length < 2) return [];
+  var entete = lignes[0].map(function (x) { return String(x).trim(); });
+  var colonne = function (motif) {
+    for (var i = 0; i < entete.length; i++) if (motif.test(entete[i])) return i;
+    return -1;
+  };
+  var cRef = colonne(/^EOI No\.?$/i);
+  var cTitre = colonne(/^title$/i);
+  var cCategorie = colonne(/^commodity group$/i);
+  var cDebut = colonne(/^start date$/i);
+  var cFin = colonne(/^expiry date$/i);
+  var cPdf = colonne(/^EOI details$/i);
+  if (cRef < 0 || cTitre < 0 || cFin < 0) return [];
+
+  var sortie = [];
+  lignes.slice(1).forEach(function (l) {
+    var champ = function (i) { return i < 0 ? '' : String(l[i] || '').trim(); };
+    var titre = reparerCaracteres(champ(cTitre));
+    var reference = champ(cRef);
+    if (!titre || !reference) return;
+    var pdf = /^https?:\/\//i.test(champ(cPdf)) ? encoderChemin_(champ(cPdf)) : '';
+    var categorie = champ(cCategorie);
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: pdf || ONU_PAGE,
+      pdf: pdf,
+      ref: reference,
+      org: 'Nations Unies - Division des achats',
+      type: 'AMI',
+      published: dateEnToutesLettres_(champ(cDebut)),
+      deadline: dateEnToutesLettres_(champ(cFin)),
+      summary: [categorie ? 'Categorie : ' + categorie : '', 'Reference : ' + reference]
+        .filter(function (v) { return v; }).join(' - ')
+    }, source));
+  });
+  return sortie;
+}
+
+/**
+ * Appels d'offres de l'Agence de regulation des marches publics du Cameroun.
+ *
+ * MESURE DU 2026-09-15. armp.cm sert ses listes cote serveur, paginees par
+ * dix (filtres?type=avis&val=<type>&page=N), et son robots.txt n'interdit
+ * rien. Deux pieges, qui font la forme de cet analyseur :
+ *
+ * 1. UNE LISTE "APPELS D'OFFRES" MELANGE LES NATURES. Communiques de
+ *    resultats, decisions d'attribution, additifs : sur les premieres pages,
+ *    1 a 6 vrais appels d'offres pour 10 blocs. La nature est dans le lien de
+ *    la fiche - type_publication=AO - pas dans la colonne Type, qui dit la
+ *    procedure (national, international, restreint).
+ * 2. UNE DATE ABSENTE S'ECRIT 01-01-1970, dans un bloc masque (d-none).
+ *    On ne lit que la cellule visible ; un appel d'offres sans vraie date de
+ *    cloture n'entre pas.
+ */
+function dateArmp_(texte) {
+  var m = /(\d{2})-(\d{2})-(\d{4})/.exec(String(texte || ''));
+  if (!m || m[3] === '1970') return null;
+  return m[3] + '-' + m[2] + '-' + m[1];
+}
+
+function champArmp_(bloc, motif) {
+  var m = new RegExp(motif.source
+    + '\\s*:?\\s*</div>\\s*<div class="d-table-cell[^"]*">\\s*([^<]*?)\\s*</div>', 'i')
+    .exec(bloc);
+  return m ? nettoyerHtml(m[1]) : '';
+}
+
+function analyserPageArmpCameroun(html, source) {
+  if (!html) return [];
+  var sortie = [];
+  String(html).split('list-group-item-action').slice(1).forEach(function (bloc) {
+    var lien = /details\?type_publication=(\w+)&(?:amp;)?id_publication=(\d+)/.exec(bloc);
+    if (!lien || lien[1] !== 'AO') return;
+    var titreBrut = /<strong[^>]*title="([^"]+)"/i.exec(bloc);
+    var titre = titreBrut ? nettoyerHtml(titreBrut[1]) : '';
+    var deadline = dateArmp_(champArmp_(bloc, /(?:Date de cl[ôo]ture|Closing date)/));
+    if (!titre || !deadline) return;
+    var procedure = champArmp_(bloc, /Type/);
+    var region = champArmp_(bloc, /(?:R[ée]gion|Region)/);
+    var pdf = /href="(https?:\/\/pridesoft\.armp\.cm\/+0903_publications_dl\?[^"]+)"/i.exec(bloc);
+    sortie.push(normalizeOpportunity({
+      title: titre,
+      url: 'https://armp.cm/details?type_publication=AO&id_publication=' + lien[2],
+      pdf: pdf ? pdf[1].replace(/&amp;/g, '&') : '',
+      org: champArmp_(bloc, /(?:MO\/AC|PO\/CA)/),
+      country: 'Cameroun',
+      budget: champArmp_(bloc, /(?:Montant|Amount)/),
+      published: dateArmp_(champArmp_(bloc, /(?:Publi[ée] le|Published on the)/)),
+      deadline: deadline,
+      summary: [procedure ? 'Procedure : ' + procedure : '',
+                region ? 'Region : ' + region : '']
+        .filter(function (v) { return v; }).join(' - ')
+    }, source));
+  });
+  return sortie;
+}
+
 var ANALYSEURS_HTML = {
   'coraf.org': analyserPassationCoraf,
   'gouv.bj': analyserPageGouvBj,
@@ -1114,7 +1294,9 @@ var ANALYSEURS_HTML = {
   'expertise-france.gestmax.fr': analyserPageExpertiseFrance,
   'plan-international.org': analyserPagePlanInternational,
   'jobrelais.com': analyserPageJobrelais,
-  'ungm.org': analyserPageUngm
+  'ungm.org': analyserPageUngm,
+  'un.org/procurement': analyserCsvNationsUnies,
+  'armp.cm': analyserPageArmpCameroun
 };
 
 var ANALYSEURS_FICHE = ['jobrelais.com', 'fundpilote.com'];
@@ -1179,12 +1361,19 @@ function analyserFicheJobrelais(html) {
     }
     if (!donnees || donnees['@type'] !== 'JobPosting') continue;
 
-    var description = stripTags(reparerCaracteres(
-      String(donnees.description || '')));
+    // LE TEXTE DE LA PAGE, PAS CELUI DU BALISAGE, pour le seul resume. Le
+    // site a retire les balises du JSON-LD sans rien mettre a leur place :
+    // "APPEL A CANDIDATURESAmnesty International TogoTheme". Le bloc
+    // description-content porte le meme texte avec ses paragraphes. Les
+    // dates, elles, restent lues dans le balisage.
+    var page = /<div[^>]*description-content[^>]*>([\s\S]*?)<\/div>/i
+      .exec(String(html));
+    var description = page ? texteAvecLignes_(page[1])
+      : stripTags(reparerCaracteres(String(donnees.description || '')));
     return {
       deadline: isoFiche_(donnees.validThrough),
       published: isoFiche_(donnees.datePosted),
-      summary: description.slice(0, 400)
+      summary: description
     };
   }
   return {};

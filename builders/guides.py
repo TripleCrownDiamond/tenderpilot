@@ -40,6 +40,24 @@ RACINE = pathlib.Path(__file__).resolve().parent.parent
 SORTIE = RACINE / "dist" / "TenderPilot" / "guides"
 SORTIE_CLIENT = SORTIE / "client"
 SORTIE_OPERATEUR = SORTIE / "operateur"
+SORTIE_BONUS = SORTIE / "bonus"
+
+# Les bonus de l'offre : ce que la page de vente promet part avec chaque
+# vente. (source Markdown, PDF produit, titre, sous-titre)
+BONUS = [
+    ("bonus-1-configuration.md", "Bonus_1_Configuration_faite_avec_vous.pdf",
+     "Configuration faite avec vous",
+     "Vingt minutes sur WhatsApp, et votre veille tourne a votre mesure."),
+    ("bonus-2-profils-metier.md", "Bonus_2_Profils_metier.pdf",
+     "Profils metier prets a coller",
+     "Les reglages de votre onglet CONFIG, pour huit metiers."),
+    ("bonus-3-checklist-soumission.md", "Bonus_3_Checklist_du_dossier.pdf",
+     "Checklist du dossier de soumission",
+     "Les pieces d'une offre, de la recevabilite a la signature, dans huit pays."),
+    ("bonus-4-modeles-lettres.md", "Bonus_4_Modeles_de_lettres.pdf",
+     "Modeles de lettres",
+     "Eclaircissements, manifestation d'interet, habilitation, transmission, CV."),
+]
 
 # Les memes couleurs que l'application, pour que le PDF et l'ecran se
 # ressemblent : le client passe de l'un a l'autre.
@@ -639,6 +657,8 @@ def catalogue_markdown():
             continue
         lecture = ("API" if methode.upper().startswith("JSON:")
                    else "Page web" if methode.upper().startswith("HTML:")
+                   else "Calendrier (onglet des plans)"
+                   if methode.upper().startswith("PLANS:")
                    else "Flux RSS")
         etat = "" if s["Active"].strip().upper() == "OUI" else " *(en veille)*"
         lignes.append("| " + s["Nom"].strip() + etat + " | " + lecture + " | "
@@ -761,8 +781,9 @@ def livraison():
 
 
 def remplir(markdown, conf):
-    """Remplace les jetons {lien}, {contact}, {groupe}, {nb_sources} et
-    les trois du prix : {prix}, {prix_lancement}, {lancement_quantite}.
+    """Remplace les jetons {lien}, {contact}, {groupe}, {video_XX},
+    {video_XX_title}, {nb_sources} et les trois du prix : {prix},
+    {prix_lancement}, {lancement_quantite}.
 
     Un jeton absent de la configuration devient une chaine vide, jamais un
     "{groupe}" imprime tel quel dans un PDF livre au client.
@@ -770,15 +791,37 @@ def remplir(markdown, conf):
     import csv
     with (RACINE / "data" / "sources.csv").open(encoding="utf-8", newline="") as f:
         nb = sum(1 for r in csv.DictReader(f) if (r["Source_ID"] or "").strip())
-    return (markdown
+    liens = conf.get("lien_videos") or []
+    video_titles = [
+        "00 - Commencez ici",
+        "IMPORTANT - Autorisations Google",
+        "01 - Prise en main",
+        "02 - Alertes email",
+        "03 - Telegram",
+        "04 - Google Agenda",
+        "05 - Classement intelligent",
+        "06 - Onglet OPPORTUNITIES",
+    ]
+    video_tokens = {}
+    for index, title in enumerate(video_titles, start=1):
+        video_tokens[f"{{video_{index:02d}_title}}"] = title
+        video_tokens[f"{{video_{index:02d}}}"] = (
+            liens[index - 1] if len(liens) >= index else
+            "demandez le lien a votre vendeur")
+    texte = (markdown
             .replace("{lien}", conf["lien_copie"])
             .replace("{contact}", conf["contact"])
             .replace("{groupe}", conf.get("groupe_whatsapp") or "")
+            # Les videos vivent hors du zip : trop lourdes pour voyager avec
+            # lui. Un seul endroit a renseigner, quel que soit l'hebergement.
             .replace("{nb_sources}", str(nb))
             .replace("{prix}", conf.get("prix") or "")
             .replace("{prix_lancement}", conf.get("prix_lancement") or "")
             .replace("{lancement_quantite}",
                      str(conf.get("lancement_quantite") or "")))
+    for token, valeur in video_tokens.items():
+        texte = texte.replace(token, valeur)
+    return texte
 
 
 # ------------------------------------------------------------------ main --
@@ -791,6 +834,16 @@ def main():
         return 1
 
     conf = livraison()
+
+    # ON VIDE LES DOSSIERS DE GUIDES AVANT DE LES REECRIRE. Un guide renomme
+    # laissait son ancien fichier en place : le 2026-09-16, le dossier client
+    # a contenu 2_Lire_le_tableau.pdf ET 2_Catalogue_des_Sources.pdf. Le
+    # controle de numerotation l'a vu ; une livraison aurait pu emporter un
+    # guide perime sans que personne ne le remarque.
+    for dossier in (SORTIE_CLIENT, SORTIE_OPERATEUR, SORTIE_BONUS):
+        if dossier.exists():
+            for ancien in list(dossier.glob("*.pdf")) + list(dossier.glob("*.docx")):
+                ancien.unlink()
 
     def lire(nom):
         return (RACINE / "docs" / nom).read_text(encoding="utf-8")
@@ -805,9 +858,43 @@ def main():
         "Cinq minutes, depuis le lien jusqu'a la premiere collecte.",
         VERSION))
 
+    # LES QUATRE GUIDES D'USAGE. Le guide de demarrage amene le client
+    # jusqu'a la premiere collecte ; ceux-ci lui apprennent a s'en servir.
+    # Ils sont numerotes a la suite, sans trou : un client qui recoit un
+    # "guide 3" se demande ou sont les deux premiers.
+    faits.append(rendre(
+        remplir(lire("guide-client-tableau.md"), conf),
+        SORTIE_CLIENT / "2_Lire_le_tableau.pdf",
+        "Lire votre tableau",
+        "Les colonnes, les couleurs, et la seule case qui est a vous.",
+        VERSION))
+
+    faits.append(rendre(
+        remplir(lire("guide-client-plans.md"), conf),
+        SORTIE_CLIENT / "3_Plans_de_passation.pdf",
+        "Les plans de passation",
+        "Ce qui va sortir, des semaines avant l'avis.",
+        VERSION))
+
+    faits.append(rendre(
+        remplir(lire("guide-client-telegram.md"), conf),
+        SORTIE_CLIENT / "4_Telegram.pdf",
+        "Vos alertes sur Telegram",
+        "Creer le bot, trouver l'identifiant, regler le classeur.",
+        VERSION))
+
+    faits.append(rendre(
+        remplir(lire("guide-client-agenda.md"), conf),
+        SORTIE_CLIENT / "5_Google_Agenda.pdf",
+        "Vos echeances dans Google Agenda",
+        "Vous choisissez les avis, l'agenda s'occupe des rappels.",
+        VERSION))
+
+    # Le catalogue ferme la serie : il ne part PAS avec la vente, il liste
+    # les sources une par une - le travail qui fait la valeur du produit.
     faits.append(rendre(
         catalogue_markdown(),
-        SORTIE_CLIENT / "2_Catalogue_des_Sources.pdf",
+        SORTIE_CLIENT / "6_Catalogue_des_Sources.pdf",
         "Catalogue des sources",
         "Ce qui est surveille pour vous, et ce que cela ne promet pas.",
         VERSION))
@@ -829,6 +916,17 @@ def main():
         "Installation manuelle",
         "Coller les fichiers de script un par un, pour fabriquer le maitre.",
         VERSION))
+
+    # --- les bonus : ce que la page de vente promet, livre ---
+    for source, fichier, titre, sous_titre in BONUS:
+        faits.append(rendre(
+            remplir(lire("bonus/" + source), conf),
+            SORTIE_BONUS / fichier, titre, sous_titre, VERSION))
+    # Une lettre sert a etre modifiee : le meme Markdown part aussi en Word.
+    from builders.modeles_docx import generer as modeles_word
+    faits.append(modeles_word(
+        remplir(lire("bonus/bonus-4-modeles-lettres.md"), conf),
+        SORTIE_BONUS / "Bonus_4_Modeles_de_lettres.docx"))
 
     # --- l'autre produit ---
     guide_web = RACINE / "docs" / "guide-web.md"

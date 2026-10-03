@@ -103,7 +103,7 @@ def main():
           all(l["Source_ID"] and l["Pays_Defaut"] for l in lignes_src))
     def methode_valide(m):
         return m in S.METHODES or str(m).startswith(S.METHODE_PREFIXES)
-    check("chaque methode est RSS, MANUAL, HTML:<site> ou JSON:<site>",
+    check("chaque methode est RSS, MANUAL, HTML:, JSON: ou PLANS:<site>",
           all(methode_valide(l["Methode"]) for l in lignes_src),
           str({l["Methode"] for l in lignes_src
                if not methode_valide(l["Methode"])}))
@@ -211,6 +211,13 @@ def main():
           any("script.external_request" in s for s in scopes))
     check("l'envoi d'email est declare",
           any("script.send_mail" in s for s in scopes))
+    # MESURE DU 2026-09-16 : Agenda.gs appelait CalendarApp alors que le
+    # manifeste ne declarait aucune autorisation d'agenda. Quand oauthScopes
+    # est ecrit a la main, Apps Script s'y tient : SEND_AGENDA echouait chez
+    # TOUT LE MONDE avec "permissions ... not sufficient". Une capacite
+    # appelee dans le code et absente du manifeste ne doit plus passer.
+    check("l'acces a l'agenda est declare (Agenda.gs appelle CalendarApp)",
+          any("auth/calendar" in s for s in scopes), str(scopes))
 
     # ---------------------------------------------------------- livrable ---
     print("\n[6] Livrable")
@@ -329,7 +336,7 @@ def main():
 
     attendus = {l["Methode"].split(":", 1)[1].strip()
                 for l in lignes_src
-                if str(l["Methode"]).startswith(("HTML:", "JSON:"))}
+                if str(l["Methode"]).startswith(("HTML:", "JSON:", "PLANS:"))}
     check("chaque source non-RSS a son analyseur dans les deux moteurs",
           attendus <= (web_html | web_json) and attendus <= (gs_html | gs_json),
           str(sorted(attendus - (web_html | web_json) - (gs_html | gs_json))))
@@ -351,7 +358,11 @@ def main():
     guides = OUT_DIR / "guides"
     attendus = {
         "client/1_Guide_Demarrage.pdf": "le client : demarrer avec le lien",
-        "client/2_Catalogue_des_Sources.pdf": "le client : le catalogue",
+        "client/2_Lire_le_tableau.pdf": "le client : lire son tableau",
+        "client/3_Plans_de_passation.pdf": "le client : les marches a venir",
+        "client/4_Telegram.pdf": "le client : les alertes Telegram",
+        "client/5_Google_Agenda.pdf": "le client : les echeances dans l agenda",
+        "client/6_Catalogue_des_Sources.pdf": "le client : le catalogue",
         "operateur/1_Guide_Operateur.pdf": "vous : preparer et vendre",
         "operateur/2_Installation_Manuelle.pdf": "vous : fabriquer le maitre",
         "operateur/3_Guide_Application_Web.pdf": "l autre produit",
@@ -445,9 +456,12 @@ def main():
                                ("Guide_Operateur", "guide operateur")):
             check("aucun " + quoi + " dans l archive a vendre",
                   not any(interdit in n for n in noms_vente))
-        check("l archive a vendre tient en deux fichiers",
-              len(noms_vente) == 2, str(len(noms_vente)))
-        for attendu in ("1_Guide_Demarrage.pdf", "COMMENCEZ_ICI.txt"):
+        # LES BONUS PARTENT AVEC LA VENTE : la page de vente les promet.
+        from builders.livraison import BONUS_CLIENT, GUIDES_CLIENT
+        check("l archive a vendre tient en l accueil, les guides et les bonus",
+              len(noms_vente) == 1 + len(GUIDES_CLIENT) + len(BONUS_CLIENT),
+              str(len(noms_vente)))
+        for attendu in ("COMMENCEZ_ICI.txt", *GUIDES_CLIENT, *BONUS_CLIENT):
             check(attendu + " est dans l archive a vendre",
                   any(n.endswith(attendu) for n in noms_vente))
         # LE CATALOGUE N'Y EST PLUS, ET CE CONTROLE EST LA POUR QU'IL N'Y
@@ -455,6 +469,16 @@ def main():
         # qui fait la valeur du produit, offert avant l'achat.
         check("le catalogue des sources ne part pas avec la vente",
               not any("Catalogue_des_Sources" in n for n in noms_vente))
+        # Un .docx ecrit a la main doit rester un document Word valide.
+        with zipfile.ZipFile(vente) as z:
+            docx = [n for n in z.namelist() if n.endswith(".docx")]
+            valide = False
+            if docx:
+                import io as _io
+                with zipfile.ZipFile(_io.BytesIO(z.read(docx[0]))) as d:
+                    valide = ("word/document.xml" in d.namelist()
+                              and "[Content_Types].xml" in d.namelist())
+        check("le modele de lettres Word est un document valide", valide)
 
     if prive.exists():
         with zipfile.ZipFile(prive) as z:
@@ -484,6 +508,18 @@ def main():
         check("les deux archives sont conservees",
               len(list(archives_v.glob("*.zip"))) == 2)
 
+    # La version n est plus ecrite a la main : elle se deduit d une empreinte
+    # du produit comparee au dernier build. Le manifeste porte la trace.
+    import json as _json
+    manifeste_v = ROOT / "dist" / "VERSION.json"
+    check("le manifeste des versions existe", manifeste_v.is_file())
+    if manifeste_v.is_file():
+        donnees_v = _json.loads(manifeste_v.read_text(encoding="utf-8"))
+        check("le manifeste porte la version courant", 
+              donnees_v.get("version") == VERSION, str(donnees_v.get("version")))
+        check("le manifeste porte une empreinte",
+              bool(donnees_v.get("empreinte")))
+
 
     # ---------------------------- les guides ont un sommaire cliquable ----
     #
@@ -499,6 +535,10 @@ def main():
 
     for nom, chemin in (
         ("client/1_Guide_Demarrage.pdf", "guide-client-demarrage"),
+        ("client/2_Lire_le_tableau.pdf", "guide-client-tableau"),
+        ("client/3_Plans_de_passation.pdf", "guide-client-plans"),
+        ("client/4_Telegram.pdf", "guide-client-telegram"),
+        ("client/5_Google_Agenda.pdf", "guide-client-agenda"),
         ("operateur/1_Guide_Operateur.pdf", "guide-operateur"),
     ):
         pdf = ROOT / "dist" / "TenderPilot" / "guides" / nom

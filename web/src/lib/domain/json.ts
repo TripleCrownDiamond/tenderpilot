@@ -17,7 +17,7 @@
  * Aucune requete reseau ici : la recuperation vit dans lib/run.ts.
  */
 
-import { domaineDe, EntreeFlux, reparerCaracteres, retirerBalises, nettoyerLien } from "./rss";
+import { domaineDe, EntreeFlux, premiereSection, reparerCaracteres, retirerBalises, nettoyerLien } from "./rss";
 
 /** "28-Aug-2026" ou "2026-09-16T00:00:00Z" -> "2026-09-16". */
 function enIso(valeur: unknown): string | null {
@@ -231,8 +231,8 @@ export function analyserFundpilote(corps: string): EntreeFlux[] {
     const eligibilite = String(a.eligibility ?? "").trim();
 
     const resume = [
-      description && description.slice(0, 200),
-      eligibilite && `Eligibilite : ${eligibilite.slice(0, 120)}`,
+      description,
+      eligibilite && `Eligibilite : ${eligibilite}`,
       pays.length ? `Pays eligibles : ${pays.join(", ")}` : "",
     ].filter(Boolean).join(" - ").slice(0, 500);
 
@@ -287,13 +287,15 @@ export function analyserFicheFundpilote(corps: string): Partial<EntreeFlux> {
     fiche.source = domaineDe(lien);
   }
 
-  const description = String(d.description ?? "").trim();
-  const comment = String(d.how_to_apply ?? "").trim();
+  // Premiere section seulement, et pas de coupe ici : resumeLisible
+  // coupe a la fin d'une phrase, la ou slice coupait au milieu d'un mot.
+  const description = premiereSection(d.description);
+  const comment = premiereSection(d.how_to_apply);
   const morceaux = [
-    description && description.slice(0, 300),
-    comment && `Candidature : ${comment.slice(0, 150)}`,
+    description,
+    comment && `Candidature : ${comment}`,
   ].filter(Boolean);
-  if (morceaux.length) fiche.resume = morceaux.join(" - ").slice(0, 500);
+  if (morceaux.length) fiche.resume = morceaux.join("\n");
 
   return fiche;
 }
@@ -640,6 +642,7 @@ function requeteUngm(page: number): RequeteJson {
  */
 export const REQUETES_SOURCES: Record<string, (page: number) => RequeteJson> = {
   "ec.europa.eu": requeteEuropa,
+  "ted.europa.eu": requeteTed,
   "grants.gov": requeteGrantsGov,
   "ungm.org": requeteUngm,
 };
@@ -874,15 +877,144 @@ export function analyserDncmp(corps: string): EntreeFlux[] {
       type: type || null,
       deadline: jour(e.dosDateLimiteDepot),
       publie: jour(e.dosDatePublication),
-      resume: [reference, lots > 1 ? `${lots} lots` : ""]
+      resume: [reference && `Reference : ${reference}`,
+               lots > 1 ? `En ${lots} lots` : ""]
         .filter(Boolean).join(" - "),
     };
   }).filter((x): x is EntreeFlux => x !== null);
 }
 
 /** Une ligne de l'onglet PLANS_DE_PASSATION. Jumeau de lignePlan_(). */
+/**
+ * TED, le journal officiel des marches publics europeens.
+ *
+ * MESURE DU 2026-09-14. L'API de recherche repond sans authentification, et
+ * sa documentation la destine explicitement a la reutilisation - plateformes
+ * commerciales comprises. Un POST JSON portant une requete "experte" :
+ *
+ *   place-of-performance IN (BEN TGO ...)
+ *     AND deadline-receipt-tender-date-lot>=<aujourd'hui>
+ *
+ * -> 16 avis ouverts executes en Afrique de l'Ouest.
+ *
+ * CE QU'ON ECARTE, ET POURQUOI.
+ * - La GIZ (5 avis sur 16) : GIZ-VERGABE lit deja tout son portail. La
+ *   garder ferait arriver deux fois la meme alerte, sous deux titres.
+ * - Enabel quand le seul pays est le Benin : ENABEL-BEN le lit deja. Enabel
+ *   au Niger, en Mauritanie ou au Senegal n'est suivi nulle part ailleurs.
+ * - Un marche execute dans plus de dix pays : une agence polonaise en
+ *   listait 27, dont le Nigeria, pour du transport de marchandises.
+ *   L'Afrique de l'Ouest n'y est qu'une escale.
+ *
+ * LE TITRE. TED compose "Pays de l'acheteur – categorie CPV – titre" : on
+ * garde le titre, la categorie part au resume. Chaque texte existe en
+ * plusieurs langues : le francais, sinon l'anglais, sinon la premiere.
+ */
+const TED_PAYS: Record<string, string> = {
+  BEN: "Benin", BFA: "Burkina Faso", CPV: "Cap-Vert", CIV: "Cote d'Ivoire",
+  GMB: "Gambie", GHA: "Ghana", GIN: "Guinee", GNB: "Guinee-Bissau",
+  LBR: "Liberia", MLI: "Mali", MRT: "Mauritanie", NER: "Niger",
+  NGA: "Nigeria", SEN: "Senegal", SLE: "Sierra Leone", TGO: "Togo",
+};
+
+const TED_CHAMPS = ["publication-number", "notice-title", "publication-date",
+  "deadline-receipt-tender-date-lot", "buyer-name", "buyer-country",
+  "notice-type", "place-of-performance", "links"];
+
+const TED_DEJA_SUIVIS: { acheteur: RegExp; seulPays: string }[] = [
+  { acheteur: /Deutsche Gesellschaft f(?:ü|ue)r Internationale Zusammenarbeit/i, seulPays: "" },
+  { acheteur: /^Enabel$/i, seulPays: "BEN" },
+];
+
+/** Requete TED : les avis a echeance future, executes en Afrique de l'Ouest. */
+function requeteTed(): RequeteJson {
+  const jour = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return {
+    methode: "POST",
+    contentType: "application/json",
+    corps: JSON.stringify({
+      query: `place-of-performance IN (${Object.keys(TED_PAYS).join(" ")})`
+        + ` AND deadline-receipt-tender-date-lot>=${jour}`
+        + " AND notice-type IN (cn-standard cn-social cn-desg)",
+      fields: TED_CHAMPS,
+      limit: 100,
+      page: 1,
+      scope: "ACTIVE",
+    }),
+  };
+}
+
+/** Un texte TED multilingue : francais, sinon anglais, sinon le premier. */
+function texteTed(valeur: unknown): string {
+  if (valeur === null || valeur === undefined) return "";
+  if (Array.isArray(valeur)) return String(valeur[0] ?? "").trim();
+  if (typeof valeur !== "object") return String(valeur).trim();
+  const o = valeur as Record<string, unknown>;
+  const cles = Object.keys(o);
+  return texteTed(o.fra ?? o.eng ?? (cles.length ? o[cles[0]] : ""));
+}
+
+export function analyserTed(corps: string): EntreeFlux[] {
+  let donnees: unknown;
+  try {
+    donnees = JSON.parse(corps);
+  } catch {
+    return [];
+  }
+  const avis = (donnees as { notices?: unknown })?.notices;
+  if (!Array.isArray(avis)) return [];
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+
+  return avis.map((brutAvis): EntreeFlux | null => {
+    const n = brutAvis as Record<string, unknown>;
+    const lieux = [...new Set(((n["place-of-performance"] as unknown[]) ?? [])
+      .map((c) => String(c ?? "").trim())
+      .filter((c) => c && c !== "anyw"))];
+    const ouest = lieux.filter((c) => TED_PAYS[c]);
+    if (!ouest.length || lieux.length > 10) return null;
+
+    const acheteur = texteTed(n["buyer-name"]);
+    const dejaSuivi = TED_DEJA_SUIVIS.some((r) => r.acheteur.test(acheteur)
+      && (!r.seulPays || (lieux.length === 1 && lieux[0] === r.seulPays)));
+    if (dejaSuivi) return null;
+
+    const brut = reparerCaracteres(texteTed(n["notice-title"]));
+    const parties = brut.split(" – ");
+    const titre = parties.length >= 3 ? parties.slice(2).join(" – ")
+      : brut.replace(/^[^:–]{2,40}:\s*/, "");
+    const categorie = parties.length >= 3 ? parties[1] : "";
+
+    const html = ((n.links as Record<string, unknown>)?.html ?? {}) as Record<string, unknown>;
+    const cles = Object.keys(html);
+    const lien = String(html.FRA ?? html.ENG ?? (cles.length ? html[cles[0]] : "") ?? "");
+    const numero = String(n["publication-number"] ?? "").trim();
+    if (!titre || !lien || !numero) return null;
+
+    const echeances = ((n["deadline-receipt-tender-date-lot"] as unknown[]) ?? [])
+      .map((d) => String(d ?? "").slice(0, 10))
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort();
+    const avenir = echeances.filter((d) => d >= aujourdhui);
+
+    return {
+      titre,
+      lien: nettoyerLien(lien),
+      organisation: acheteur || null,
+      pays: ouest.length === lieux.length
+        ? (lieux.length === 1 ? TED_PAYS[lieux[0]] : "Afrique de l'Ouest")
+        : "International",
+      publie: String(n["publication-date"] ?? "").slice(0, 10) || null,
+      deadline: avenir[0] ?? echeances[0] ?? null,
+      resume: [categorie && `Categorie : ${categorie}`, `Avis TED : ${numero}`]
+        .filter(Boolean).join(" - "),
+    };
+  }).filter((e): e is EntreeFlux => e !== null);
+}
+
 export interface LignePlan {
   reference: string;
+  /** Le code de la source ; vide sur une ligne d'avant la colonne. */
+  source?: string;
   autorite: string;
   objet: string;
   type: string;
@@ -892,7 +1024,11 @@ export interface LignePlan {
   demarrage: string;
   bailleur: string;
   annee: string;
+  lien?: string;
 }
+
+/** La page publique des plans : le lien des lignes du portail beninois. */
+const PLANS_PAGE_DNCMP = "https://www.marches-publics.bj/plan-de-passation";
 
 /**
  * Les lignes d'un plan de passation dont le lancement est encore a venir.
@@ -939,6 +1075,8 @@ export function analyserLignesPlan(
     const plan = (l.plan ?? {}) as Record<string, unknown>;
     return {
       reference,
+      source: "BJ-DNCMP",
+      lien: PLANS_PAGE_DNCMP,
       autorite: reparerCaracteres(String(autorite ?? ""))
         .replace(/\s*\n\s*/g, " ").trim(),
       objet,
@@ -960,24 +1098,63 @@ export function analyserLignesPlan(
  */
 export function fusionnerPlans(
   existantes: LignePlan[], nouvelles: LignePlan[], aujourdhui: string,
+  sourcesRelues: string[] = [],
 ): LignePlan[] {
+  const relues = new Set(sourcesRelues);
   const parReference = new Map<string, LignePlan>();
   for (const r of existantes) {
-    if (r?.reference && r.lancement && r.lancement >= aujourdhui) {
-      parReference.set(r.reference, r);
-    }
+    if (!r?.reference) continue;
+    // Une source relue EN ENTIER se remplace : un calendrier retire du
+    // site doit disparaitre de l'onglet.
+    if (r.source && relues.has(r.source)) continue;
+    if (r.lancement ? r.lancement < aujourdhui : !r.source) continue;
+    parReference.set(r.reference, r);
   }
   for (const r of nouvelles) {
     if (r?.reference) parReference.set(r.reference, r);
   }
-  return [...parReference.values()].sort((a, b) =>
-    a.lancement !== b.lancement
-      ? (a.lancement < b.lancement ? -1 : 1)
-      : a.reference.localeCompare(b.reference));
+  return [...parReference.values()].sort((a, b) => {
+    // Les lancements dates d'abord, le plus proche en haut ; les
+    // calendriers, sans date, ensuite.
+    if (!a.lancement !== !b.lancement) return a.lancement ? -1 : 1;
+    if (a.lancement !== b.lancement) return a.lancement < b.lancement ? -1 : 1;
+    return a.reference.localeCompare(b.reference);
+  });
+}
+
+/**
+ * Les annonces d'une source PLANS:, en lignes de plan.
+ *
+ * Un calendrier n'a pas de date de lancement : la colonne reste vide, et la
+ * ligne se range apres les lancements dates. Sa reference derive de son
+ * lien - stable d'un passage a l'autre, c'est ce qui permet la fusion.
+ */
+export function plansDepuisAnnonces(
+  entrees: EntreeFlux[], source: { code: string; nom: string },
+): LignePlan[] {
+  const vues = new Set<string>();
+  const lignes: LignePlan[] = [];
+  for (const e of entrees) {
+    const lien = String(e.lien ?? "").trim();
+    if (!e.titre || !lien) continue;
+    const bout = lien.replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
+    const reference = `${source.code}-${bout}`;
+    if (vues.has(reference)) continue;
+    vues.add(reference);
+    lignes.push({
+      reference, source: source.code,
+      autorite: e.organisation || source.nom,
+      objet: e.titre, type: "Calendrier", mode: "", montant: "",
+      lancement: e.deadline ?? "", demarrage: "", bailleur: "", annee: "",
+      lien,
+    });
+  }
+  return lignes;
 }
 
 export const ANALYSEURS_JSON: Record<string, (corps: string) => EntreeFlux[]> = {
   "marches-publics.bj": analyserDncmp,
+  "ted.europa.eu": analyserTed,
   "oraclecloud.com": analyserOracleNegociations,
   "worldbank.org": analyserWorldBank,
   "fundpilote.com": analyserFundpilote,

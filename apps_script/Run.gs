@@ -83,6 +83,7 @@ function construireMenu_() {
     .addItem('Tester la notification Telegram', 'testerTelegram')
     .addItem('Tester l agenda', 'testerAgenda')
     .addItem('Tester le classement intelligent', 'testerLlm')
+    .addItem('Pourquoi je ne recois pas d alertes ?', 'diagnostiquerNotifications')
     .addItem('Afficher / masquer l onglet SOURCES', 'basculerOngletSources')
     .addItem('Verifier l installation', 'verifierInstallation')
     .addSeparator()
@@ -275,13 +276,18 @@ function completerParFiches_(annonces, analyseur, source, config, options,
     // L'adresse a INTERROGER n'est pas toujours celle de l'annonce : voir
     // ficheUrl, pose par les analyseurs de liste qui les distinguent.
     var adresse = annonce.ficheUrl || annonce.url;
-    if (lues >= plafond || !adresse) { reportees++; return; }
+    // Le temps de collecte epuise vaut plafond atteint : la fiche sera lue
+    // au passage suivant, ou l'annonce sera encore inconnue.
+    if (lues >= plafond || !adresse || collecteEchue_()) { reportees++; return; }
 
     lues++;
     try {
       var reponse = UrlFetchApp.fetch(adresse, options);
       if (reponse.getResponseCode() !== 200) { reportees++; return; }
       fusionnerFiche_(annonce, analyseur(corpsReponse_(reponse)));
+      // La fiche arrive APRES normalizeOpportunity : son resume n'a pas ete
+      // mis en forme. resumeLisible est idempotent, le repasser ne coute rien.
+      annonce.summary = resumeLisible(annonce.summary, annonce.title);
       // Fiche lue mais toujours incomplete : pour une source qui declare un
       // analyseur de fiche, cela veut dire "pas reussi a lire", pas "avis
       // sans date" ni "avis sans lien". On ne fait pas entrer une ligne
@@ -480,6 +486,9 @@ function collecterDetail_(source, config, connus) {
   var videsDaffilee = 0;
 
   for (var page = 1; page <= (paginee ? PAGES_MAX : 1); page++) {
+    // Une source longue ne deborde pas du temps de collecte : les pages
+    // deja lues restent bonnes, la suite reviendra au passage d'apres.
+    if (page > 1 && collecteEchue_()) break;
     var reponse = UrlFetchApp.fetch(
       paginee ? adresse.split(GABARIT_PAGE).join(String(page)) : adresse,
       optionsDePage_(page));
@@ -600,6 +609,77 @@ function retirerExpirees_(annonces, config) {
 var BUDGET_COLLECTE_MS = 4 * 60 * 1000;
 var CLE_REPRISE = 'TENDERPILOT_REPRISE';
 
+/**
+ * UNE SEULE HORLOGE POUR TOUT LE PASSAGE.
+ *
+ * Mesure du 2026-09-19, signalee par le client : les executions finissaient
+ * en depassement, et l'agenda, place apres les emails, n'etait jamais
+ * atteint. Les budgets etaient poses phase par phase - 240 s de collecte,
+ * 60 s de plans - sans que personne ne regarde le TOTAL. Une source lente
+ * commencee a 239 s allait au bout de ses vingt pages et de ses douze
+ * fiches ; le classement, les envois et l'agenda n'avaient aucune borne.
+ *
+ * Desormais chaque phase demande a la meme horloge ce qu'il reste avant
+ * LIMITE_EXECUTION_MS - 5 min 15, quarante-cinq secondes sous la limite
+ * de Google, pour le tri et le journal. Ce qui ne tient pas est reporte :
+ * la collecte reprend a la source suivante, une alerte non envoyee n'est
+ * pas marquee et repart au passage d'apres.
+ *
+ * ET LA COLLECTE SE REGLE D'ELLE-MEME. La duree de ce qui suit la collecte
+ * (ecriture, envois, agenda, tri) est mesuree a chaque passage et gardee :
+ * le passage suivant laisse cette duree, plus une marge, a la suite. Un
+ * classeur de trois mille lignes qui met deux minutes a s'ecrire collecte
+ * donc moins longtemps qu'un classeur neuf - sans que personne ait rien a
+ * regler.
+ */
+var LIMITE_EXECUTION_MS = 5 * 60 * 1000 + 15 * 1000;
+var CLE_DUREE_SUITE = 'TENDERPILOT_DUREE_SUITE';
+var SUITE_DEFAUT_MS = 90 * 1000;
+var SUITE_MIN_MS = 60 * 1000;
+var SUITE_MAX_MS = 180 * 1000;
+var DEBUT_EXECUTION = 0;
+// Heure a laquelle la collecte doit rendre la main ; 0 hors passage.
+var FIN_COLLECTE = 0;
+
+/** Millisecondes avant la limite du passage ; Infinity hors passage. */
+function tempsRestantMs_() {
+  if (!DEBUT_EXECUTION) return Infinity;
+  return LIMITE_EXECUTION_MS - (new Date().getTime() - DEBUT_EXECUTION);
+}
+
+/** Vrai quand il reste moins de margeMs : la phase doit s'arreter. */
+function tempsEpuise_(margeMs) {
+  return tempsRestantMs_() < (margeMs || 0);
+}
+
+/** Vrai quand la collecte a consomme sa part du passage. */
+function collecteEchue_() {
+  return FIN_COLLECTE > 0 && new Date().getTime() > FIN_COLLECTE;
+}
+
+/** Ce que la suite a coute au passage precedent, marge comprise. */
+function reserveSuiteMs_() {
+  var mesure = NaN;
+  try {
+    mesure = parseInt(PropertiesService.getScriptProperties()
+      .getProperty(CLE_DUREE_SUITE), 10);
+  } catch (e) {
+    // Sans memoire, on part du defaut : degrade, pas en panne.
+  }
+  var reserve = isFinite(mesure) && mesure > 0
+    ? Math.round(mesure * 1.3) : SUITE_DEFAUT_MS;
+  return Math.max(SUITE_MIN_MS, Math.min(SUITE_MAX_MS, reserve));
+}
+
+function noterDureeSuite_(ms) {
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty(CLE_DUREE_SUITE, String(Math.round(ms)));
+  } catch (e) {
+    // Meme regle que noterReprise_.
+  }
+}
+
 /** Rang de depart du prochain tour, ou 0. Jamais bloquant. */
 function rangDeReprise_(total) {
   try {
@@ -633,8 +713,14 @@ function collectAllSources(config, connus) {
   // ne disent rien, et 57 aller-retours vers la feuille. On les compte, on
   // le dit une fois.
   var toutes = lireSources();
-  var actives = toutes.filter(function (s) { return estVrai(s.active); });
-  var desactivees = toutes.length - actives.length;
+  // Une source PLANS: n'apporte pas d'opportunites : Plans.gs la lit, a la
+  // fin du passage. Elle n'entre ni dans cette boucle ni dans son budget.
+  var actives = toutes.filter(function (s) {
+    return estVrai(s.active) && !estMethodePlans(s.method);
+  });
+  var desactivees = toutes.filter(function (s) {
+    return !estVrai(s.active);
+  }).length;
 
   // On commence la ou le passage precedent s'est arrete, et on fait le tour.
   var depart = rangDeReprise_(actives.length);
@@ -642,6 +728,11 @@ function collectAllSources(config, connus) {
   var budget = Number(config.BUDGET_COLLECTE_SECONDES) > 0
     ? Number(config.BUDGET_COLLECTE_SECONDES) * 1000
     : BUDGET_COLLECTE_MS;
+  // Le reglage est un PLAFOND, pas une promesse : la collecte ne prend
+  // jamais le temps dont la suite a besoin. Voir LIMITE_EXECUTION_MS.
+  var dispo = tempsRestantMs_() - reserveSuiteMs_();
+  if (dispo < budget) budget = Math.max(30 * 1000, dispo);
+  FIN_COLLECTE = DEBUT_EXECUTION ? debut + budget : 0;
   var reportees = 0;
 
   for (var rang = 0; rang < actives.length; rang++) {
@@ -915,20 +1006,22 @@ function lienClasseur_() {
   return URL_CLASSEUR;
 }
 
-/** Le pied de page commun : le rappel, et le retour au tableau. */
+/** Le pied de page commun : le retour au tableau, et le rappel. */
 function piedEmail_() {
   var lien = lienClasseur_();
   var bouton = lien
-    ? '<div style="margin:0 0 14px"><a href="' + echapperHtml_(lien) + '" '
-      + 'style="display:inline-block;border:1px solid ' + MARINE_EMAIL + ';'
-      + 'color:' + MARINE_EMAIL + ';text-decoration:none;padding:9px 16px;'
-      + 'border-radius:6px;font-size:13px">Ouvrir mon tableau TenderPilot'
-      + '</a></div>'
+    ? '<a href="' + echapperHtml_(lien) + '" style="display:inline-block;'
+      + 'background:' + INDIGO_EMAIL + ';color:#FFFFFF;text-decoration:none;'
+      + 'padding:11px 18px;border-radius:10px;font-size:14px;font-weight:bold;'
+      + 'margin:0 0 12px">Ouvrir mon tableau TenderPilot</a>'
     : '';
-  return '<div style="border-top:1px solid #D5DBE3;margin-top:16px;'
-    + 'padding-top:12px">' + bouton
-    + '<p style="font-size:12px;color:#4A5665;margin:0">'
-    + echapperHtml_(RAPPEL) + '</p></div>';
+  return '</div><div style="background:' + FOND_EMAIL + ';padding:20px 28px;'
+    + 'border-top:1px solid ' + FILET_EMAIL + '">' + bouton
+    + '<p style="font-size:12px;color:' + GRIS_EMAIL + ';margin:0">'
+    + echapperHtml_(RAPPEL) + '</p></div></div>'
+    + '<p style="max-width:600px;margin:14px auto 0;font-size:11px;'
+    + 'color:#9CA3AF;text-align:center">Vous recevez cet email parce que les '
+    + 'alertes sont activees dans votre classeur TenderPilot.</p></div>';
 }
 
 /** Et la meme chose en texte brut, pour les lecteurs sans HTML. */
@@ -940,21 +1033,84 @@ function piedTexte_() {
 /**
  * L'en-tete de marque, commun a tous les emails.
  *
+ * Ouvre la mise en page : fond gris clair, carte blanche arrondie, logo en
+ * tete - la meme charte que la page de vente. piedEmail_ la referme.
+ *
  * L'image est referencee par cid: - l'identifiant de la piece jointe posee
  * par sendEmail. Un alt reste : si le lecteur refuse toutes les images, il
  * lit le nom du produit au lieu d'un carre vide.
  */
 function enteteMarque_() {
-  return '<div style="padding-bottom:14px;margin-bottom:16px;'
-    + 'border-bottom:1px solid #D5DBE3">'
-    + '<img src="cid:logoTenderPilot" alt="TenderPilot" width="160" '
-    + 'style="display:block;border:0;height:auto;width:160px" /></div>';
+  return '<div style="background:' + FOND_EMAIL + ';padding:24px 12px;'
+    + 'font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif;'
+    + 'color:' + ENCRE_EMAIL + ';line-height:1.5">'
+    + '<div style="max-width:600px;margin:0 auto;background:#FFFFFF;'
+    + 'border:1px solid ' + FILET_EMAIL + ';border-radius:16px;overflow:hidden">'
+    + '<div style="padding:22px 28px;border-bottom:1px solid #EEF0FF">'
+    + '<img src="cid:logoTenderPilot" alt="TenderPilot" width="150" '
+    + 'style="display:block;border:0;height:auto;width:150px" /></div>'
+    + '<div style="padding:26px 28px">';
 }
 
-/** Encre lisible sur une pastille de statut. Les fonds sont clairs. */
-var ENCRE_EMAIL = '#16202D';
-var MARINE_EMAIL = '#1F3A5F';
-var LIEN_EMAIL = '#0050F0';
+/**
+ * La charte des emails : celle de la page de vente (indigo, bleu nuit,
+ * gris clair). Les fonds des statuts restent ceux du classeur (SCHEMA.
+ * COULEURS) ; l'encre de chaque statut est la meme teinte, foncee, pour
+ * que le texte se lise sur son fond.
+ */
+var ENCRE_EMAIL = '#0B1225';
+var MARINE_EMAIL = '#0B1225';
+var INDIGO_EMAIL = '#4F46FF';
+var GRIS_EMAIL = '#6B7280';
+var FILET_EMAIL = '#E5E7EB';
+var FOND_EMAIL = '#F6F7FA';
+var LIEN_EMAIL = '#4F46FF';
+var ENCRES_STATUT = {
+  'OUVERT': '#1B5E2B', 'A SURVEILLER': '#7A5A00', 'BIENTOT': '#8A3E00',
+  'URGENT': '#9B1C1C', 'EXPIRE': '#4B5563', 'DATE A VERIFIER': '#6B5B1E'
+};
+
+/** Une pastille de statut, sur le fond et avec l'encre de son statut. */
+function pastilleStatut_(statut) {
+  var fond = SCHEMA.COULEURS[statut] || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
+  return '<span style="display:inline-block;background:' + fond + ';color:'
+    + (ENCRES_STATUT[statut] || ENCRE_EMAIL) + ';font-size:11px;'
+    + 'font-weight:bold;letter-spacing:.04em;padding:2px 8px;'
+    + 'border-radius:999px">' + echapperHtml_(statut) + '</span>';
+}
+
+/** Une carte d'annonce, pour le recapitulatif et les rappels groupes. */
+function carteAnnonce_(o, apres) {
+  var statut = o.status || SCHEMA.STATUT_INCONNU;
+  var fond = SCHEMA.COULEURS[statut] || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
+  var infos = [o.org, o.country, o.deadline ? 'Deadline ' + o.deadline : '']
+    .filter(function (v) { return v; }).map(echapperHtml_).join(' &middot; ');
+  var titre = o.url
+    ? '<a href="' + echapperHtml_(o.url) + '" style="color:' + ENCRE_EMAIL
+      + ';text-decoration:none">' + echapperHtml_(o.title) + '</a>'
+    : echapperHtml_(o.title);
+  return '<tr><td style="padding:0 0 10px">'
+    // La bande prend l'encre du statut, pas son fond pastel : sur un fond
+    // blanc, le pastel ne se voyait presque pas.
+    + '<div style="border:1px solid ' + FILET_EMAIL + ';border-left:4px solid '
+    + (ENCRES_STATUT[statut] || fond) + ';border-radius:10px;padding:12px 14px">'
+    + '<div style="font-size:15px;font-weight:bold;line-height:1.35">' + titre
+    + '</div>'
+    + '<div style="font-size:13px;color:' + GRIS_EMAIL + ';margin-top:4px">'
+    + infos + '</div>'
+    + (apres ? '<div style="margin-top:8px">' + apres + '</div>' : '')
+    + '</div></td></tr>';
+}
+
+/** Le titre d'un email groupe : une etiquette, puis le compte. */
+function titreGroupe_(etiquette, titre) {
+  return '<span style="display:inline-block;background:#EEF0FF;color:'
+    + INDIGO_EMAIL + ';font-size:11px;font-weight:bold;letter-spacing:.1em;'
+    + 'text-transform:uppercase;padding:4px 10px;border-radius:999px">'
+    + echapperHtml_(etiquette) + '</span>'
+    + '<h2 style="font-size:22px;line-height:1.25;color:' + ENCRE_EMAIL
+    + ';margin:12px 0 18px">' + titre + '</h2>';
+}
 
 /**
  * Le corps HTML d'une alerte.
@@ -998,48 +1154,53 @@ function corpsHtml_(entete, ligne) {
 
   var rangs = champs.map(function (p) {
     return '<tr>'
-      + '<td style="padding:6px 12px 6px 0;color:#4A5665;font-size:13px;'
-      + 'vertical-align:top;white-space:nowrap">' + echapperHtml_(p[0])
-      + '</td>'
-      + '<td style="padding:6px 0;color:' + ENCRE_EMAIL + ';font-size:13px">'
-      + echapperHtml_(p[1]) + '</td></tr>';
+      + '<td style="padding:8px 14px 8px 0;color:' + GRIS_EMAIL + ';'
+      + 'font-size:13px;vertical-align:top;white-space:nowrap;'
+      + 'border-bottom:1px solid #F1F2F6">' + echapperHtml_(p[0]) + '</td>'
+      + '<td style="padding:8px 0;color:' + ENCRE_EMAIL + ';font-size:13px;'
+      + 'border-bottom:1px solid #F1F2F6">' + echapperHtml_(p[1])
+      + '</td></tr>';
   }).join('');
 
   var boutons = '';
   if (ligne.url) {
     boutons += '<a href="' + echapperHtml_(ligne.url) + '" '
-      + 'style="display:inline-block;background:' + MARINE_EMAIL + ';'
-      + 'color:#FFFFFF;text-decoration:none;padding:11px 18px;'
-      + 'border-radius:6px;font-size:14px;font-weight:bold;margin:0 8px 8px 0">'
+      + 'style="display:inline-block;background:' + INDIGO_EMAIL + ';'
+      + 'color:#FFFFFF;text-decoration:none;padding:12px 20px;'
+      + 'border-radius:10px;font-size:14px;font-weight:bold;margin:0 8px 8px 0">'
       + "Ouvrir l'avis officiel</a>";
   }
   if (ligne.pdf) {
     boutons += '<a href="' + echapperHtml_(ligne.pdf) + '" '
-      + 'style="display:inline-block;border:1px solid ' + MARINE_EMAIL + ';'
-      + 'color:' + MARINE_EMAIL + ';text-decoration:none;padding:10px 18px;'
-      + 'border-radius:6px;font-size:14px;margin:0 8px 8px 0">'
+      + 'style="display:inline-block;border:1px solid ' + INDIGO_EMAIL + ';'
+      + 'color:' + INDIGO_EMAIL + ';text-decoration:none;padding:11px 20px;'
+      + 'border-radius:10px;font-size:14px;font-weight:bold;margin:0 8px 8px 0">'
       + 'Telecharger le dossier</a>';
   }
 
-  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
-    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
-    + enteteMarque_()
-    + '<div style="background:' + fond + ';border-radius:8px;'
-    + 'padding:14px 18px;margin-bottom:18px">'
-    + '<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;'
-    + 'color:#4A5665">' + echapperHtml_(entete) + '</div>'
-    + '<div style="font-size:20px;font-weight:bold;margin-top:4px">'
-    + echapperHtml_(statut) + ' &middot; ' + echapperHtml_(reste) + '</div>'
+  var encre = ENCRES_STATUT[statut] || ENCRE_EMAIL;
+  return enteteMarque_()
+    + '<span style="display:inline-block;background:#EEF0FF;color:'
+    + INDIGO_EMAIL + ';font-size:11px;font-weight:bold;letter-spacing:.1em;'
+    + 'text-transform:uppercase;padding:4px 10px;border-radius:999px">'
+    + echapperHtml_(entete) + '</span>'
+    + '<div style="background:' + fond + ';border-radius:12px;'
+    + 'padding:16px 18px;margin:14px 0 20px">'
+    + '<div style="font-size:12px;font-weight:bold;letter-spacing:.08em;'
+    + 'text-transform:uppercase;color:' + encre + '">' + echapperHtml_(statut)
     + '</div>'
-    + '<h2 style="font-size:17px;margin:0 0 10px;color:' + MARINE_EMAIL + '">'
-    + echapperHtml_(ligne.title) + '</h2>'
+    + '<div style="font-size:24px;font-weight:bold;margin-top:2px;color:'
+    + encre + '">' + echapperHtml_(reste) + '</div>'
+    + '</div>'
+    + '<h2 style="font-size:19px;line-height:1.3;margin:0 0 10px;color:'
+    + ENCRE_EMAIL + '">' + echapperHtml_(ligne.title) + '</h2>'
     + (ligne.summary
-        ? '<p style="font-size:14px;margin:0 0 16px;color:#4A5665">'
+        ? '<p style="font-size:14px;margin:0 0 18px;color:' + GRIS_EMAIL + '">'
           + echapperHtml_(ligne.summary) + '</p>' : '')
     + (boutons ? '<div style="margin:0 0 18px">' + boutons + '</div>' : '')
-    + '<table style="border-collapse:collapse;margin-bottom:18px">'
+    + '<table style="border-collapse:collapse;width:100%;margin-bottom:4px">'
     + rangs + '</table>'
-    + piedEmail_() + '</div>';
+    + piedEmail_();
 }
 
 var RAPPEL = 'Consultez toujours la source officielle avant de candidater.';
@@ -1166,45 +1327,30 @@ function messageDigest(nouvelles, config) {
  */
 function digestHtml_(groupes, total) {
   var carte = function (o) {
-    var statut = o.status || SCHEMA.STATUT_INCONNU;
-    var fond = SCHEMA.COULEURS[statut]
-      || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
-    var infos = [o.org, o.country, o.deadline ? 'Deadline ' + o.deadline : '']
-      .filter(function (v) { return v; }).map(echapperHtml_).join(' &middot; ');
-    var titre = o.url
-      ? '<a href="' + echapperHtml_(o.url) + '" style="color:' + MARINE_EMAIL
-        + ';text-decoration:none">' + echapperHtml_(o.title) + '</a>'
-      : echapperHtml_(o.title);
-    return '<tr><td style="padding:0 0 10px">'
-      + '<div style="border-left:4px solid ' + fond + ';padding:2px 0 2px 12px">'
-      + '<div style="font-size:15px;font-weight:bold">' + titre + '</div>'
-      + '<div style="font-size:13px;color:#4A5665;margin-top:2px">'
-      + infos + (o.pertinence
-          ? ' &middot; <b>' + echapperHtml_(o.pertinence) + '</b>' : '')
-      + '</div></div></td></tr>';
+    return carteAnnonce_(o, o.pertinence
+      ? '<span style="display:inline-block;background:#EEF0FF;color:'
+        + INDIGO_EMAIL + ';font-size:11px;font-weight:bold;padding:2px 8px;'
+        + 'border-radius:999px">' + echapperHtml_(o.pertinence) + '</span>'
+      : '');
   };
 
   var corps = groupes.map(function (groupe) {
     // UN INTITULE DE RUBRIQUE, quand il y a plus d'un groupe. Poser un
     // titre au-dessus d'un groupe unique n'apprend rien et ajoute du bruit.
     var entete = (groupe.titre && groupes.length > 1)
-      ? '<tr><td style="padding:14px 0 8px">'
+      ? '<tr><td style="padding:10px 0 8px">'
         + '<div style="font-size:12px;letter-spacing:.08em;'
-        + 'text-transform:uppercase;color:' + MARINE_EMAIL + ';font-weight:bold;'
-        + 'border-bottom:1px solid #D5DBE3;padding-bottom:5px">'
+        + 'text-transform:uppercase;color:' + INDIGO_EMAIL + ';font-weight:bold">'
         + echapperHtml_(groupe.titre) + ' &middot; ' + groupe.annonces.length
         + '</div></td></tr>'
       : '';
     return entete + groupe.annonces.map(carte).join('');
   }).join('');
 
-  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
-    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
-    + enteteMarque_()
-    + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
-    + total + ' nouvelles opportunites</h2>'
+  return enteteMarque_()
+    + titreGroupe_('Nouveautes', total + ' nouvelles opportunites')
     + '<table style="border-collapse:collapse;width:100%">' + corps
-    + '</table>' + piedEmail_() + '</div>';
+    + '</table>' + piedEmail_();
 }
 
 /**
@@ -1212,6 +1358,133 @@ function digestHtml_(groupes, total) {
  * - sections 12 et 17. Une opportunite ne recoit jamais deux fois le meme
  * type d'email.
  */
+/**
+ * POURQUOI JE NE RECOIS RIEN ?
+ *
+ * Demande du 2026-09-28, par un client : il avait reserve les rappels aux
+ * offres suivies, et plus aucun email n'arrivait - pas meme les nouveautes.
+ * Le reglage n'etait pas seul en cause, et c'est tout le probleme : trois
+ * filtres se succedent (canal, pertinence, temoin d'envoi, suivi), et aucun
+ * ne dit ce qu'il a retenu. L'utilisateur ne peut que deviner.
+ *
+ * Cette fonction compte, ligne par ligne, ce qui partirait au prochain
+ * passage - et, pour tout le reste, POURQUOI ca ne part pas. Elle n'envoie
+ * rien et ne marque rien : un diagnostic qui modifie ce qu'il mesure ne
+ * sert a rien.
+ */
+function diagnosticNotifications_(lignes, config) {
+  var d = {
+    lignes: (lignes || []).length,
+    suivies: 0,
+    aEnvoyer: 0,
+    ecarteesPertinence: 0,
+    rappelsReserves: 0,
+    dejaNotifiees: 0,
+    sansDeclencheur: 0
+  };
+  // Meme configuration, sans la restriction aux suivies : la difference
+  // entre les deux dit exactement ce que cette restriction retient.
+  var sansRestriction = {};
+  Object.keys(config || {}).forEach(function (k) { sansRestriction[k] = config[k]; });
+  sansRestriction.RAPPELS_SUIVIS_SEULEMENT = 'false';
+
+  (lignes || []).forEach(function (ligne) {
+    if (estSuivie_(ligne)) d.suivies++;
+    var plan = notificationsAEnvoyer(ligne, config, 'email');
+    if (plan.envoyer.length) {
+      if (pertinenceNotifiable(ligne.pertinence, config)) d.aEnvoyer++;
+      else d.ecarteesPertinence++;
+      return;
+    }
+    if (notificationsAEnvoyer(ligne, sansRestriction, 'email').envoyer.length) {
+      d.rappelsReserves++;
+      return;
+    }
+    var temoin = SCHEMA.NOTIFICATIONS.some(function (n) {
+      return canauxNotifies_(ligne[n.column]).length;
+    });
+    if (temoin) d.dejaNotifiees++;
+    else d.sansDeclencheur++;
+  });
+  return d;
+}
+
+/** Le quota d'envoi qui reste chez Google, ou null hors de Google. */
+function quotaRestant_() {
+  try {
+    return MailApp.getRemainingDailyQuota();
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Menu > Pourquoi je ne recois pas d alertes ?
+ *
+ * N'envoie rien. Dit l'etat des canaux, les filtres actifs, et le compte
+ * de ce qui partirait au prochain passage.
+ */
+function diagnostiquerNotifications() {
+  var config = lireConfig();
+  var lignes = lireOpportunites();
+  var d = diagnosticNotifications_(lignes, config);
+  var destinataire = destinataires_(config.NOTIFICATION_EMAIL);
+  var quota = quotaRestant_();
+  var filtre = String(config.NOTIFIER_PERTINENCE || '').trim();
+
+  var l = [];
+  l.push('CANAUX');
+  l.push('- Email : ' + (destinataire
+    ? destinataire + (quota === null ? '' : ' (quota Google restant : '
+        + quota + ' destinataire(s) aujourd hui)')
+    : 'AUCUN - NOTIFICATION_EMAIL est vide dans CONFIG.'));
+  l.push('- Telegram : ' + (telegramActif_(config)
+    ? 'configure' : 'non configure'));
+  l.push('');
+  l.push('FILTRES');
+  l.push('- NOTIFIER_PERTINENCE : ' + (filtre
+    ? filtre + '  <-- seules ces pertinences sont notifiees'
+    : 'vide (tout passe)'));
+  l.push('- RAPPELS_SUIVIS_SEULEMENT : '
+    + (estVrai(config.RAPPELS_SUIVIS_SEULEMENT)
+       ? 'true  <-- les rappels ne partent que pour les lignes Suivi = OUI'
+       : 'false'));
+  l.push('- Nouveautes : ' + (estVrai(config.SEND_NEW_OPPORTUNITY) ? 'oui' : 'NON')
+    + ' | J-7 : ' + (estVrai(config.SEND_J7) ? 'oui' : 'non')
+    + ' | J-3 : ' + (estVrai(config.SEND_J3) ? 'oui' : 'non')
+    + ' | J-1 : ' + (estVrai(config.SEND_J1) ? 'oui' : 'non')
+    + ' | Expirees : ' + (estVrai(config.SEND_EXPIRED) ? 'oui' : 'non'));
+  l.push('');
+  l.push('VOTRE TABLEAU');
+  l.push('- ' + d.lignes + ' ligne(s), dont ' + d.suivies + ' suivie(s).');
+  l.push('- Au prochain passage : ' + d.aEnvoyer + ' alerte(s) partirai(en)t.');
+  l.push('');
+  l.push('CE QUI EST ECARTE, ET PAR QUOI');
+  l.push('- ' + d.ecarteesPertinence + ' par NOTIFIER_PERTINENCE');
+  l.push('- ' + d.rappelsReserves + ' par RAPPELS_SUIVIS_SEULEMENT '
+    + '(rappels reserves aux lignes suivies)');
+  l.push('- ' + d.dejaNotifiees + ' deja notifiee(s) : une alerte ne part '
+    + 'jamais deux fois');
+  l.push('- ' + d.sansDeclencheur + ' sans declencheur pour l instant '
+    + '(echeance encore loin)');
+
+  if (!destinataire && !telegramActif_(config)) {
+    l.push('', 'A FAIRE : renseignez NOTIFICATION_EMAIL dans CONFIG.');
+  } else if (d.aEnvoyer === 0 && d.ecarteesPertinence > 0) {
+    l.push('', 'A FAIRE : videz NOTIFIER_PERTINENCE dans CONFIG, ou '
+      + 'ajoutez-y un niveau plus large (par exemple 2 - A VOIR).');
+  } else if (d.aEnvoyer === 0 && d.rappelsReserves > 0 && d.suivies === 0) {
+    l.push('', 'A FAIRE : aucune ligne ne porte OUI dans la colonne Suivi. '
+      + 'Cochez celles qui vous interessent, ou remettez '
+      + 'RAPPELS_SUIVIS_SEULEMENT a false.');
+  } else if (quota === 0) {
+    l.push('', 'A FAIRE : le quota Google du jour est epuise. Les alertes '
+      + 'repartiront demain, rien n est perdu.');
+  }
+
+  dire_(l.join('\n'));
+}
+
 /**
  * Liste de destinataires, separes par des virgules ou des points-virgules.
  * MailApp accepte une liste separee par des virgules : on normalise.
@@ -1350,30 +1623,14 @@ function messageRappels(entrees) {
 /** Le meme, en cartes colorees par urgence. */
 function rappelsHtml_(entrees) {
   var cartes = entrees.map(function (e) {
-    var o = e.ligne;
-    var statut = o.status || SCHEMA.STATUT_INCONNU;
-    var fond = SCHEMA.COULEURS[statut]
-      || SCHEMA.COULEURS[SCHEMA.STATUT_INCONNU];
-    var infos = [o.org, o.country, o.deadline ? 'Deadline ' + o.deadline : '']
-      .filter(function (v) { return v; }).map(echapperHtml_).join(' &middot; ');
-    var titre = o.url
-      ? '<a href="' + echapperHtml_(o.url) + '" style="color:' + MARINE_EMAIL
-        + ';text-decoration:none">' + echapperHtml_(o.title) + '</a>'
-      : echapperHtml_(o.title);
-    return '<tr><td style="padding:0 0 10px">'
-      + '<div style="border-left:4px solid ' + fond + ';padding:2px 0 2px 12px">'
-      + '<div style="font-size:15px;font-weight:bold">' + titre + '</div>'
-      + '<div style="font-size:13px;color:#4A5665;margin-top:2px">' + infos
-      + ' &middot; <b>' + echapperHtml_(statut) + '</b></div></div></td></tr>';
+    return carteAnnonce_(e.ligne,
+      pastilleStatut_(e.ligne.status || SCHEMA.STATUT_INCONNU));
   }).join('');
 
-  return '<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,'
-    + 'sans-serif;max-width:620px;color:' + ENCRE_EMAIL + ';line-height:1.5">'
-    + enteteMarque_()
-    + '<h2 style="font-size:18px;color:' + MARINE_EMAIL + ';margin:0 0 16px">'
-    + entrees.length + ' echeances a surveiller</h2>'
+  return enteteMarque_()
+    + titreGroupe_('Rappels', entrees.length + ' echeances a surveiller')
     + '<table style="border-collapse:collapse;width:100%">' + cartes
-    + '</table>' + piedEmail_() + '</div>';
+    + '</table>' + piedEmail_();
 }
 
 /** Et pour le salon : court, comme tout ce qui part sur Telegram. */
@@ -1403,6 +1660,20 @@ function telegramRappels_(entrees) {
  * Le compte retourne est le nombre de MESSAGES partis, tous canaux
  * confondus : une alerte envoyee par les deux compte pour deux.
  */
+/**
+ * Un canal peut-il encore envoyer n messages ?
+ *
+ * Non quand son plafond est atteint, ET non quand le passage n'a plus le
+ * temps : les deux cas se traitent pareil - rien n'est marque, l'alerte
+ * repart au passage suivant. Voir LIMITE_EXECUTION_MS.
+ */
+var MARGE_ENVOIS_MS = 60 * 1000;
+function plafondAtteint_(canal, n) {
+  if (canal.envoyes + n > canal.plafond) return true;
+  if (tempsEpuise_(MARGE_ENVOIS_MS)) { canal.parTemps = true; return true; }
+  return false;
+}
+
 function sendNotifications(lignes, config, nouvelles) {
   var destinataire = destinataires_(config.NOTIFICATION_EMAIL);
   var parEmail = Boolean(destinataire);
@@ -1494,7 +1765,7 @@ function sendNotifications(lignes, config, nouvelles) {
         // Le digest compte pour un message sur chaque canal. Un plafond a 0
         // n'existe pas - plafondEnvois_ rend Infinity - mais un quota Google
         // epuise, si.
-        if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
+        if (plafondAtteint_(canal, 1)) { canal.reportees++; return; }
         emettre_(canal, '', 'Digest', messageDigest_);
       });
       logEvent('', 'Notifications', 'SUCCESS',
@@ -1544,7 +1815,7 @@ function sendNotifications(lignes, config, nouvelles) {
     }
     if (messageRappels_) {
       canaux.forEach(function (canal) {
-        if (canal.envoyes + 1 > canal.plafond) { canal.reportees++; return; }
+        if (plafondAtteint_(canal, 1)) { canal.reportees++; return; }
         if (emettre_(canal, '', 'Rappels', messageRappels_)) {
           // MARQUER APRES L'ENVOI, ET SEULEMENT CE QUI EST PARTI : c'est la
           // meme regle que partout. Un recapitulatif qui n'a pas pu partir
@@ -1594,7 +1865,7 @@ function sendNotifications(lignes, config, nouvelles) {
       // Plafond atteint : ON NE MARQUE RIEN, sur ce canal. La ligne
       // repassera identique au prochain passage, et son alerte partira
       // alors. L'autre canal, lui, continue.
-      if (aEnvoyer.length && canal.envoyes + aEnvoyer.length > canal.plafond) {
+      if (aEnvoyer.length && plafondAtteint_(canal, aEnvoyer.length)) {
         canal.reportees++;
         return;
       }
@@ -1638,8 +1909,11 @@ function sendNotifications(lignes, config, nouvelles) {
     if (!canal.reportees) return;
     logEvent('', 'Notifications', 'INFO',
              canal.reportees + ' alerte(s) reportee(s) au prochain passage : '
-             + 'plafond de ' + canal.plafond + ' message(s) ' + canal.nom
-             + ' par execution atteint. Rien n est perdu.');
+             + (!canal.parTemps
+                ? 'plafond de ' + canal.plafond + ' message(s) ' + canal.nom
+                  + ' par execution atteint.'
+                : 'temps d execution presque epuise (' + canal.nom + ').')
+             + ' Rien n est perdu.');
   });
 
   return envoyes;
@@ -1759,6 +2033,8 @@ function viderOpportunites() {
 
 /** Point d'entree unique : le declencheur et le menu appellent celui-ci. */
 function executerTenderPilot() {
+  DEBUT_EXECUTION = new Date().getTime();
+  FIN_COLLECTE = 0;
   CONFIG_COURANTE = lireConfig();
   var config = CONFIG_COURANTE;
   var resume = { nouvelles: 0, misesAJour: 0, emails: 0, suivies: 0,
@@ -1768,7 +2044,18 @@ function executerTenderPilot() {
     // AVANT TOUT LE RESTE : les reglages nouveaux entrent dans l'onglet.
     // Un client qui recolle ses fichiers doit voir ce que la version
     // apporte, pas le deviner. Voir completerConfig_.
-    completerConfig_();
+    //
+    // ET LA CONFIG SE RELIT QUAND ELLE A CHANGE. Elle a ete lue juste avant,
+    // sans les reglages que completerConfig_ vient d'ajouter : lireConfig
+    // rend les valeurs de l'onglet, pas les defauts du schema. Mesure du
+    // 2026-09-15 sur le classeur maitre : COLLECTER_PLANS ajoute a 20:30,
+    // mais absent de la config de CE passage, donc estVrai(undefined) - les
+    // plans sautes et l'onglet jamais cree, au premier passage de chaque
+    // classeur mis a jour.
+    if (completerConfig_() > 0) {
+      CONFIG_COURANTE = lireConfig();
+      config = CONFIG_COURANTE;
+    }
 
     var existantes = lireOpportunites();
     // Le second temps de collecte ne relit pas la fiche d'une annonce deja
@@ -1788,20 +2075,29 @@ function executerTenderPilot() {
       var lien = normalizeText(o.url || '');
       if (lien) connus[lien] = true;
     });
-    var annonces = classerNouvelles_(collectAllSources(config, connus),
-                                     existantes, config);
+    var collectees = collectAllSources(config, connus);
+    FIN_COLLECTE = 0;
+    // Tout ce qui suit la collecte est mesure : le passage suivant lui
+    // reservera ce temps-la. Voir reserveSuiteMs_.
+    var debutSuite = new Date().getTime();
+    var annonces = classerNouvelles_(collectees, existantes, config);
     var bilan = saveOrUpdateOpportunity(annonces, existantes);
     resume.nouvelles = bilan.nouvelles.length;
     resume.misesAJour = bilan.misesAJour;
 
     var toutes = existantes.concat(bilan.nouvelles);
     resume.suivies = updateDeadlines(toutes, config);
-    resume.emails = sendNotifications(toutes, config, bilan.nouvelles);
 
     // L'agenda APRES le recalcul des jours restants : une echeance corrigee
     // par la source doit etre posee a la bonne date. Et avant le tri, qui
     // deplace les lignes - synchroniserAgenda_ ecrit par numero de ligne.
+    //
+    // ET AVANT LES ENVOIS, depuis le 2026-09-19. Place apres eux, il etait
+    // le premier sacrifie quand un passage debordait : un client a regle
+    // son agenda et n'y a jamais rien vu. Il coute quelques appels, pour
+    // les seules lignes suivies ; les envois, eux, savent se reporter.
     resume.agenda = synchroniserAgenda_(toutes, config);
+    resume.emails = sendNotifications(toutes, config, bilan.nouvelles);
 
     // L'inventaire vient APRES le recalcul de la pertinence : il montre
     // l'etat du jour, pas celui d'avant le passage.
@@ -1810,6 +2106,7 @@ function executerTenderPilot() {
     // EN DERNIER, une fois toutes les ecritures faites : le tri deplace les
     // lignes, et plus rien ne doit les designer par leur numero apres lui.
     trierOpportunites_(toutes);
+    noterDureeSuite_(new Date().getTime() - debutSuite);
 
     // LES PLANS DE PASSATION EN DERNIER, sur le temps qui reste. Ils ne
     // touchent pas le tableau des opportunites, deja trie et enregistre : une
@@ -1828,8 +2125,13 @@ function executerTenderPilot() {
     logEvent('', 'Execution', 'SUCCESS',
       resume.nouvelles + ' nouvelle(s), ' + resume.misesAJour
       + ' mise(s) a jour, ' + resume.suivies + ' suivie(s), '
-      + resume.emails + ' email(s).');
+      + resume.emails + ' email(s), ' + resume.agenda + ' echeance(s) '
+      + 'posee(s) dans l agenda - en '
+      + Math.round((new Date().getTime() - DEBUT_EXECUTION) / 1000) + ' s.');
+    DEBUT_EXECUTION = 0;
   } catch (e) {
+    DEBUT_EXECUTION = 0;
+    FIN_COLLECTE = 0;
     logEvent('', 'Execution', 'ERROR', e.message);
     // Le journal part AVANT de relancer l'erreur : sans cela, une execution
     // qui echoue n'expliquerait nulle part pourquoi.

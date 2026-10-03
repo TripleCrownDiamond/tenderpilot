@@ -20,8 +20,14 @@
  * agenda.
  *
  * Une echeance posee ne l'est jamais deux fois : la colonne Agenda garde
- * l'identifiant de l'evenement. La vider fait reposer l'evenement, et
- * decocher SUIVI le retire.
+ * l'identifiant de l'evenement. La vider fait reposer l'evenement au passage
+ * suivant.
+ *
+ * CE CANAL NE SUPPRIME RIEN. Decocher SUIVI empeche les poses suivantes, il
+ * n'efface pas un evenement deja cree - aucun deleteEvent ici, et c'est
+ * volontaire : le classeur n'a pas a retirer de l'agenda du client quelque
+ * chose qu'il y a mis a sa demande. Le commentaire disait l'inverse jusqu'au
+ * 2026-09-16 ; le guide client dit desormais la verite.
  *
  * PAS DE JUMEAU DANS LE MOTEUR WEB, ET C'EST VOULU. CalendarApp agit sur
  * le compte Google du proprietaire du classeur, qui est aussi le
@@ -94,7 +100,10 @@ function synchroniserAgenda_(lignes, config) {
   var aPoser = (lignes || []).filter(function (l) {
     // Trois conditions, et les trois comptent : le client l'a choisie,
     // elle a une date, et elle n'est pas deja posee.
-    return estSuivie_(l) && !estVide(l.deadline) && estVide(l.agenda);
+    // Et une quatrieme, promise par le guide : une echeance deja passee
+    // n'est pas posee - elle n'avertirait plus de rien.
+    return estSuivie_(l) && !estVide(l.deadline) && estVide(l.agenda)
+      && joursRestants(l.deadline, aujourdhui_()) >= 0;
   });
   if (!aPoser.length) return 0;
 
@@ -114,7 +123,14 @@ function synchroniserAgenda_(lignes, config) {
   var rappels = rappelsAgenda_(config);
   var poses = 0;
 
+  var reportees = 0;
   aPoser.forEach(function (ligne) {
+    // Le temps manque : la colonne Agenda reste vide, l'echeance sera posee
+    // au passage suivant. Voir LIMITE_EXECUTION_MS dans Run.gs.
+    if (typeof tempsEpuise_ === 'function' && tempsEpuise_(45 * 1000)) {
+      reportees++;
+      return;
+    }
     try {
       var d = jour(ligne.deadline).split('-').map(Number);
       // Un evenement d'une journee entiere : une date limite n'a pas
@@ -140,6 +156,11 @@ function synchroniserAgenda_(lignes, config) {
   if (poses) {
     logEvent('', 'Agenda', 'SUCCESS',
              poses + ' echeance(s) posee(s) dans l agenda.');
+  }
+  if (reportees) {
+    logEvent('', 'Agenda', 'INFO',
+             reportees + ' echeance(s) reportee(s) au prochain passage : '
+             + 'temps d execution presque epuise.');
   }
   return poses;
 }

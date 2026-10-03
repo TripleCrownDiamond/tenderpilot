@@ -221,6 +221,28 @@ la clé `TIMEZONE` de l'onglet CONFIG. Les deux valent `Africa/Porto-Novo` :
 les désynchroniser ferait tourner la collecte à une heure et dater les lignes
 à une autre.
 
+### Une capacité appelée dans le code doit être déclarée dans le manifeste
+
+**Mesure du 2026-09-16, chez le premier utilisateur de l'agenda.** `SEND_AGENDA`
+à `true`, tout bien réglé, et Google refuse : *permissions non suffisantes*.
+`Agenda.gs` appelle `CalendarApp` depuis le début, et `oauthScopes` ne
+déclarait que cinq autorisations — classeur, déclencheurs, emails, réseau,
+interface. Aucune pour l'agenda.
+
+**Quand `oauthScopes` est écrit à la main, Apps Script s'y tient** : il ne
+complète pas la liste en scannant le code, contrairement à un projet sans
+manifeste explicite. La fonctionnalité était donc morte chez **tout le
+monde**, sans qu'aucun test ne le voie : les tests lisent le code et le
+classeur, pas ce que Google autorise à l'exécution.
+
+`https://www.googleapis.com/auth/calendar` est désormais déclaré, et
+`test_sheet.py` vérifie que chaque capacité appelée a son autorisation. Avant
+d'ajouter un service Google — Drive, Docs, Agenda, Contacts — ajoutez sa
+portée au manifeste ET son contrôle au test, dans le même commit.
+
+**Et un manifeste recollé fait redemander l'autorisation au client.** C'est le
+prix : prévenez-le, sinon il croira que la mise à jour a cassé son classeur.
+
 ## La collecte en deux temps : la liste, puis les fiches
 
 **Mesure du 2026-09-04, sur JobRelais.** Sa liste rend 12 avis par page,
@@ -306,6 +328,34 @@ après et fait le tour. Sans cette rotation, les vingt premières sources
 seraient lues à chaque fois et les dernières jamais. Une source au moins est
 lue à chaque passage, même budget déjà dépassé : sinon un budget mal réglé
 bloquerait tout.
+
+### Une seule horloge pour tout le passage (2026-09-19)
+
+**Des budgets par phase ne bornent pas un total.** Un client voyait ses
+exécutions finir en dépassement, et **son agenda ne recevait jamais rien** :
+posé après les envois, c'était la première phase sacrifiée. La collecte ne
+se vérifiait qu'entre deux sources — une source lente commencée à 239 s
+allait au bout de ses vingt pages et de ses douze fiches — et le
+classement, les envois et l'agenda n'avaient aucune borne.
+
+`LIMITE_EXECUTION_MS` (5 min 15) est désormais la seule référence.
+`tempsRestantMs_()` est lu par chaque phase :
+
+- **la collecte** prend `BUDGET_COLLECTE_SECONDES` au plus, et jamais le
+  temps réservé à la suite. Cette réserve est **mesurée** à chaque passage
+  (`TENDERPILOT_DUREE_SUITE`, ×1,3, bornée entre 60 et 180 s) : un gros
+  classeur collecte moins longtemps, sans réglage. La pagination et les
+  fiches s'arrêtent aussi quand le temps de collecte est échu ;
+- **le classement** laisse passer sans jugement les lots qu'il n'a plus le
+  temps de soumettre — comme sans clé ;
+- **l'agenda passe avant les envois**, et reporte ce qu'il ne peut poser :
+  la colonne `Agenda` reste vide, la pose se fait au passage suivant ;
+- **les envois** traitent le temps comme un plafond : rien n'est marqué,
+  l'alerte repart au passage suivant ;
+- **les plans** prennent ce qui reste, jamais plus de leur minute.
+
+Le journal de fin de passage dit sa durée, en secondes : c'est le premier
+chiffre à lire quand un client parle de dépassement.
 
 **À vérifier avant d'ajouter des sources ou de la pagination :** le coût
 d'un passage n'est pas le nombre de sources, c'est le nombre d'aller-retours
@@ -508,6 +558,66 @@ existants. L'onglet est créé au premier passage, en-tête figé, et seulement
 si `COLLECTER_PLANS` est actif : un client qui a coupé les plans ne voit pas
 apparaître un onglet vide.
 
+## Remplacer UNGM : cinq pistes mesurées le 2026-09-14, trois retenues
+
+Une analyse externe proposait un « agrégateur de sources officielles » pour
+compenser UNGM. L'idée est juste — c'est déjà l'architecture du produit —
+mais la moitié des affirmations ne tenait pas à la mesure :
+
+| Piste | Affirmé | Mesuré | Suite |
+|---|---|---|---|
+| Banque mondiale | « à ajouter immédiatement » | **déjà au registre** (18 sources). Avis généraux « à venir » : 7 en 2026 sur dix pays ouest-africains, Bénin le dernier en 2021. Aucune API publique des plans | rien |
+| BAD | « RSS officiels » | `403` Cloudflare `cf-mitigated: challenge` sur **tout** le site, `robots.txt` compris | rien — pas de contournement |
+| TED (UE) | « API ouverte » | **vrai**, et destinée à la réutilisation. 16 avis ouverts exécutés en Afrique de l'Ouest | **`TED-AFRIQUE-OUEST`, active** |
+| ONU, Division des achats | « pages structurées » | **export CSV officiel**, autorisé par `robots.txt`. 39 AMI ouvertes, 2 ouest-africaines | **`UNPD-EOI`, livrée inactive** |
+| UNOPS | « Excel téléchargeable » | le lien de l'Excel rend `403`, le portail est « en refonte » | rien |
+| UNICEF | « calendriers » | **déjà au registre** | **passés dans l'onglet des plans** |
+| OMS In-Tend | — | page d'erreur, même sur `robots.txt` | rien |
+
+### TED : ce qu'on écarte compte autant que ce qu'on lit
+
+La requête experte (`place-of-performance IN (...) AND
+deadline-receipt-tender-date-lot>=<jour>`) rend les avis encore ouverts. Trois
+filtres, tous mesurés sur la fixture :
+
+- **La GIZ** (5 sur 16) est lue en entier par `GIZ-VERGABE` : la garder
+  ferait deux alertes pour un même marché, sous deux titres différents.
+- **Enabel au seul Bénin** est lu par `ENABEL-BEN` ; Enabel au Niger, en
+  Mauritanie ou au Sénégal n'est lu nulle part ailleurs et reste.
+- **Plus de dix pays d'exécution** : une agence polonaise listait 27 pays,
+  dont le Nigeria, pour du transport. L'Afrique de l'Ouest n'y est qu'une escale.
+
+La date de la requête est calculée **à l'appel** : une date figée dans le
+registre ferait revenir des avis échus au bout d'un jour.
+
+### Une source peut alimenter l'onglet des plans : `PLANS:<site>`
+
+Les calendriers de l'UNICEF n'ont **jamais** de date de dépôt. Parmi les
+opportunités, ils ne partaient jamais en alerte et restaient en bas du
+tableau pour toujours. Ils annoncent ce qui va être lancé : c'est un plan.
+
+La méthode `PLANS:<site>` lit la page avec l'analyseur du site — le même que
+`HTML:<site>` — et range le résultat dans `PLANS_DE_PASSATION`. La
+synchronisation du catalogue change la méthode chez les clients en service ;
+la collecte des opportunités ignore ces sources, `Plans.gs` les lit à la fin
+du passage. Le moteur web les ignore aussi (voir la dette plus bas).
+
+**Deux colonnes sont arrivées dans l'onglet, sans rien casser.** `Source` et
+`Lien`. Un onglet créé avant elles se relit **par nom de colonne**
+(`rangeesPlans_`), et `ecrirePlans_` réécrit l'en-tête à chaque passage :
+c'est la première colonne ajoutée à un onglet en service sans intervention
+du client. Le modèle vaut pour tout onglet que le script réécrit en entier.
+
+**La fusion connaît deux régimes.** Le portail béninois est lu par tranches :
+on garde ce que les passages précédents ont lu. Un calendrier est relu en
+entier en une requête : ses anciennes lignes sont **remplacées**, pour qu'un
+calendrier retiré du site disparaisse. Une source en panne ou vide n'est pas
+« relue » : ses lignes restent.
+
+Les lignes UNICEF déjà présentes dans `OPPORTUNITIES` chez un client n'en
+partent pas seules — elles n'ont pas d'échéance, donc jamais d'expiration.
+Le guide client dit de les supprimer à la main.
+
 ## L'onglet PAYS_ET_SECTEURS : on ne configure pas de mémoire
 
 `PAYS_SUIVIS` et `SECTEURS_SUIVIS` se remplissent à la main. **Une valeur
@@ -560,7 +670,7 @@ qu'oubliée :
 | Emails HTML, couleurs du tableau, logo | oui | **non** — texte brut |
 | Récapitulatif des rappels | oui | **non** — un mail par rappel |
 | Rappels urgents à l'unité | oui | **non** |
-| Onglet des plans de passation | oui | **non** — l'analyseur jumeau existe, pas le stockage |
+| Onglet des plans de passation | oui | **non** — les analyseurs jumeaux existent, pas le stockage ; les sources `PLANS:` sont ignorées |
 
 Rien de cela ne touche la collecte : les deux moteurs ramènent et classent
 les mêmes annonces. C'est le produit vendu — le classeur — qui a été servi
@@ -720,6 +830,103 @@ Deux effets de structure s'ajoutent à cet ordre :
   message dès qu'elles dépassent `DIGEST_THRESHOLD` ;
 - parmi les rappels d'une même ligne, **un seul part** — le plus urgent — et
   les autres sont marqués sans objet.
+
+## Vendre dans huit pays : Chariow et les sources, croisés le 2026-09-15
+
+Le propriétaire vend au Bénin, au Togo, au Niger, au Burkina Faso, en Côte
+d'Ivoire, au Sénégal, au Mali et au Cameroun. Un pays n'apparaît sur la page
+de vente qu'à deux conditions : l'acheteur peut **payer**, et TenderPilot
+**surveille** quelque chose chez lui.
+
+**Chariow.** La page officielle de couverture (`chariow.com/fr/coverage`)
+n'affiche sa liste qu'après exécution du JavaScript : lue dans un
+navigateur, elle liste les huit pays, en XOF (XAF au Cameroun), avec
+mobile money local et carte.
+
+| Pays | Mobile money chez Chariow |
+|---|---|
+| Bénin | MTN MoMo, Moov Money, Celtiis Cash, Coris Money |
+| Togo | Mixx by Yas, Moov Money |
+| Niger | Airtel Money, Moov Money, Amanata, Zamani Cash, MyNita, LigdiCash |
+| Burkina Faso | Orange Money, Moov Money, Telecel Money, Wave, Coris Money, LigdiCash, SankMoney |
+| Côte d'Ivoire | Orange Money, MTN MoMo, Moov Money, Wave, Djamo |
+| Sénégal | Orange Money, Wave, Free Money, E-Money, Djamo |
+| Mali | Orange Money, Moov Money |
+| Cameroun | MTN MoMo, Orange Money, EU Mobile Money |
+
+**Les portails nationaux, mesurés le même jour :**
+
+| Pays | Portail | Suite |
+|---|---|---|
+| Togo | DNCCP, flux RSS WordPress, sans spam malgré le site | **`TG-DNCCP`, active**. La date limite n'est que dans le PDF |
+| Cameroun | ARMP, listes publiques paginées, `robots.txt` ouvert | **`CM-ARMP-AON` et `CM-ARMP-AOI`, actives** |
+| Niger | marchespublics.ne | écarté : dates limites invalides (« 30/11/-0001 ») ; Niger Marchés couvre déjà |
+| Mali | DGMP-DSP, 1 836 lignes | écarté : aucune date limite, dernier avis au 28/07/2026 |
+| Côte d'Ivoire | DGMP | écarté : bulletin hebdomadaire en PDF |
+| Burkina Faso | DGCMEF | écarté : quotidien en PDF |
+| Sénégal | marchespublics.sn | ne répond pas, comme le 2026-09-01 |
+
+**L'ARMP du Cameroun mélange les natures** : sur une page « appels d'offres
+nationaux », 1 à 6 vrais appels d'offres pour 10 blocs, le reste en
+communiqués, décisions et additifs. La nature est dans le lien de la fiche
+(`type_publication=AO`), pas dans la colonne Type. Une date absente s'écrit
+`01-01-1970` dans un bloc masqué : on ne lit que la cellule visible, et un
+appel d'offres sans vraie date n'entre pas. La recherche « avis en cours »
+(`recherche_avancee_do`) ne répond pas en GET : on pagine, et l'arrêt après
+deux pages sans nouveauté fait le reste.
+
+`WB-CMR` et `UNDP-CMR`, livrées inactives « hors CEDEAO », sont activées :
+on vend au Cameroun.
+
+**Le guide client promettait deux sources mortes** : la BAD (bloquée
+depuis le 2026-09-02) et l'ARMP béninoise (désactivée). La liste d'accroche
+suit désormais le registre actif.
+
+## Les bonus : ce que la page de vente promet part avec chaque vente
+
+Depuis le 2026-09-15, l'archive `A_VENDRE` contient, à plat à côté du guide :
+la configuration faite avec le client (limitée aux 50 premiers acheteurs),
+les profils métier, la checklist du dossier de soumission et les modèles de
+lettres, en PDF **et** en Word. Le groupe WhatsApp est le cinquième bonus,
+donné dans `COMMENCEZ_ICI.txt`. Les sources Markdown vivent dans
+`docs/bonus/` ; `test_sheet.py` vérifie qu'ils partent tous.
+
+**Trois règles tenues par ces documents.**
+
+1. **Rien d'inventé sur le droit.** La checklist suit un dossier réel
+   conforme au modèle de l'ARMP (commune de Sô-Ava, mai 2023) et la loi
+   2020-26 — relus le 2026-09-15 — et dit que les DPAO de chaque dossier
+   font foi. Le site de l'ARMP ne répondait pas ce jour-là : les règles ont
+   été relevées dans un dossier publié sur le portail national. Le produit
+   se vendant dans huit pays, chaque règle béninoise est **nommée comme
+   telle**, et un tableau donne le texte en vigueur et l'autorité de
+   régulation des sept autres, relevés le même jour. Au Togo, au Niger et
+   au Sénégal, l'ARMP est devenue l'ARCOP ; le Burkina applique la loi
+   005-2024/ALT, qui remplace la 039-2016. Un code change : revérifiez le
+   tableau avant de reconstruire le bonus.
+2. **Pas de lettre de soumission dans le kit.** Le dossier impose son
+   formulaire « tel quel » ; un modèle extérieur ferait rejeter l'offre.
+3. **Les profils métier utilisent le vocabulaire exact** de `MOTS_SECTEUR`
+   et des niveaux de pertinence. Un secteur mal écrit ne correspond à rien,
+   en silence.
+
+**Le Word est écrit à la main** (`builders/modeles_docx.py`) : un `.docx`
+n'est qu'une archive de quatre fichiers XML, et ReportLab reste la seule
+dépendance. Une seule source Markdown sert au PDF et au Word.
+
+**20 000 FCFA pour les 50 premiers acheteurs, puis 30 000 FCFA après 100
+ventes.** Le prix passé au 2026-09-18 : les 50 premières places au prix de
+lancement (20 000 FCFA), puis le lot s'élargit à 100 premiers acheteurs au
+même prix (la page passe de « 50 » à « 100 » à la cinquantième vente).
+Après la centième vente, le prix devient 30 000 FCFA — le prix barré de la
+page, lui, reste à 50 000 FCFA, quel que soit l'état. Le compteur (total,
+vendues, prix réel) est tenu côté serveur dans `payment/places.json`,
+incrémenté par le webhook, et lu par la homepage ; chaque vente réelle est
+journalisée dans `payment/ventes.csv` (bloqué en web, lisible par le
+propriétaire). Un prix de référence que personne ne paiera jamais est
+une pratique commerciale trompeuse. La page ancre aussi le prix sur le
+métier : 20 000 FCFA, c'est la garantie de soumission (1 %) d'un marché de
+2 000 000 FCFA.
 
 ## L'onglet SOURCES est livré visible
 
@@ -1095,6 +1302,48 @@ Quatre règles tenues par les tests :
 Hors de Google, `logoEmail_()` rend `null` plutôt que de lever : un email
 sans logo reste un email complet.
 
+## Un résumé se lit, ou il ne sert à rien
+
+**Signalé le 2026-09-14 par le propriétaire** : dans les mails, le résumé
+« ne finit pas », « pas de ponctuation », « le sens est incompréhensible ».
+Mesuré le jour même sur 204 annonces des 55 sources actives :
+
+| Défaut | Avant | Après |
+|---|---|---|
+| Coupé au milieu d'un mot | 17 | 1 — une phrase unique de plus de 400 caractères, coupée à un mot avec « ... » |
+| Sans ponctuation finale | 167 | 0 |
+| Bruit (« Read more », « The post … appeared first on », pictogrammes) | 13 | 0 |
+
+**Quatre causes, aucune visible dans le code sans regarder la sortie.**
+
+1. **Les balises remplacées par une espace soudaient les paragraphes.**
+   `<p>Contexte</p><p>IB bank lance…</p>` devenait une seule phrase sans
+   point. `texteAvecLignes_` garde la frontière ; `resumeLisible` en fait
+   une phrase. JobRelais était pire : son JSON-LD a perdu ses balises *sans
+   espace* (« CANDIDATURESAmnesty ») — le résumé est lu dans le bloc
+   `description-content` de la page, les dates restent lues dans le balisage.
+2. **Les analyseurs coupaient chaque morceau à 120, 200, 300 ou 400
+   caractères**, au milieu d'un mot, sans le dire. Une coupe à 400 pile
+   était indétectable ensuite. **Aucun analyseur ne coupe plus un résumé** :
+   seul `resumeLisible` coupe, à la dernière phrase entière quand elle garde
+   au moins 30 % du maximum, sinon à un mot suivi de « ... ».
+3. **Les morceaux étaient reliés par « - »** (`Type : X - Projet : Y`). Un
+   tiret **simple** devant une majuscule devient une frontière de phrase.
+   Pas le tiret long — il vit dans les références — ni un tiret devant un
+   chiffre : « 29 juillet 2026 - 9 octobre 2026 » est une période.
+4. **Les sources coupent elles-mêmes** (« depends on ... », sections
+   Fundpilote tronquées par l'API). Un texte qui finit par « ... » est
+   traité comme coupé : on revient à la dernière phrase entière. Pour
+   Fundpilote, seule la première section compte (`premiereSection_`).
+
+**`resumeLisible` est idempotent, et un test le vérifie.** La fiche d'une
+annonce complète son résumé *après* `normalizeOpportunity` : il repasse,
+et repasser ne doit rien changer. Il retire aussi une ligne qui répète le
+titre — le titre est affiché juste au-dessus.
+
+**Les lignes déjà au classeur se corrigent seules** : `summary` est dans
+`UPDATABLE`, le passage suivant réécrit le résumé mis en forme.
+
 ## Un lien qui mène à un mur d'inscription est pire qu'une absence
 
 **Mesuré le 2026-09-07**, signalé par le client. L'analyseur Fundpilote
@@ -1435,6 +1684,32 @@ identiques.
 | `web/src/data/sources-defaut.ts` | `scripts/exporter_sources.py` |
 
 ---
+
+## La version du livrable est auto
+
+`VERSION` n'est plus un nombre ecrit a la main dans `builders/toolkit.py`.
+Elle se resout au build depuis une **empreinte** des entrees du produit
+(`data/sources.csv`, `data/livraison.json`, `schema/columns.py`,
+`apps_script/`, `docs/`, `data/marque/`, `builders/`), comparee a celle du
+dernier build conservee dans `dist/VERSION.json`. `dist/ARCHIVES/vX.Y.Z`
+garde une copie de chaque version publiee.
+
+Trois comportements a tenir :
+
+1. **Rien n'a change : la version reste.** Un rebuild a l'identique ne doit
+   jamais creer une version nouvelle.
+2. **Le produit a change : la version monte** (patch par defaut), et
+   `TP_BUMP=minor|major` change le cran. `TP_VERSION=1.2.0` force un numero
+   precis.
+3. **Un fichier restaure : la version d'origine reapparait.** La version
+   suit le contenu, pas l'horloge. Les fichiers GENERE par le build
+   (`Schema.gs`, `Marque.gs`, `data/marque/rendu/`) sont exclus de
+   l'empreinte : ils derivent des entrees, les compter ferait monter la
+   version pour rien a chaque build.
+
+Aucune version a recopier dans les guides : ils lisent `VERSION` au moment
+de la generation. Un build de controle est attendu apres toute modification
+des entrees ou des builders (`python build.py`).
 
 ## Décisions déjà prises — ne pas défaire sans raison
 

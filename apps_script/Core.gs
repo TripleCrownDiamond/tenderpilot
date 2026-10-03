@@ -470,6 +470,11 @@ function estVrai(valeur) {
  * demande qu'ils s'y limitent.
  */
 function estSuivie_(ligne) {
+  // Le guide promet OUI, X ou VRAI. estVrai ne connait pas X - c'est un
+  // reglage de CONFIG, ou X ne veut rien dire - d'ou le cas a part : une
+  // croix dans Suivi n'etait jamais posee dans l'agenda.
+  if (String(ligne.suivi === null || ligne.suivi === undefined ? '' : ligne.suivi)
+      .trim().toLowerCase() === 'x') return true;
   return estVrai(ligne.suivi);
 }
 
@@ -652,6 +657,21 @@ function estIdSource(valeur) {
   return t.length > 0 && t.length <= 40 && !/\s/.test(t);
 }
 
+/**
+ * Une source "PLANS:<site>" alimente l'onglet des plans, pas le tableau.
+ *
+ * Un calendrier d'achats - l'UNICEF publie les siens par categorie - dit ce
+ * qui VA etre lance. Ce n'est pas un avis : ni dossier ni date de depot.
+ * Range parmi les opportunites, il n'avait jamais d'echeance, ne partait
+ * jamais en alerte et restait en bas du tableau pour toujours. La page se
+ * lit avec l'analyseur du site, comme une source HTML:<site> ; seul change
+ * l'endroit ou elle est rangee.
+ */
+function estMethodePlans(methode) {
+  return /^PLANS:/i.test(String(methode === null || methode === undefined
+    ? '' : methode).trim());
+}
+
 /** Resume tronque proprement - section 28. Pas d'IA. */
 function tronquer(texte, maximum) {
   var t = String(texte === null || texte === undefined ? '' : texte)
@@ -662,6 +682,70 @@ function tronquer(texte, maximum) {
   var espace = coupe.lastIndexOf(' ');
   if (espace > max * 0.6) coupe = coupe.slice(0, espace);
   return coupe + '...';
+}
+
+/**
+ * Un resume qui se lit : des phrases entieres, ponctuees, sans bruit.
+ *
+ * MESURE DU 2026-09-14, sur 204 annonces des 55 sources actives, apres
+ * qu'un client a trouve les resumes de ses mails "incomprehensibles" :
+ * 21 coupes au milieu d'un mot, 164 sans ponctuation finale, des
+ * paragraphes soudes, des morceaux relies par " - " sans point, des
+ * "Read more" et des "The post ... appeared first on".
+ *
+ * - Une ligne de la source (paragraphe, element de liste) devient une
+ *   phrase ; un " - " devant une majuscule separe deux morceaux. Devant un
+ *   chiffre il reste : "29 juillet 2026 - 9 octobre 2026" est une periode.
+ * - On coupe a la derniere phrase entiere quand elle garde l'essentiel,
+ *   sinon a un mot, et "..." le dit. Un texte deja coupe par la source
+ *   ("depends on ...") est traite de la meme facon.
+ * - Une ligne qui repete le titre est retiree : le titre est juste au-dessus.
+ * - IDEMPOTENT. La fiche d'une annonce complete son resume APRES la
+ *   normalisation, et il repasse ici : le repasser ne doit rien changer.
+ */
+var PICTOGRAMMES_ = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
+
+function resumeLisible(texte, titre, maximum) {
+  var max = maximum || SCHEMA.SUMMARY_MAX;
+  var brut = String(texte === null || texte === undefined ? '' : texte)
+    .replace(PICTOGRAMMES_, ' ')
+    .replace(/The post[\s\S]*?appeared first on[^\n]*/gi, ' ')
+    .replace(/\b(?:Read more|Continue reading|Lire la suite|En savoir plus)\b[ \t.»›→]*/gi, ' ')
+    .replace(/\[(?:…|\.\.\.)\]/g, '...')
+    .replace(/[ \t]*[•▪◦●][ \t]*/g, '\n')
+    // Le tiret SIMPLE seulement : c'est lui que les analyseurs posent entre
+    // deux morceaux. Le tiret long vit dans les references ("PIN_CO_26_004 –
+    // ICT Materials") et les couper y mettait un point.
+    .replace(/[ \t]+-[ \t]+(?=[A-ZÀ-Ý])/g, '\n');
+
+  var cleTitre = normalizeText(String(titre || ''));
+  var t = brut.split(/\n+/)
+    .map(function (l) {
+      return l.replace(/\s+/g, ' ').trim().replace(/[,;]$/, '');
+    })
+    .filter(function (l) {
+      return l && !/^[\s.…-]+$/.test(l)
+        && !(cleTitre && normalizeText(l) === cleTitre);
+    })
+    .map(function (l) { return /[.!?:…]$/.test(l) ? l : l + '.'; })
+    .join(' ');
+
+  var coupeeALaSource = /(?:\.{3}|…)$/.test(t);
+  if (coupeeALaSource) t = t.replace(/\s*(?:\.{3,}|…)+$/, '');
+  if (coupeeALaSource || t.length > max) {
+    var coupe = t.slice(0, max);
+    var fin = -1;
+    var motif = /[.!?](?=\s|$)/g;
+    var m;
+    while ((m = motif.exec(coupe)) !== null) fin = m.index;
+    if (fin >= max * 0.3) return coupe.slice(0, fin + 1);
+    if (t.length > max) {
+      var espace = coupe.lastIndexOf(' ');
+      if (espace > max * 0.6) coupe = coupe.slice(0, espace);
+    }
+    return coupe.replace(/[\s,;:(«"'–-]+$/, '') + '...';
+  }
+  return t.replace(/\s*:$/, '.');
 }
 
 /**
@@ -694,7 +778,7 @@ function normalizeOpportunity(brut, source) {
     pdf: String(brut.pdf || '').trim(),
     published: jour(brut.published),
     deadline: jour(brut.deadline),
-    summary: tronquer(brut.summary),
+    summary: resumeLisible(brut.summary, brut.title),
     ref: String(brut.ref || '').trim()
   };
 }
@@ -1107,7 +1191,8 @@ if (typeof module !== 'undefined') {
     rangPays_: rangPays_, paysAilleurs_: paysAilleurs_,
     estPlanDePassation_: estPlanDePassation_,
     ajouterCanal_: ajouterCanal_, CANAUX: CANAUX,
-    tronquer: tronquer,
+    tronquer: tronquer, resumeLisible: resumeLisible,
+    estMethodePlans: estMethodePlans,
     fraicheurSource_: fraicheurSource_,
     JOURS_SOURCE_SILENCIEUSE: JOURS_SOURCE_SILENCIEUSE,
     normalizeOpportunity: normalizeOpportunity,
