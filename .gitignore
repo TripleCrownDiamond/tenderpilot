@@ -58,3 +58,25 @@ desktop.ini
 
 # Artefact d outil local, sans rapport avec le projet.
 .freebuff/
+
+# Acces FTP (mot de passe) : jamais dans git
+scripts/.env.deploiement
+
+# --------------------------------------------------------------------
+# Sauvegardes locales du site et du serveur : elles contiennent le .env de
+# production (cles Chariow, SMTP) et les ventes avec les emails des
+# acheteurs. Elles restent sur cette machine.
+# --------------------------------------------------------------------
+sauvegarde-*/
+
+# --------------------------------------------------------------------
+# Videos (video/) : environnement Python, rendus de travail et sons
+# regenerables (musique*.py, mixage.py, fin_son.py). Les videos finales
+# vivent dans dist/, deja ignore.
+# --------------------------------------------------------------------
+video/.venv/
+video/out/
+video/public/*.wav
+
+# Rendus video du site (regenerables) : trop lourds pour le depot.
+site/motion/rendu/

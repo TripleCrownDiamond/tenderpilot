@@ -1,0 +1,20 @@
+# Secrets et donnees generees - jamais commites
+.env
+auto-clients.json
+processed-pulses.json
+
+# File d'attente et workspace worker
+queue/
+processed/
+failed/
+worker.lock
+worker.log
+
+# Ne pas commiter la cle en dur dans une autre forme
+*.local
+
+# Journaux et donnees de vente : ils contiennent les emails des acheteurs.
+checkout.log
+partages.log
+ventes.csv
+places.json
