@@ -11,9 +11,9 @@ commune derriere.
 La fin reste DETACHABLE : le script livre aussi chaque morceau a part, pour
 qu'on puisse l'ajouter ou la retirer dans n'importe quel logiciel de montage.
 
-    dist/videos/fin-commune/   la fin seule, avec et sans l'annonce du prix
-    dist/videos/sans-fin/      chaque film coupe avant sa fin, sans rien derriere
-    dist/videos/avec-fin/      chaque film suivi de la fin commune
+    dist/videos/finales/fin-commune/   la fin seule, avec et sans l'annonce du prix
+    dist/videos/finales/sans-fin/      chaque film coupe avant sa fin, sans rien derriere
+    dist/videos/finales/avec-fin/      chaque film suivi de la fin commune
 """
 
 from __future__ import annotations
@@ -35,6 +35,9 @@ FILMS = [
     ("C-date-limite", "tenderpilot-motion-c-voix.mp4", "tenderpilot-motion-c.mp4", 26.83),
     ("D-koffi", "tenderpilot-motion-d-voix.mp4", "tenderpilot-motion-d.mp4", 27.43),
     ("E-site", "tenderpilot-motion-e-voix.mp4", "tenderpilot-motion-e.mp4", 28.07),
+    # G n'a pas de fin propre : il s'arrete a 28 s, la fin commune prend le relais.
+    ("G-sans-avec", "tenderpilot-motion-g-voix.mp4", "tenderpilot-motion-g.mp4", 28.0),
+    ("H-cout", "tenderpilot-motion-h-voix.mp4", "tenderpilot-motion-h.mp4", 26.0),
 ]
 FONDU = 0.3  # la bande-son du film s'efface sur ses dernieres 0,3 s
 VIDEO = ["-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p"]
@@ -83,9 +86,10 @@ if __name__ == "__main__":
     fin_muette = rendre_fin(avec_voix=False)
     fin_parlee = rendre_fin(avec_voix=True) if VOIX_FIN.exists() else fin_muette
 
-    dossiers = {nom: VIDEOS / nom for nom in ("fin-commune", "sans-fin", "avec-fin")}
+    # Ecrit directement dans finales/ : un seul exemplaire de chaque video.
+    dossiers = {nom: VIDEOS / "finales" / nom for nom in ("fin-commune", "sans-fin", "avec-fin")}
     for d in dossiers.values():
-        d.mkdir(exist_ok=True)
+        d.mkdir(parents=True, exist_ok=True)
 
     livrer_fin(fin_muette, dossiers["fin-commune"] / "fin-commune-sans-voix.mp4")
     if fin_parlee != fin_muette:

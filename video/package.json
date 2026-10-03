@@ -13,7 +13,11 @@
     "musique:c": ".venv/bin/python musique_c.py",
     "render:d": "remotion render src/index.ts FilmD out/tenderpilot-motion-d.mp4 --codec h264 --crf 16",
     "musique:d": ".venv/bin/python musique_d.py",
-    "render:e": "remotion render src/index.ts FilmE out/tenderpilot-motion-e.mp4 --codec h264 --crf 16"
+    "render:e": "remotion render src/index.ts FilmE out/tenderpilot-motion-e.mp4 --codec h264 --crf 16",
+    "render:g": "remotion render src/index.ts FilmG out/brut-g.mp4 --codec h264 --crf 16",
+    "musique:g": ".venv/bin/python musique_g.py",
+    "render:h": "remotion render src/index.ts FilmH out/brut-h.mp4 --codec h264 --crf 16",
+    "musique:h": ".venv/bin/python musique_h.py"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.531",
