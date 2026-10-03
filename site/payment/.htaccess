@@ -1,0 +1,47 @@
+# Protection of the payment folder : sensitive files must never be
+# served by the Apache server.
+
+# Hidden files (including .env) : never served
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Generated data (authorized emails, webhook history, launch-price places,
+# sales journal readable by the owner only)
+<FilesMatch "^(auto-clients\.json|processed-pulses\.json|places\.json|ventes\.csv|partages-en-echec\.csv|mails-journal\.json|\.env)$">
+    Require all denied
+</FilesMatch>
+
+# Worker lock and log : never served
+<FilesMatch "^(worker\.lock|worker\.log|checkout\.log|partages\.log)$">
+    Require all denied
+</FilesMatch>
+
+# Env loader : usable only as an include
+<Files "env.php">
+    Require all denied
+</Files>
+
+# Config loader : reads .env, contains no output but is include-only
+<Files "config.php">
+    Require all denied
+</Files>
+
+# Clean paths without .php :
+#   /payment/checkout     -> checkout.php
+#   /payment/thank-you    -> thank-you.php
+#   /payment/webhook      -> webhook.php
+RewriteEngine On
+RewriteBase /payment/
+RewriteRule ^checkout$     checkout.php     [L]
+RewriteRule ^thank-you$    thank-you.php    [L]
+RewriteRule ^webhook$      webhook.php      [L]
+
+# Queue, history and worker : forbidden on the web
+RewriteRule ^(queue|processed|failed)/ - [F,L]
+<Files "worker.php">
+    Require all denied
+</Files>
+<Files "sync-places.php">
+    Require all denied
+</Files>

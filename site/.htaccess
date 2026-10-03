@@ -1,0 +1,45 @@
+# index.php d'abord : un ancien index.html reste sur le serveur, et Apache
+# le servait en priorite - la page de vente en ligne n'etait pas la bonne.
+DirectoryIndex index.php index.html
+
+# Clean paths at the root : no "payment" folder visible to buyers.
+#   /checkout     -> payment/checkout.php      (order form)
+#   /thank-you    -> payment/thank-you.php     (thank-you page)
+#   /webhook      -> payment/webhook.php       (Chariow notification)
+#   /places       -> payment/places.php        (compteur prix de lancement)
+#   /terms        -> legal/terms.php          (terms of sale, no .html)
+#   /privacy      -> legal/privacy.php        (legal notice)
+RewriteEngine On
+RewriteBase /
+# Old .html links are redirected 301 to the clean URL.
+RewriteCond %{THE_REQUEST} \s/+(terms|privacy)\.html[?\s]
+RewriteRule ^ /%1 [R=301,L]
+RewriteRule ^terms/?$          legal/terms.php         [L]
+RewriteRule ^privacy/?$        legal/privacy.php       [L]
+RewriteRule ^disclaimer/?$     legal/disclaimer.php    [L]
+RewriteRule ^checkout/?$       payment/checkout.php    [L]
+RewriteRule ^thank-you/?$      payment/thank-you.php   [L]
+RewriteRule ^webhook/?$        payment/webhook.php     [L]
+RewriteRule ^places/?$         payment/places.php      [L]
+
+# Old French URLs are redirected 301 to their English equivalents.
+#   /mentions-legales        -> /privacy
+#   /conditions-de-vente     -> /terms
+#   /remerciement            -> /thank-you
+#   /page-remerciement/...   -> /payment/...
+RewriteRule ^mentions-legales/?$      /privacy    [R=301,L]
+RewriteRule ^conditions-de-vente/?$   /terms      [R=301,L]
+RewriteRule ^remerciement/?$          /thank-you  [R=301,L]
+RewriteRule ^page-remerciement/?$          /           [R=301,L]
+
+# La page de vente porte un compteur lu a chaque chargement (places) : on
+# demande au navigateur de la revalider plutot que de garder une vieille
+# copie en cache. Les images, elles, peuvent rester en cache longtemps.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html?|php)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(webp|png|jpg|jpeg|svg|css|js|woff2?)$">
+    Header set Cache-Control "public, max-age=604800, immutable"
+  </FilesMatch>
+</IfModule>
