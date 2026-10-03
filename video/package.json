@@ -1,0 +1,28 @@
+{
+  "name": "tenderpilot-motion",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Film motion design TenderPilot, rendu avec Remotion.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Film out/tenderpilot-motion.mp4 --codec h264 --crf 16",
+    "still": "remotion still src/index.ts Film",
+    "render:b": "remotion render src/index.ts FilmB out/tenderpilot-motion-b.mp4 --codec h264 --crf 16",
+    "musique:b": ".venv/bin/python musique_b.py",
+    "render:c": "remotion render src/index.ts FilmC out/tenderpilot-motion-c.mp4 --codec h264 --crf 16",
+    "musique:c": ".venv/bin/python musique_c.py",
+    "render:d": "remotion render src/index.ts FilmD out/tenderpilot-motion-d.mp4 --codec h264 --crf 16",
+    "musique:d": ".venv/bin/python musique_d.py",
+    "render:e": "remotion render src/index.ts FilmE out/tenderpilot-motion-e.mp4 --codec h264 --crf 16"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.531",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.531"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "typescript": "^7.0.2"
+  }
+}
